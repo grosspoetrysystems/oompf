@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@oompf/core": "workspace:*",
+    "prettier": "3.9.6",
     "typescript": "^7.0.0"
   }
 }
