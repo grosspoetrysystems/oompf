@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "@oompf/core": "workspace:*",
+    "@oompf/database": "workspace:*",
     "@oompf/github": "workspace:*",
-    "@oompf/database": "workspace:*"
+    "incur": "0.4.26",
+    "zod": "4.4.3"
   }
 }
