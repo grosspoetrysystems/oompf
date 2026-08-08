@@ -25,3 +25,17 @@ export type {
 } from "./profile-name.ts";
 
 export { assertProfileDocument, parseProfileYaml } from "./yaml-config.ts";
+
+export { sha256 } from "./hash.ts";
+
+export { scanForSecrets, validateArtifact, DEFAULT_MAX_BYTES } from "./validation.ts";
+export type { ArtifactValidation, SecretFinding } from "./validation.ts";
+
+export { extractFacts } from "./facts.ts";
+export type {
+  AdvisorFacts,
+  FallbackChain,
+  ModelRole,
+  Prerequisite,
+  ProfileFacts,
+} from "./facts.ts";
