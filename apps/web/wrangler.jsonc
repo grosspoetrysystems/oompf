@@ -1,0 +1,13 @@
+{
+  // Placeholder Cloudflare Worker configuration for the OOMPF web index.
+  // Real account/name/bindings are supplied in a later deployment task.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "oompf-web",
+  "compatibility_date": "2026-08-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./dist/_worker.js/index.js",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  }
+}

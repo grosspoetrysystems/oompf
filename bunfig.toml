@@ -1,0 +1,6 @@
+# Bun configuration for the OOMPF workspace.
+# Workspaces are declared in package.json ("apps/*", "packages/*").
+
+[install]
+# Pin exact versions when adding dependencies for reproducible installs.
+exact = true

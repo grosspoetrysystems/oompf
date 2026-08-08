@@ -1,0 +1,21 @@
+{
+  "name": "oompf",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter='@oompf/web' dev",
+    "build": "tsc -b && bun run --filter='@oompf/web' build",
+    "test": "bun test",
+    "typecheck": "tsc -b",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@oompf/core": "workspace:*",
+    "typescript": "^7.0.0"
+  }
+}
