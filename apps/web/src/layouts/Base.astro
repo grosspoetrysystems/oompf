@@ -1,0 +1,66 @@
+---
+/**
+ * Base layout for the OOMPF web index: global styles, a persistent header with
+ * the primary actions (home, register, search), and a content slot.
+ */
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "OOMPF — the public index for OMP profiles",
+  description = "Discover, inspect, and install community OMP (Oh My Pi) profiles published as public GitHub Gists.",
+} = Astro.props;
+
+const q = Astro.url.searchParams.get("q") ?? "";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <slot name="head" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark">◆</span>
+          <span class="brand-name">OOMPF</span>
+        </a>
+        <form class="header-search" method="get" action="/" role="search">
+          <input
+            type="search"
+            name="q"
+            value={q}
+            placeholder="Search profiles, models, providers…"
+            aria-label="Search profiles"
+          />
+        </form>
+        <nav class="header-nav">
+          <a href="/">Browse</a>
+          <a class="cta" href="/register">Register a profile</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          OOMPF indexes public GitHub Gists as OMP profiles. The canonical
+          source always lives at its Gist — OOMPF stores metadata only.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
