@@ -6,23 +6,20 @@
  * mapping-root invariant while preserving every key verbatim — no known-key
  * allow-list, no coercion, no dropping of unrecognised entries.
  */
-
-// The runtime is Bun; `Bun` is a well-known global the ES2023 lib does not
-// type, so we name the cast once (a runtime check is meaningless here).
-const bunRuntime = globalThis as unknown as {
-  Bun: { YAML: { parse: (input: string) => unknown } };
-};
-const bunYaml = bunRuntime.Bun.YAML;
+import { parse as parseYaml } from "yaml";
 
 /**
  * Parse YAML text into a plain JavaScript value.
  *
- * The return type is intentionally `unknown`: callers MUST narrow via
- * {@link assertProfileDocument} before treating the result as a document.
- * Parse errors from malformed YAML propagate to the caller.
+ * Backed by the pure-TypeScript `yaml` package so `@oompf/core` imports and
+ * runs unchanged under Bun and Cloudflare Workers (the previous `Bun.YAML`
+ * dependency crashed at module load off-Bun). The return type is intentionally
+ * `unknown`: callers MUST narrow via {@link assertProfileDocument} before
+ * treating the result as a document. Parse errors from malformed YAML
+ * propagate to the caller.
  */
 export function parseProfileYaml(input: string): unknown {
-  return bunYaml.parse(input);
+  return parseYaml(input);
 }
 
 /**

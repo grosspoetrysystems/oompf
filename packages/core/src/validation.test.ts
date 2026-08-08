@@ -6,6 +6,7 @@ import {
   validateArtifact,
 } from "./validation.ts";
 import { sha256 } from "./hash.ts";
+import { parseProfileYaml } from "./yaml-config.ts";
 
 /**
  * Build a mapping-root YAML document whose UTF-8 encoding is exactly `target`
@@ -145,6 +146,17 @@ describe("scanForSecrets", () => {
     const findings = scanForSecrets({ token: secret });
     expect(JSON.stringify(findings)).not.toContain(secret);
   });
+
+  test("detects a secret in a list held by a credential-like key", () => {
+    // Regression: array recursion previously dropped the parent key, so a
+    // credential-like key holding a list of literals produced no finding.
+    const findings = scanForSecrets({ passwords: ["hunter2"] });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.path).toBe("passwords.0");
+    expect(findings[0]?.kind).toBe("credential");
+    expect(findings[0]?.confidence).toBe("high");
+    expect(JSON.stringify(findings)).not.toContain("hunter2");
+  });
 });
 
 describe("validateArtifact secret handling", () => {
@@ -194,5 +206,24 @@ describe("sha256", () => {
   test("validateArtifact reports the canonical content hash", () => {
     const yaml = "theme: dark\n";
     expect(validateArtifact({ yaml }).hash).toBe(sha256(yaml));
+  });
+});
+
+describe("parseProfileYaml runtime portability", () => {
+  test("parses without Bun.YAML (Cloudflare Worker compatible)", () => {
+    // The `Bun` global is not in the ES lib types; probe it structurally to
+    // prove parseProfileYaml no longer depends on Bun.YAML at all.
+    const runtime = globalThis as unknown as { Bun?: { YAML?: unknown } };
+    const bun = runtime.Bun;
+    const savedYaml = bun?.YAML;
+    if (bun) bun.YAML = undefined;
+    try {
+      expect(parseProfileYaml("theme: dark\nmodels:\n  - a\n")).toEqual({
+        theme: "dark",
+        models: ["a"],
+      });
+    } finally {
+      if (bun) bun.YAML = savedYaml;
+    }
   });
 });

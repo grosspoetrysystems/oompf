@@ -162,9 +162,11 @@ function walk(
     return;
   }
   if (Array.isArray(node)) {
+    // Inherit the parent key so a credential-like key holding a list of
+    // literals (e.g. `passwords: ["hunter2"]`) is still evaluated per element.
     node.forEach((item, index) => {
       const childPath = path === "" ? String(index) : `${path}.${index}`;
-      walk(item, String(index), childPath, findings);
+      walk(item, key, childPath, findings);
     });
     return;
   }
