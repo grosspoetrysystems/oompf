@@ -54,11 +54,22 @@ The CLI and web app share domain schemas and normalized metadata through workspa
 
 ## Canonical profile artifact
 
-OMP `17.2.11` stores named profile configuration at:
+OMP named profiles resolve through OMP's own directory resolver. A typical
+installation uses:
 
 ```text
 ~/.omp/profiles/<name>/agent/config.yml
 ```
+
+but `PI_CONFIG_DIR`, `PI_CODING_AGENT_DIR`, XDG locations, and platform-specific
+rules can change the actual path. OOMPF MUST NOT construct this path itself.
+The CLI asks the installed OMP for the target directory with:
+
+```bash
+omp --profile <name> config path
+```
+
+and writes only within the returned directory.
 
 The native profile name is the directory name; it is not a required field in
 `config.yml`. To preserve that name across publication, `oompf publish` creates
@@ -68,22 +79,41 @@ the canonical OMP configuration; the Gist filename carries the native name.
 A v0 publication contains exactly one supported YAML artifact. Registration
 accepts a Gist only when it contains one unambiguous YAML file and derives the
 profile name from that filename. A direct Gist with no usable profile filename
-must provide an explicit supported name through a future registration option;
-v0 should reject it rather than guess.
+is rejected rather than guessed.
+
+The publisher reads the resolved native `config.yml` or `config.yaml` file and
+creates a Gist file named `<profile-name>.yml`. The YAML bytes remain the
+canonical OMP configuration; the Gist filename carries the native name.
 
 The artifact excludes:
 
 - auth credentials and auth-broker state;
 - databases, caches, logs, and sessions;
 - machine-local hooks and extensions;
+- project-local `.omp/config.yml` overlays;
+- `.env` files from home, config root, agent, or project;
 - unrelated files in the profile directory.
 
-The native OMP YAML remains the canonical payload. OOMPF validation recognizes
-the observed OMP configuration shape and preserves unknown keys where possible
-so newer OMP settings are not silently discarded.
+The native OMP YAML remains the canonical payload. OOMPF validation preserves
+unknown keys where possible so newer OMP settings are not silently discarded.
+The artifact represents the portable profile layer, not the complete effective
+configuration for every project and machine.
 
 The initial maximum profile size is 1 MB. Larger or ambiguous Gists receive an
 actionable error and should use a repository in a future version.
+
+### Cross-system installation contract
+
+OMP profile names MUST be validated using OMP-compatible rules: lowercase ASCII
+letters/digits plus `.`, `_`, and `-`; start with a letter or digit; maximum 64
+characters; no `.`/`..`; no trailing `.`; and no Windows reserved device names.
+The default consumer name is `<github-owner>-<profile-name>`. If that derived
+name is invalid or exceeds 64 characters, installation fails with an actionable
+request to use `--name`. OOMPF never silently truncates or rewrites names.
+
+The CLI uses platform path APIs, creates the target directory atomically where
+possible, writes the config with restrictive permissions, and refuses any
+existing target directory without an overwrite option.
 
 ## CLI surface
 
@@ -98,7 +128,7 @@ Commands provide structured output with `--json` where useful. Human output is c
 
 ### `oompf publish [profile]`
 
-1. Resolve the named OMP profile. With no argument, select from profiles that contain `agent/config.yml`.
+1. Resolve the named OMP profile. With no argument, enumerate profile roots through OMP-compatible path resolution and select profiles containing `config.yml` or `config.yaml`.
 2. Read the complete canonical YAML artifact.
 3. Validate the YAML and scan for likely secrets and machine-local values.
 4. Verify the local `gh` installation and authentication.
@@ -116,10 +146,11 @@ The CLI does not authenticate with OOMPF.
 1. Resolve the OOMPF record or inspect the Gist source directly.
 2. Fetch the canonical YAML.
 3. Validate it before writing anything.
-4. Derive the default local name as `<github-owner>-<profile-name>`.
+4. Derive the default local name as `<github-owner>-<profile-name>` and validate it with OMP-compatible profile-name rules.
 5. Use `--name <name>` when the installer wants a different native OMP profile name.
-6. If the target native profile directory exists, fail without modifying it.
-7. Write the native OMP profile directory and `agent/config.yml`.
+6. Ask the installed OMP for the target agent directory with `omp --profile <name> config path`.
+7. If the target native profile directory exists, fail without modifying it.
+8. Write the native OMP profile configuration atomically into the resolved directory.
 
 There is no `--force` option and no silent overwrite or update behavior. The error must state the conflicting path and show the command using `--name`.
 
@@ -154,6 +185,24 @@ The endpoint:
 8. persists the index record;
 9. returns the stable OOMPF profile URL.
 
+
+### Validation and compatibility levels
+
+The local CLI and Cloudflare indexer have different authorities:
+
+- The CLI uses the installed OMP binary for path resolution and may run a
+  temporary-profile preflight so the publisher sees errors from the actual OMP
+  version in use.
+- The Cloudflare indexer performs YAML parsing, mapping-root checks, size limits,
+  secret-pattern checks, and metadata extraction. It cannot import the
+  publisher's local OMP installation and MUST label this as structural
+  validation rather than complete OMP schema validation.
+
+The indexed record stores the publisher-reported OMP version when publishing
+through the CLI. Direct Gist registration may omit that fact. The profile page
+must show the version fact when available and state that provider credentials,
+environment variables, project overlays, and external extensions remain local
+runtime prerequisites.
 The endpoint must not persist a permanent OOMPF-owned artifact copy. Caching parsed metadata for rendering and search is allowed.
 
 Re-registering the same canonical Gist maps to its existing OOMPF profile record. A changed Gist revision updates indexed metadata and content hash while GitHub remains responsible for revision history.
@@ -188,6 +237,7 @@ Extract only facts that are reliably available from the native OMP YAML:
 
 - profile name;
 - GitHub owner and source type;
+- publisher OMP version when supplied;
 - source revision and hash;
 - configured models and model roles;
 - providers inferred from model identifiers;
@@ -195,7 +245,8 @@ Extract only facts that are reliably available from the native OMP YAML:
 - advisor settings;
 - configured hooks/extensions when represented in the artifact;
 - relevant context, memory, and inspection settings;
-- validation warnings.
+- external provider, environment, project-overlay, or extension prerequisites;
+- validation level and warnings.
 
 Metadata is enrichment, not a second execution schema. OOMPF must never reinterpret these fields into a generalized agent-role system.
 
@@ -228,7 +279,7 @@ Errors are actionable and preserve the expert workflow. They identify the failed
 Required failure cases:
 
 - OMP is unavailable;
-- selected profile does not exist or lacks `agent/config.yml`;
+- selected profile does not exist or lacks `config.yml`/`config.yaml`;
 - YAML is invalid or exceeds 1 MB;
 - likely secret or machine-local value is detected;
 - `gh` is unavailable or unauthenticated;

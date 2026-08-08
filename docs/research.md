@@ -43,7 +43,7 @@ Date: 2026-08-08
 
 - The canonical shareable artifact for v0 will be the complete `agent/config.yml` for a selected named profile, excluding sibling databases, caches, logs, credentials, auth-broker state, and machine-local hook files unless a later investigation proves they are required for execution.
 - OOMPF will preserve native OMP YAML rather than define a replacement profile schema. Zod validation will validate the observed supported shape and retain unknown YAML keys for forward compatibility where practical.
-- Profile installation will copy the canonical YAML into a native OMP profile directory/name. The exact write path and collision behavior need to be confirmed against OMP's profile bootstrap/config commands before implementation.
+- Profile installation must ask OMP itself for the target agent directory (`omp --profile <name> config path`) or use the equivalent official resolver behavior; hardcoding `~/.omp` is not portable.
 - The initial index will use Postgres through Drizzle. Cloudflare Workers compatibility of the chosen Postgres client must be confirmed during implementation; a Workers-compatible HTTP/WebSocket driver is preferred over a Node-only TCP driver.
 - The first publishing target will be public GitHub Gists because observed profiles are single YAML files. GitHub repositories will be indexed as external sources but may initially require an explicit canonical file convention.
 - The OOMPF web application will be Astro on Cloudflare Workers; the CLI will be Bun + TypeScript and share domain/schema code where the package layout permits.
@@ -56,3 +56,14 @@ Date: 2026-08-08
 3. Secret scanning policy and machine-local value detection.
 4. Stable profile ID generation and duplicate-source/revision handling.
 5. Cloudflare-compatible Drizzle/Postgres driver selection.
+
+## Additional confirmed upstream behavior
+
+- OMP's canonical profile environment variable is `OMP_PROFILE`; `PI_PROFILE` is a legacy fallback. An explicit empty `OMP_PROFILE` selects the default profile.
+- OMP accepts `PI_CONFIG_DIR` for the config root and `PI_CODING_AGENT_DIR` for the default agent-directory override. Named profiles derive their own profile directory and do not use the default agent-directory override.
+- OMP profile names are constrained to lowercase ASCII letters/digits plus `.`, `_`, and `-`, must start with a lowercase letter or digit, are limited to 64 characters, cannot be `.`/`..`, cannot end in `.`, and cannot be Windows reserved device names such as `CON`, `PRN`, `AUX`, `NUL`, `COM1`, or `LPT1`.
+- OMP supports `config.yml` as the canonical settings filename and `config.yaml` as a fallback. Older JSON settings can be migrated into YAML.
+- OMP merges the profile/global settings layer with project settings from the current working directory; project settings win over global settings. A published profile therefore captures the profile layer, not every project-local effective setting.
+- OMP loads `.env` files from the project, agent, config-root, and home locations. These files can affect runtime behavior and may contain secrets; they are machine/environment inputs, not safe profile artifacts.
+- OMP's own settings schema and migrations are implemented in the upstream TypeScript source and can change with OMP releases. OOMPF's Cloudflare indexer cannot depend on a locally installed OMP binary, so server validation must be distinguished from local OMP validation.
+- OMP is advertised for macOS, Linux, and Windows and has platform-specific path, shell, XDG, and reserved-name behavior. OOMPF must use platform path APIs and OMP's resolver rather than constructing paths from POSIX assumptions.
