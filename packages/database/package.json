@@ -11,7 +11,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "migrate": "drizzle-kit migrate --config=drizzle.config.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",

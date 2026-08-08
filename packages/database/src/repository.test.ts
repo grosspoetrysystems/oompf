@@ -94,7 +94,7 @@ describe("createOrUpdateProfile", () => {
     expect(record.owner).toBe("octocat");
     expect(record.profileName).toBe("atlas");
     expect(record.ompVersion).toBe("1.4.0");
-    expect(record.revision).toBe(input.revision);
+    expect(record.revision).toBe(input.revision ?? null);
     expect(record.contentHash).toBe(input.contentHash);
     expect(record.createdAt).toBeInstanceOf(Date);
     expect(record.updatedAt).toBeInstanceOf(Date);
@@ -236,7 +236,7 @@ describe("metadata-only persistence", () => {
     expect(Object.keys(stored!)).not.toContain("document");
 
     // Persisted validation is metadata only.
-    const validation = stored!.validation as Record<string, unknown>;
+    const validation = stored!.validation as unknown as Record<string, unknown>;
     expect(Object.keys(validation)).not.toContain("yaml");
     expect(Object.keys(validation)).not.toContain("document");
     expect(Object.keys(validation)).not.toContain("facts");

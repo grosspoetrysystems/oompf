@@ -4,5 +4,5 @@
     "types": ["@astrojs/cloudflare"]
   },
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+  "exclude": ["dist", "**/*.test.ts"]
 }

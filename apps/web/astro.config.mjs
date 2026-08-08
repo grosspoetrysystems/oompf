@@ -6,9 +6,5 @@ import cloudflare from "@astrojs/cloudflare";
 // See ./wrangler.jsonc for the Worker deployment configuration.
 export default defineConfig({
   output: "server",
-  adapter: cloudflare({
-    platformProxy: {
-      enabled: true,
-    },
-  }),
+  adapter: cloudflare(),
 });
