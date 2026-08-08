@@ -33,6 +33,27 @@ describe("validateArtifact structural checks", () => {
     expect(result.document).toBeNull();
   });
 
+  test("does not leak secret values in malformed-YAML errors", () => {
+    // yaml's default prettyErrors embeds the offending source lines in the
+    // error message; that must never expose a secret through validation output.
+    const secret = "sk-abcdefghijklmnopqrstuvwxyz0123456789";
+    const yaml = `foo: [1, 2\napiKey: ${secret}\n`;
+    let parseError: unknown;
+    try {
+      parseProfileYaml(yaml);
+    } catch (error) {
+      parseError = error;
+    }
+    expect(parseError).toBeInstanceOf(Error);
+    expect((parseError as Error).message).not.toContain(secret);
+
+    const result = validateArtifact({ yaml });
+    expect(result.structural).toBe("invalid");
+    // Preserved `result.yaml` intentionally holds the raw input; the leak
+    // vector is the surfaced error message, so assert on `errors`.
+    expect(JSON.stringify(result.errors)).not.toContain(secret);
+  });
+
   test("rejects a scalar root", () => {
     const result = validateArtifact({ yaml: "just a scalar" });
     expect(result.structural).toBe("invalid");

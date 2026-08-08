@@ -19,7 +19,10 @@ import { parse as parseYaml } from "yaml";
  * propagate to the caller.
  */
 export function parseProfileYaml(input: string): unknown {
-  return parseYaml(input);
+  // `prettyErrors: false` keeps YAMLParseError.message free of the raw source
+  // frame; the default embeds offending lines, which would leak secret values
+  // through validateArtifact's error output for malformed YAML.
+  return parseYaml(input, { prettyErrors: false });
 }
 
 /**
