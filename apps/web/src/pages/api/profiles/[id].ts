@@ -21,7 +21,7 @@ export const prerender = false;
 export const GET: APIRoute = async ({ params, locals }) => {
   const appLocals = locals as unknown as AppLocals;
   try {
-    const repository = resolveRepository(appLocals);
+    const repository = await resolveRepository(appLocals);
     const record = await getProfileMetadata(repository, params.id ?? "");
     return jsonResponse(200, record);
   } catch (error) {

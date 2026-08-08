@@ -20,7 +20,7 @@ export const prerender = false;
 export const GET: APIRoute = async ({ url, locals }) => {
   const appLocals = locals as unknown as AppLocals;
   try {
-    const repository = resolveRepository(appLocals);
+    const repository = await resolveRepository(appLocals);
     const query = url.searchParams.get("q") ?? "";
     const results = await searchIndexedProfiles(repository, query);
     return jsonResponse(200, { query, results });

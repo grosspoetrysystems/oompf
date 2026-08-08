@@ -24,7 +24,7 @@ export const prerender = false;
 export const POST: APIRoute = async ({ request, locals }) => {
   const appLocals = locals as unknown as AppLocals;
   try {
-    const repository = resolveRepository(appLocals);
+    const repository = await resolveRepository(appLocals);
     const input = await parseRegisterBody(request);
     const record = await indexPublicGist(input, {
       repository,

@@ -221,9 +221,19 @@ export interface AppLocals {
  * `DATABASE_URL`. Throws a `server_misconfigured` {@link IndexError} when no
  * binding is available so the routes return a clean 500 envelope.
  */
-export function resolveRepository(locals: AppLocals): ProfileRepository {
+export async function resolveRepository(locals: AppLocals): Promise<ProfileRepository> {
   if (locals.repository) return locals.repository;
-  const url = locals.runtime?.env?.DATABASE_URL;
+  let url = locals.runtime?.env?.DATABASE_URL;
+  if (url === undefined) {
+    try {
+      const workerModule = (await import("cloudflare:workers")) as {
+        env?: { DATABASE_URL?: string };
+      };
+      url = workerModule.env?.DATABASE_URL;
+    } catch {
+      // The virtual Worker module is unavailable in local Node/Bun execution.
+    }
+  }
   if (url === undefined || url.trim() === "") {
     throw new IndexError(
       "server_misconfigured",

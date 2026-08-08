@@ -23,7 +23,7 @@ const locals = Astro.locals as unknown as AppLocals;
 let profiles: CompactProfile[] = [];
 let dbError: string | null = null;
 try {
-  const repository = resolveRepository(locals);
+  const repository = await resolveRepository(locals);
   profiles =
     q === ""
       ? await listFeaturedProfiles(repository)

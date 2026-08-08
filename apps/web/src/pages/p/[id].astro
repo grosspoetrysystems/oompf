@@ -25,7 +25,7 @@ const locals = Astro.locals as unknown as AppLocals;
 let record: ProfileRecord | null = null;
 let errorMessage: string | null = null;
 try {
-  const repository = resolveRepository(locals);
+  const repository = await resolveRepository(locals);
   record = await getProfileMetadata(repository, id);
 } catch (error) {
   if (error instanceof IndexError && error.code === "not_found") {
