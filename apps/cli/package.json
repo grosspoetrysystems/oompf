@@ -3,17 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": {
-    "oompf": "./src/index.ts"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     }
   },
+  "bin": {
+    "oompf": "./src/index.ts"
+  },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsdown && tsc -b --force",
+    "test": "bun test src",
     "typecheck": "tsc -b"
   },
   "dependencies": {

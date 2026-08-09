@@ -1,0 +1,67 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core", "ultracite/biome/astro"],
+  "files": {
+    "includes": ["!dist", "!.astro", "!coverage", "!node_modules"]
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.ts", "**/*.astro"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          },
+          "correctness": {
+            "noUndeclaredVariables": "off"
+          },
+          "performance": {
+            "noBarrelFile": "off",
+            "noAwaitInLoops": "off",
+            "useTopLevelRegex": "off"
+          },
+          "style": {
+            "noIncrementDecrement": "off",
+            "noNegationElse": "off",
+            "noNestedTernary": "off",
+            "noNonNullAssertion": "off",
+            "noParameterProperties": "off",
+            "useConsistentArrayType": "off",
+            "useConsistentMethodSignatures": "off",
+            "useDestructuring": "off",
+            "useErrorCause": "off",
+            "useFilenamingConvention": "off"
+          },
+          "suspicious": {
+            "noEqualsToNull": "off",
+            "noEvolvingTypes": "off",
+            "noImplicitAnyLet": "off",
+            "noShadow": "off",
+            "noTemplateCurlyInString": "off",
+            "noUnnecessaryConditions": "off",
+            "useAwait": "off",
+            "useArraySortCompare": "off",
+            "useIterableCallbackReturn": "off"
+          }
+        }
+      },
+      "assist": {
+        "actions": {
+          "source": {
+            "useSortedAttributes": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["scripts/**/*.ts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUndeclaredVariables": "off"
+          }
+        }
+      }
+    }
+  ]
+}

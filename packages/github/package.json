@@ -14,7 +14,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsdown && tsc -b --force",
+    "test": "bun test src",
     "typecheck": "tsc -b"
   },
   "dependencies": {
