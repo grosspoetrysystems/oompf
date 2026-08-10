@@ -13,8 +13,8 @@
  * interpolation.
  */
 
-import { dirname, isAbsolute, join } from "node:path";
 import { readdir, readFile, stat } from "node:fs/promises";
+import { dirname, isAbsolute, join } from "node:path";
 import { env } from "node:process";
 
 import { validateProfileName } from "./profile-name.ts";
@@ -22,24 +22,24 @@ import { assertProfileDocument, parseProfileYaml } from "./yaml-config.ts";
 
 /** A profile found on disk under OMP's resolved profiles directory. */
 export interface DiscoveredProfile {
-  /** The profile name (directory basename), already OMP-valid. */
-  readonly name: string;
   /** Absolute path to the profile's agent directory. */
   readonly agentDir: string;
   /** Absolute path to `config.yml`/`config.yaml`, or `null` if neither exists. */
   readonly configPath: string | null;
+  /** The profile name (directory basename), already OMP-valid. */
+  readonly name: string;
 }
 
 /** The fully resolved configuration for a single existing profile. */
 export interface ResolvedProfileConfig {
-  /** The profile name that was resolved. */
-  readonly profile: string;
   /** Absolute path to the profile's agent directory (verified to exist). */
   readonly agentDir: string;
   /** Absolute path to the loaded config file, or `null` when none is present. */
   readonly configPath: string | null;
   /** Parsed config document (mapping root), or `null` when no config exists. */
   readonly document: Record<string, unknown> | null;
+  /** The profile name that was resolved. */
+  readonly profile: string;
 }
 
 /** Options accepted by every resolver; `ompCommand` overrides the binary. */
@@ -81,8 +81,12 @@ type PathKind = "directory" | "file" | "other" | "missing";
 async function statKind(target: string): Promise<PathKind> {
   try {
     const info = await stat(target);
-    if (info.isDirectory()) return "directory";
-    if (info.isFile()) return "file";
+    if (info.isDirectory()) {
+      return "directory";
+    }
+    if (info.isFile()) {
+      return "file";
+    }
     return "other";
   } catch (error) {
     if (
@@ -110,18 +114,20 @@ async function statKind(target: string): Promise<PathKind> {
 async function resolveConfigPath(
   profile: string | null,
   ompCommand: string,
-  requireDirectory: boolean,
+  requireDirectory: boolean
 ): Promise<string> {
   const cmd = [ompCommand];
-  if (profile !== null) cmd.push("--profile", profile);
+  if (profile !== null) {
+    cmd.push("--profile", profile);
+  }
   cmd.push("config", "path");
 
   const child = bun.spawn({
     cmd,
     env,
-    stdout: "pipe",
     stderr: "pipe",
     stdin: "ignore",
+    stdout: "pipe",
   });
   const [stdout, stderr, exitCode] = await Promise.all([
     bun.readableStreamToText(child.stdout),
@@ -132,7 +138,9 @@ async function resolveConfigPath(
   const label = profile === null ? "default profile" : `profile "${profile}"`;
   if (exitCode !== 0) {
     const detail = stderr.trim() || `exit code ${exitCode}`;
-    throw new Error(`OMP failed to resolve the ${label} config path: ${detail}`);
+    throw new Error(
+      `OMP failed to resolve the ${label} config path: ${detail}`
+    );
   }
 
   const resolved = stdout.trim();
@@ -141,14 +149,14 @@ async function resolveConfigPath(
   }
   if (!isAbsolute(resolved)) {
     throw new Error(
-      `OMP returned a non-absolute config path for the ${label}: "${resolved}".`,
+      `OMP returned a non-absolute config path for the ${label}: "${resolved}".`
     );
   }
   if (requireDirectory) {
     const kind = await statKind(resolved);
     if (kind !== "directory") {
       throw new Error(
-        `Resolved agent directory for the ${label} is not a directory (${kind}): "${resolved}".`,
+        `Resolved agent directory for the ${label} is not a directory (${kind}): "${resolved}".`
       );
     }
   }
@@ -158,15 +166,19 @@ async function resolveConfigPath(
 async function findConfigFile(agentDir: string): Promise<string | null> {
   for (const filename of CONFIG_FILENAMES) {
     const candidate = join(agentDir, filename);
-    if ((await statKind(candidate)) === "file") return candidate;
+    if ((await statKind(candidate)) === "file") {
+      return candidate;
+    }
   }
   return null;
 }
 
 async function loadConfigDocument(
-  configPath: string | null,
+  configPath: string | null
 ): Promise<Record<string, unknown> | null> {
-  if (configPath === null) return null;
+  if (configPath === null) {
+    return null;
+  }
   const text = await readFile(configPath, "utf8");
   return assertProfileDocument(parseProfileYaml(text));
 }
@@ -180,14 +192,16 @@ async function loadConfigDocument(
  */
 export async function resolveInstallTarget(
   name: string,
-  options?: OmpProfileOptions,
+  options?: OmpProfileOptions
 ): Promise<string> {
   const validation = validateProfileName(name);
-  if (!validation.ok) throw new Error(validation.reason);
+  if (!validation.ok) {
+    throw new Error(validation.reason);
+  }
   return resolveConfigPath(
     validation.value,
     options?.ompCommand ?? DEFAULT_OMP_COMMAND,
-    false,
+    false
   );
 }
 
@@ -200,19 +214,21 @@ export async function resolveInstallTarget(
  */
 export async function resolveProfileConfig(
   profile: string,
-  options?: OmpProfileOptions,
+  options?: OmpProfileOptions
 ): Promise<ResolvedProfileConfig> {
   const validation = validateProfileName(profile);
-  if (!validation.ok) throw new Error(validation.reason);
+  if (!validation.ok) {
+    throw new Error(validation.reason);
+  }
 
   const agentDir = await resolveConfigPath(
     validation.value,
     options?.ompCommand ?? DEFAULT_OMP_COMMAND,
-    true,
+    true
   );
   const configPath = await findConfigFile(agentDir);
   const document = await loadConfigDocument(configPath);
-  return { profile: validation.value, agentDir, configPath, document };
+  return { agentDir, configPath, document, profile: validation.value };
 }
 
 /**
@@ -224,7 +240,7 @@ export async function resolveProfileConfig(
  * agent directory is absent, are skipped. Results are sorted by name.
  */
 export async function discoverProfiles(
-  options?: OmpProfileOptions,
+  options?: OmpProfileOptions
 ): Promise<DiscoveredProfile[]> {
   const ompCommand = options?.ompCommand ?? DEFAULT_OMP_COMMAND;
   const defaultAgentDir = await resolveConfigPath(null, ompCommand, false);
@@ -247,14 +263,20 @@ export async function discoverProfiles(
 
   const discovered: DiscoveredProfile[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (!validateProfileName(entry.name).ok) continue;
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    if (!validateProfileName(entry.name).ok) {
+      continue;
+    }
     const agentDir = join(profilesRoot, entry.name, "agent");
-    if ((await statKind(agentDir)) !== "directory") continue;
+    if ((await statKind(agentDir)) !== "directory") {
+      continue;
+    }
     discovered.push({
-      name: entry.name,
       agentDir,
       configPath: await findConfigFile(agentDir),
+      name: entry.name,
     });
   }
   discovered.sort((left, right) => left.name.localeCompare(right.name));

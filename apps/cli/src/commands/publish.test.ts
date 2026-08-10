@@ -1,17 +1,16 @@
 import { describe, expect, test } from "bun:test";
-
+import type { CliDeps } from "../deps.ts";
 import {
+  apiFetch,
   CONTENT,
   GIST_HTML,
   GIST_ID,
-  OOMPF_URL,
-  apiFetch,
   ghRunner,
   jsonResponse,
   memoryFs,
+  OOMPF_URL,
   runCli,
 } from "../test-helpers.ts";
-import type { CliDeps } from "../deps.ts";
 
 const CONFIG_PATH = "/omp/profiles/work/agent/config.yml";
 const AGENT_DIR = "/omp/profiles/work/agent";
@@ -19,25 +18,29 @@ const AGENT_DIR = "/omp/profiles/work/agent";
 function publishDeps(overrides: Partial<CliDeps> = {}): CliDeps {
   const { fs } = memoryFs({ [CONFIG_PATH]: CONTENT });
   return {
-    runner: ghRunner(),
-    httpFetch: apiFetch(),
+    discoverProfiles: async () => [
+      { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
+    ],
     fs,
+    httpFetch: apiFetch(),
     resolveProfileConfig: async (profile) => ({
-      profile,
       agentDir: AGENT_DIR,
       configPath: CONFIG_PATH,
       document: {},
+      profile,
     }),
-    discoverProfiles: async () => [
-      { name: "work", agentDir: AGENT_DIR, configPath: CONFIG_PATH },
-    ],
+    runner: ghRunner(),
     ...overrides,
   };
 }
 
 describe("publish", () => {
   test("publishes a named profile and prints JSON metadata", async () => {
-    const { out, code } = await runCli(publishDeps(), ["publish", "work", "--json"]);
+    const { out, code } = await runCli(publishDeps(), [
+      "publish",
+      "work",
+      "--json",
+    ]);
     const result = JSON.parse(out);
     expect(code).toBeUndefined();
     expect(result.profile).toBe("work");
@@ -57,12 +60,12 @@ describe("publish", () => {
           captured = body;
           return jsonResponse(200, {
             id: "prof_0123456789abcdef0123456789abcdef",
-            url: "/p/prof_0123456789abcdef0123456789abcdef",
             source: GIST_HTML,
+            url: "/p/prof_0123456789abcdef0123456789abcdef",
             validation: {
+              errors: [],
               level: "structural",
               structural: "valid",
-              errors: [],
               warnings: [],
             },
           });
@@ -90,8 +93,8 @@ describe("publish", () => {
   test("refuses when the profile is ambiguous", async () => {
     const deps = publishDeps({
       discoverProfiles: async () => [
-        { name: "work", agentDir: AGENT_DIR, configPath: CONFIG_PATH },
-        { name: "play", agentDir: "/x", configPath: "/x/config.yml" },
+        { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
+        { agentDir: "/x", configPath: "/x/config.yml", name: "play" },
       ],
     });
     const { out, code } = await runCli(deps, ["publish"]);

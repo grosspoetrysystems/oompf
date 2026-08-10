@@ -3,30 +3,31 @@ import { describe, expect, test } from "bun:test";
 import { sha256 } from "@oompf/core";
 
 import {
-  createPublicProfileGist,
-  getGithubIdentity,
   type CommandInput,
   type CommandResult,
   type CommandRunner,
+  createPublicProfileGist,
+  getGithubIdentity,
 } from "./gh.ts";
 import {
   fetchPublicGist,
-  normalizeGistUrl,
-  parseGistLocation,
   type GistFetch,
   type GistFetchResponse,
+  normalizeGistUrl,
+  parseGistLocation,
 } from "./gists.ts";
 
 /** Build a command runner that records its calls and returns `result`. */
-function stubRunner(
-  result: CommandResult,
-): { runner: CommandRunner; calls: CommandInput[] } {
+function stubRunner(result: CommandResult): {
+  runner: CommandRunner;
+  calls: CommandInput[];
+} {
   const calls: CommandInput[] = [];
   const runner: CommandRunner = async (input) => {
     calls.push(input);
     return result;
   };
-  return { runner, calls };
+  return { calls, runner };
 }
 
 /** A runner that rejects as though the executable were missing. */
@@ -48,41 +49,41 @@ function jsonResponse(status: number, body: unknown): GistFetchResponse {
 describe("getGithubIdentity", () => {
   test("returns the authenticated login", async () => {
     const { runner, calls } = stubRunner({
-      stdout: JSON.stringify({ login: "octocat", id: 1 }),
-      stderr: "",
       exitCode: 0,
+      stderr: "",
+      stdout: JSON.stringify({ id: 1, login: "octocat" }),
     });
     const identity = await getGithubIdentity({ runner });
     expect(identity).toEqual({ login: "octocat" });
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({ command: "gh", args: ["api", "user"] });
+    expect(calls[0]).toMatchObject({ args: ["api", "user"], command: "gh" });
   });
 
   test("gives an actionable error when gh is not installed", async () => {
-    await expect(getGithubIdentity({ runner: missingGhRunner })).rejects.toThrow(
-      /was not found on your PATH/,
-    );
+    await expect(
+      getGithubIdentity({ runner: missingGhRunner })
+    ).rejects.toThrow(/was not found on your PATH/);
   });
 
   test("gives an actionable auth error on non-zero exit", async () => {
     const { runner } = stubRunner({
-      stdout: "",
-      stderr: "gh: To get started with GitHub CLI, please run: gh auth login",
       exitCode: 1,
+      stderr: "gh: To get started with GitHub CLI, please run: gh auth login",
+      stdout: "",
     });
     await expect(getGithubIdentity({ runner })).rejects.toThrow(
-      /gh auth login/,
+      /gh auth login/
     );
   });
 
   test("rejects a response missing a login", async () => {
     const { runner } = stubRunner({
-      stdout: JSON.stringify({ id: 1 }),
-      stderr: "",
       exitCode: 0,
+      stderr: "",
+      stdout: JSON.stringify({ id: 1 }),
     });
     await expect(getGithubIdentity({ runner })).rejects.toThrow(
-      /did not include a login/,
+      /did not include a login/
     );
   });
 });
@@ -90,24 +91,25 @@ describe("getGithubIdentity", () => {
 describe("createPublicProfileGist", () => {
   test("invokes gh with --public, the given filename, and stdin content", async () => {
     const { runner, calls } = stubRunner({
-      stdout: "https://gist.github.com/octocat/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
-      stderr: "",
       exitCode: 0,
+      stderr: "",
+      stdout:
+        "https://gist.github.com/octocat/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
     });
     const result = await createPublicProfileGist(
       {
-        filename: "my-profile.yml",
         content: "models:\n  default: gpt\n",
         description: "OOMPF profile my-profile",
+        filename: "my-profile.yml",
       },
-      { runner },
+      { runner }
     );
 
     expect(result).toEqual({
-      url: "https://api.github.com/gists/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      gistId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       htmlUrl:
         "https://gist.github.com/octocat/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      gistId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      url: "https://api.github.com/gists/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
 
     expect(calls).toHaveLength(1);
@@ -129,38 +131,38 @@ describe("createPublicProfileGist", () => {
 
   test("surfaces non-zero exit details without a URL", async () => {
     const { runner } = stubRunner({
-      stdout: "",
-      stderr: "HTTP 422: Validation Failed",
       exitCode: 1,
+      stderr: "HTTP 422: Validation Failed",
+      stdout: "",
     });
     await expect(
       createPublicProfileGist(
-        { filename: "p.yml", content: "a: 1", description: "d" },
-        { runner },
-      ),
+        { content: "a: 1", description: "d", filename: "p.yml" },
+        { runner }
+      )
     ).rejects.toThrow(/HTTP 422: Validation Failed/);
   });
 
   test("errors when gh prints no parseable Gist URL", async () => {
     const { runner } = stubRunner({
-      stdout: "Creating gist...\n",
-      stderr: "",
       exitCode: 0,
+      stderr: "",
+      stdout: "Creating gist...\n",
     });
     await expect(
       createPublicProfileGist(
-        { filename: "p.yml", content: "a: 1", description: "d" },
-        { runner },
-      ),
+        { content: "a: 1", description: "d", filename: "p.yml" },
+        { runner }
+      )
     ).rejects.toThrow(/did not report a Gist URL/);
   });
 
   test("gives an actionable error when gh is not installed", async () => {
     await expect(
       createPublicProfileGist(
-        { filename: "p.yml", content: "a: 1", description: "d" },
-        { runner: missingGhRunner },
-      ),
+        { content: "a: 1", description: "d", filename: "p.yml" },
+        { runner: missingGhRunner }
+      )
     ).rejects.toThrow(/was not found on your PATH/);
   });
 });
@@ -195,7 +197,7 @@ describe("parseGistLocation / normalizeGistUrl", () => {
 
   test("accepts a pinned revision", () => {
     expect(
-      parseGistLocation(`https://gist.github.com/octocat/${id}/${revision}`),
+      parseGistLocation(`https://gist.github.com/octocat/${id}/${revision}`)
     ).toEqual({ gistId: id, owner: "octocat", revision });
   });
 
@@ -211,13 +213,13 @@ describe("parseGistLocation / normalizeGistUrl", () => {
     const canonical = `https://gist.github.com/${id}`;
     expect(normalizeGistUrl(id)).toBe(canonical);
     expect(normalizeGistUrl(`https://gist.github.com/octocat/${id}`)).toBe(
-      canonical,
+      canonical
     );
     expect(
-      normalizeGistUrl(`https://gist.github.com/octocat/${id}/${revision}`),
+      normalizeGistUrl(`https://gist.github.com/octocat/${id}/${revision}`)
     ).toBe(canonical);
     expect(normalizeGistUrl(`https://api.github.com/gists/${id}`)).toBe(
-      canonical,
+      canonical
     );
   });
 
@@ -227,13 +229,13 @@ describe("parseGistLocation / normalizeGistUrl", () => {
 
   test("rejects an unsupported host (a repo URL, not a gist)", () => {
     expect(() =>
-      parseGistLocation("https://github.com/octocat/hello-world"),
+      parseGistLocation("https://github.com/octocat/hello-world")
     ).toThrow(/Unsupported host/);
   });
 
   test("rejects a URL with no recognisable Gist ID", () => {
     expect(() =>
-      parseGistLocation("https://gist.github.com/octocat/not-an-id"),
+      parseGistLocation("https://gist.github.com/octocat/not-an-id")
     ).toThrow(/valid Gist ID/);
   });
 });
@@ -244,9 +246,10 @@ describe("fetchPublicGist", () => {
   const yaml = "models:\n  default: gpt-5\n";
 
   /** Build a fetch seam mapping URLs to responses and recording requests. */
-  function stubFetch(
-    routes: Record<string, GistFetchResponse>,
-  ): { fetch: GistFetch; urls: string[] } {
+  function stubFetch(routes: Record<string, GistFetchResponse>): {
+    fetch: GistFetch;
+    urls: string[];
+  } {
     const urls: string[] = [];
     const fetch: GistFetch = async (url) => {
       urls.push(url);
@@ -263,17 +266,17 @@ describe("fetchPublicGist", () => {
     const rawUrl = `https://gist.githubusercontent.com/octocat/${id}/raw/profile.yml`;
     const { fetch, urls } = stubFetch({
       [`https://api.github.com/gists/${id}`]: jsonResponse(200, {
-        id,
-        html_url: `https://gist.github.com/octocat/${id}`,
-        owner: { login: "octocat" },
-        history: [{ version: revision }],
         files: {
           "profile.yml": {
+            content: "stale-inline-should-not-win",
             filename: "profile.yml",
             raw_url: rawUrl,
-            content: "stale-inline-should-not-win",
           },
         },
+        history: [{ version: revision }],
+        html_url: `https://gist.github.com/octocat/${id}`,
+        id,
+        owner: { login: "octocat" },
       }),
       [rawUrl]: jsonResponse(200, yaml),
     });
@@ -283,13 +286,13 @@ describe("fetchPublicGist", () => {
     });
 
     expect(result).toEqual({
-      gistId: id,
-      owner: "octocat",
-      revision,
-      filename: "profile.yml",
       content: yaml,
       contentHash: sha256(yaml),
+      filename: "profile.yml",
+      gistId: id,
       htmlUrl: `https://gist.github.com/octocat/${id}`,
+      owner: "octocat",
+      revision,
     });
     // Metadata is read first, then the canonical raw URL.
     expect(urls).toEqual([`https://api.github.com/gists/${id}`, rawUrl]);
@@ -299,16 +302,16 @@ describe("fetchPublicGist", () => {
     const rawUrl = `https://gist.githubusercontent.com/octocat/${id}/raw/${revision}/profile.yml`;
     const { fetch } = stubFetch({
       [`https://api.github.com/gists/${id}/${revision}`]: jsonResponse(200, {
+        files: { "profile.yml": { filename: "profile.yml", raw_url: rawUrl } },
         id,
         owner: { login: "octocat" },
-        files: { "profile.yml": { filename: "profile.yml", raw_url: rawUrl } },
       }),
       [rawUrl]: jsonResponse(200, yaml),
     });
 
     const result = await fetchPublicGist(
       `https://gist.github.com/octocat/${id}/${revision}`,
-      { fetch },
+      { fetch }
     );
     expect(result.revision).toBe(revision);
     expect(result.contentHash).toBe(sha256(yaml));
@@ -317,11 +320,15 @@ describe("fetchPublicGist", () => {
   test("falls back to inline content when no raw URL is present", async () => {
     const { fetch } = stubFetch({
       [`https://api.github.com/gists/${id}`]: jsonResponse(200, {
+        files: {
+          "profile.yml": {
+            content: yaml,
+            filename: "profile.yml",
+            raw_url: null,
+          },
+        },
         id,
         owner: { login: "octocat" },
-        files: {
-          "profile.yml": { filename: "profile.yml", raw_url: null, content: yaml },
-        },
       }),
     });
     const result = await fetchPublicGist(id, { fetch });
@@ -336,55 +343,55 @@ describe("fetchPublicGist", () => {
       }),
     });
     await expect(fetchPublicGist(id, { fetch })).rejects.toThrow(
-      /was not found.*private/,
+      /was not found.*private/
     );
   });
 
   test("rejects a Gist with multiple YAML candidates", async () => {
     const { fetch } = stubFetch({
       [`https://api.github.com/gists/${id}`]: jsonResponse(200, {
+        files: {
+          "a.yml": { content: "a: 1", filename: "a.yml", raw_url: null },
+          "b.yaml": { content: "b: 2", filename: "b.yaml", raw_url: null },
+        },
         id,
         owner: { login: "octocat" },
-        files: {
-          "a.yml": { filename: "a.yml", raw_url: null, content: "a: 1" },
-          "b.yaml": { filename: "b.yaml", raw_url: null, content: "b: 2" },
-        },
       }),
     });
     await expect(fetchPublicGist(id, { fetch })).rejects.toThrow(
-      /multiple YAML files/,
+      /multiple YAML files/
     );
   });
 
   test("rejects a Gist with no YAML file", async () => {
     const { fetch } = stubFetch({
       [`https://api.github.com/gists/${id}`]: jsonResponse(200, {
+        files: {
+          "README.md": { content: "hi", filename: "README.md", raw_url: null },
+        },
         id,
         owner: { login: "octocat" },
-        files: { "README.md": { filename: "README.md", raw_url: null, content: "hi" } },
       }),
     });
-    await expect(fetchPublicGist(id, { fetch })).rejects.toThrow(
-      /no YAML/,
-    );
+    await expect(fetchPublicGist(id, { fetch })).rejects.toThrow(/no YAML/);
   });
 
   test("rejects an unsupported profile filename", async () => {
     const { fetch } = stubFetch({
       [`https://api.github.com/gists/${id}`]: jsonResponse(200, {
-        id,
-        owner: { login: "octocat" },
         files: {
           "Invalid Name.yml": {
+            content: yaml,
             filename: "Invalid Name.yml",
             raw_url: null,
-            content: yaml,
           },
         },
+        id,
+        owner: { login: "octocat" },
       }),
     });
     await expect(fetchPublicGist(id, { fetch })).rejects.toThrow(
-      /not a supported profile filename/,
+      /not a supported profile filename/
     );
   });
 });

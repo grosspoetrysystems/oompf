@@ -17,14 +17,14 @@ import { isRecord } from "./guards.ts";
 
 /** A role-to-model assignment from `modelRoles`. */
 export interface ModelRole {
-  readonly role: string;
   readonly model: string;
+  readonly role: string;
 }
 
 /** An ordered fallback list, keyed by its role/chain name. */
 export interface FallbackChain {
-  readonly role: string;
   readonly models: readonly string[];
+  readonly role: string;
 }
 
 /** Advisor settings observed in `advisor`. */
@@ -48,45 +48,45 @@ export interface Prerequisite {
 
 /** Reliable, source-derived facts about a native OMP profile artifact. */
 export interface ProfileFacts {
+  readonly advisor: AdvisorFacts | null;
+  readonly context: unknown;
+  readonly disabledProviders: readonly string[];
+  readonly extensions: readonly string[];
+  readonly fallbackChains: readonly FallbackChain[];
   /** Recognized scalar identity fields present in the document. */
   readonly fields: Readonly<Record<string, unknown>>;
+  readonly hooks: readonly string[];
+  readonly inspection: unknown;
+  readonly memory: unknown;
   readonly modelRoles: readonly ModelRole[];
   /** Every distinct model identifier referenced anywhere in the artifact. */
   readonly models: readonly string[];
-  readonly fallbackChains: readonly FallbackChain[];
+  readonly prerequisites: readonly Prerequisite[];
   /** Providers inferred from `<provider>/<model>` identifiers. */
   readonly providers: readonly string[];
-  readonly disabledProviders: readonly string[];
-  readonly advisor: AdvisorFacts | null;
-  readonly hooks: readonly string[];
-  readonly extensions: readonly string[];
-  readonly context: unknown;
-  readonly memory: unknown;
-  readonly inspection: unknown;
-  readonly prerequisites: readonly Prerequisite[];
   /** Top-level keys OOMPF does not recognize, preserved for forward compat. */
   readonly unknownKeys: readonly string[];
 }
 
 /** Top-level keys `extractFacts` recognizes; the rest surface as unknown. */
 const RECOGNIZED_KEYS: Record<string, true> = {
-  symbolPreset: true,
-  theme: true,
-  setupVersion: true,
+  advisor: true,
+  context: true,
   defaultThinkingLevel: true,
   disabledProviders: true,
   enabledModels: true,
-  modelRoles: true,
-  retry: true,
-  advisor: true,
+  extensions: true,
+  hooks: true,
+  inspect_image: true,
   memory: true,
   mnemopi: true,
-  inspect_image: true,
-  hooks: true,
-  extensions: true,
-  context: true,
-  projectOverlays: true,
+  modelRoles: true,
   overlays: true,
+  projectOverlays: true,
+  retry: true,
+  setupVersion: true,
+  symbolPreset: true,
+  theme: true,
 };
 
 /** Scalar identity fields lifted verbatim into {@link ProfileFacts.fields}. */
@@ -102,24 +102,32 @@ const ENV_REFERENCE = /\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g;
 
 /** Return the string members of `value` when it is an array of strings. */
 function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
   return value.filter((item): item is string => typeof item === "string");
 }
 
 /** Infer the provider from a `<provider>/<model>` identifier, if any. */
 function providerOf(model: string): string | null {
   const slash = model.indexOf("/");
-  if (slash <= 0) return null;
+  if (slash <= 0) {
+    return null;
+  }
   return model.slice(0, slash);
 }
 
 /** Extract a displayable name from a hook/extension entry. */
 function entryName(entry: unknown): string | null {
-  if (typeof entry === "string") return entry;
+  if (typeof entry === "string") {
+    return entry;
+  }
   if (isRecord(entry)) {
     for (const key of ["name", "id", "path", "module"]) {
       const value = entry[key];
-      if (typeof value === "string") return value;
+      if (typeof value === "string") {
+        return value;
+      }
     }
   }
   return null;
@@ -130,15 +138,19 @@ function collectNames(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.map(entryName).filter((n): n is string => n !== null);
   }
-  if (isRecord(value)) return Object.keys(value);
-  if (typeof value === "string") return [value];
+  if (isRecord(value)) {
+    return Object.keys(value);
+  }
+  if (typeof value === "string") {
+    return [value];
+  }
   return [];
 }
 
 /** Build a record of the present keys, or `null` when none are present. */
 function pickPresent(
   document: Record<string, unknown>,
-  keys: readonly string[],
+  keys: readonly string[]
 ): Record<string, unknown> | null {
   const picked: Record<string, unknown> = {};
   let found = false;
@@ -153,7 +165,9 @@ function pickPresent(
 
 /** Push `value` into `list` only if it is not already present. */
 function pushUnique(list: string[], value: string): void {
-  if (!list.includes(value)) list.push(value);
+  if (!list.includes(value)) {
+    list.push(value);
+  }
 }
 
 /** Recursively collect environment-variable names from every string value. */
@@ -161,16 +175,22 @@ function collectEnvRefs(node: unknown, into: string[]): void {
   if (typeof node === "string") {
     for (const match of node.matchAll(ENV_REFERENCE)) {
       const name = match[1];
-      if (name) pushUnique(into, name);
+      if (name) {
+        pushUnique(into, name);
+      }
     }
     return;
   }
   if (Array.isArray(node)) {
-    for (const item of node) collectEnvRefs(item, into);
+    for (const item of node) {
+      collectEnvRefs(item, into);
+    }
     return;
   }
   if (isRecord(node)) {
-    for (const value of Object.values(node)) collectEnvRefs(value, into);
+    for (const value of Object.values(node)) {
+      collectEnvRefs(value, into);
+    }
   }
 }
 
@@ -178,19 +198,23 @@ function collectEnvRefs(node: unknown, into: string[]): void {
 function extractModelRoles(
   value: unknown,
   models: string[],
-  fallbackChains: FallbackChain[],
+  fallbackChains: FallbackChain[]
 ): ModelRole[] {
-  if (!isRecord(value)) return [];
+  if (!isRecord(value)) {
+    return [];
+  }
   const roles: ModelRole[] = [];
   for (const [role, assigned] of Object.entries(value)) {
     if (typeof assigned === "string") {
-      roles.push({ role, model: assigned });
+      roles.push({ model: assigned, role });
       pushUnique(models, assigned);
     } else if (Array.isArray(assigned)) {
       const chain = stringArray(assigned);
       if (chain.length > 0) {
-        fallbackChains.push({ role, models: chain });
-        for (const model of chain) pushUnique(models, model);
+        fallbackChains.push({ models: chain, role });
+        for (const model of chain) {
+          pushUnique(models, model);
+        }
       }
     }
   }
@@ -198,16 +222,25 @@ function extractModelRoles(
 }
 
 /** Extract `retry.fallbackChains` (map of lists or list of lists). */
-function extractFallbackChains(value: unknown, models: string[]): FallbackChain[] {
+function extractFallbackChains(
+  value: unknown,
+  models: string[]
+): FallbackChain[] {
   const chains: FallbackChain[] = [];
   const add = (role: string, raw: unknown): void => {
     const chain = stringArray(raw);
-    if (chain.length === 0) return;
-    chains.push({ role, models: chain });
-    for (const model of chain) pushUnique(models, model);
+    if (chain.length === 0) {
+      return;
+    }
+    chains.push({ models: chain, role });
+    for (const model of chain) {
+      pushUnique(models, model);
+    }
   };
   if (isRecord(value)) {
-    for (const [role, raw] of Object.entries(value)) add(role, raw);
+    for (const [role, raw] of Object.entries(value)) {
+      add(role, raw);
+    }
   } else if (Array.isArray(value)) {
     if (value.every((item) => typeof item === "string")) {
       add("default", value);
@@ -220,14 +253,20 @@ function extractFallbackChains(value: unknown, models: string[]): FallbackChain[
 
 /** Extract observed advisor settings, or `null` when `advisor` is absent. */
 function extractAdvisor(value: unknown): AdvisorFacts | null {
-  if (!isRecord(value)) return null;
+  if (!isRecord(value)) {
+    return null;
+  }
   const advisor: {
     enabled?: boolean;
     subagents?: unknown;
     syncBacklog?: boolean;
   } = {};
-  if (typeof value.enabled === "boolean") advisor.enabled = value.enabled;
-  if ("subagents" in value) advisor.subagents = value.subagents;
+  if (typeof value.enabled === "boolean") {
+    advisor.enabled = value.enabled;
+  }
+  if ("subagents" in value) {
+    advisor.subagents = value.subagents;
+  }
   if (typeof value.syncBacklog === "boolean") {
     advisor.syncBacklog = value.syncBacklog;
   }
@@ -245,7 +284,9 @@ function extractAdvisor(value: unknown): AdvisorFacts | null {
 export function extractFacts(document: Record<string, unknown>): ProfileFacts {
   const fields: Record<string, unknown> = {};
   for (const key of SCALAR_FIELDS) {
-    if (key in document) fields[key] = document[key];
+    if (key in document) {
+      fields[key] = document[key];
+    }
   }
 
   const models: string[] = [];
@@ -254,7 +295,7 @@ export function extractFacts(document: Record<string, unknown>): ProfileFacts {
   const modelRoles = extractModelRoles(
     document.modelRoles,
     models,
-    fallbackChains,
+    fallbackChains
   );
 
   for (const model of stringArray(document.enabledModels)) {
@@ -264,7 +305,7 @@ export function extractFacts(document: Record<string, unknown>): ProfileFacts {
   if (isRecord(document.retry)) {
     for (const chain of extractFallbackChains(
       document.retry.fallbackChains,
-      models,
+      models
     )) {
       fallbackChains.push(chain);
     }
@@ -273,7 +314,9 @@ export function extractFacts(document: Record<string, unknown>): ProfileFacts {
   const providers: string[] = [];
   for (const model of models) {
     const provider = providerOf(model);
-    if (provider) pushUnique(providers, provider);
+    if (provider) {
+      pushUnique(providers, provider);
+    }
   }
 
   const disabledProviders = stringArray(document.disabledProviders);
@@ -320,23 +363,23 @@ export function extractFacts(document: Record<string, unknown>): ProfileFacts {
   }
 
   const unknownKeys = Object.keys(document).filter(
-    (key) => !Object.hasOwn(RECOGNIZED_KEYS, key),
+    (key) => !Object.hasOwn(RECOGNIZED_KEYS, key)
   );
 
   return {
+    advisor,
+    context: document.context ?? null,
+    disabledProviders,
+    extensions,
+    fallbackChains,
     fields,
+    hooks,
+    inspection: pickPresent(document, ["inspect_image"]),
+    memory: pickPresent(document, ["memory", "mnemopi"]),
     modelRoles,
     models,
-    fallbackChains,
-    providers,
-    disabledProviders,
-    advisor,
-    hooks,
-    extensions,
-    context: document.context ?? null,
-    memory: pickPresent(document, ["memory", "mnemopi"]),
-    inspection: pickPresent(document, ["inspect_image"]),
     prerequisites,
+    providers,
     unknownKeys,
   };
 }

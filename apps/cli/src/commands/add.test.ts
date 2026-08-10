@@ -1,27 +1,26 @@
 import { describe, expect, test } from "bun:test";
-
+import type { CliDeps } from "../deps.ts";
 import {
+  apiFetch,
   CONTENT,
   GIST_HTML,
   GIST_ID,
-  OOMPF_URL,
-  REVISION,
-  apiFetch,
   gistFetch,
   jsonResponse,
   memoryFs,
+  OOMPF_URL,
+  REVISION,
   runCli,
 } from "../test-helpers.ts";
-import type { CliDeps } from "../deps.ts";
 
 const AGENT_DIR = "/omp/profiles/octocat-work/agent";
 
 function addDeps(overrides: Partial<CliDeps> = {}) {
   const store = memoryFs();
   const deps: CliDeps = {
+    fs: store.fs,
     gistFetch: gistFetch(),
     httpFetch: apiFetch(),
-    fs: store.fs,
     resolveInstallTarget: async (name) => `/omp/profiles/${name}/agent`,
     ...overrides,
   };
@@ -92,7 +91,9 @@ describe("add", () => {
   });
 
   test("refuses to install a structurally invalid artifact", async () => {
-    const { deps, store } = addDeps({ gistFetch: gistFetch("- not: a mapping\n") });
+    const { deps, store } = addDeps({
+      gistFetch: gistFetch("- not: a mapping\n"),
+    });
     const { out, code } = await runCli(deps, ["add", GIST_HTML]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("invalid_artifact");

@@ -25,22 +25,23 @@ export const prerender = false;
         <label for="source">Public Gist URL or ID</label>
         <div class="form-row">
           <input
-            type="text"
+            autocomplete="off"
             id="source"
             name="source"
-            required
-            autocomplete="off"
-            spellcheck="false"
             placeholder="https://gist.github.com/you/abc123…"
-          />
-          <button type="submit" id="submit-btn">Index profile</button>
+            required
+            spellcheck="false"
+            type="text"
+          >
+          <button id="submit-btn" type="submit">Index profile</button>
         </div>
         <p class="field-hint">
           Accepts <code>gist.github.com</code> URLs (optionally pinned to a
           revision) or a bare Gist ID. The Gist must contain exactly one
-          <code>&lt;name&gt;.yml</code> profile file.
+          <code>&lt;name&gt;.yml</code>
+          profile file.
         </p>
-        <div class="result" id="result" hidden></div>
+        <div class="result" hidden id="result"></div>
       </form>
     </section>
   </div>
@@ -63,19 +64,21 @@ export const prerender = false;
       /[&<>"']/g,
       (char) =>
         ({
+          "'": "&#39;",
+          '"': "&quot;",
           "&": "&amp;",
           "<": "&lt;",
           ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[char] ?? char,
+        })[char] ?? char
     );
   }
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const source = input.value.trim();
-    if (source === "") return;
+    if (source === "") {
+      return;
+    }
 
     button.disabled = true;
     button.textContent = "Indexing…";
@@ -83,9 +86,9 @@ export const prerender = false;
 
     try {
       const response = await fetch("/api/profiles", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
         body: JSON.stringify({ source }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
       });
       const data = (await response.json()) as {
         id?: string;
@@ -103,7 +106,7 @@ export const prerender = false;
             : "";
         show(
           "ok",
-          `<p>Indexed. <a href="${escapeHtml(data.url)}">View profile →</a></p>${warnHtml}`,
+          `<p>Indexed. <a href="${escapeHtml(data.url)}">View profile →</a></p>${warnHtml}`
         );
       } else {
         const detail = data.error?.details?.length
@@ -111,7 +114,7 @@ export const prerender = false;
           : "";
         show(
           "error",
-          `${escapeHtml(data.error?.message ?? "Indexing failed.")}${detail}`,
+          `${escapeHtml(data.error?.message ?? "Indexing failed.")}${detail}`
         );
       }
     } catch {

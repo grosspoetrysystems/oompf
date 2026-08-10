@@ -17,18 +17,18 @@ import { parseGistLocation } from "./gists.ts";
 
 /** Outcome of running a single command. */
 export interface CommandResult {
-  readonly stdout: string;
-  readonly stderr: string;
   /** Process exit code; `null` when the process was terminated by a signal. */
   readonly exitCode: number | null;
+  readonly stderr: string;
+  readonly stdout: string;
 }
 
 /** A single command invocation: an executable plus a literal argument array. */
 export interface CommandInput {
-  /** Executable to run (e.g. `"gh"`). Never a shell string. */
-  readonly command: string;
   /** Arguments passed verbatim; never concatenated into a shell command. */
   readonly args: readonly string[];
+  /** Executable to run (e.g. `"gh"`). Never a shell string. */
+  readonly command: string;
   /** Optional UTF-8 text piped to the process stdin. */
   readonly stdin?: string;
 }
@@ -81,28 +81,30 @@ const defaultRunner: CommandRunner = async ({ command, args, stdin }) => {
   const bun = bunRuntime.Bun;
   if (bun === undefined) {
     throw new Error(
-      "The default command runner requires the Bun runtime; inject a CommandRunner to run elsewhere.",
+      "The default command runner requires the Bun runtime; inject a CommandRunner to run elsewhere."
     );
   }
   const child = bun.spawn({
     cmd: [command, ...args],
+    stderr: "pipe",
     stdin: stdin === undefined ? "ignore" : new TextEncoder().encode(stdin),
     stdout: "pipe",
-    stderr: "pipe",
   });
   const [stdout, stderr, exitCode] = await Promise.all([
     bun.readableStreamToText(child.stdout),
     bun.readableStreamToText(child.stderr),
     child.exited,
   ]);
-  return { stdout, stderr, exitCode };
+  return { exitCode, stderr, stdout };
 };
 
 /** True when a thrown spawn error indicates the executable was not found. */
 function isMissingExecutable(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
     const code = (error as { code?: unknown }).code;
-    if (code === "ENOENT") return true;
+    if (code === "ENOENT") {
+      return true;
+    }
   }
   const message = error instanceof Error ? error.message : String(error);
   return /ENOENT|not found|no such file/i.test(message);
@@ -122,18 +124,18 @@ export interface GithubIdentity {
  *   not print them, and this helper only surfaces `gh`'s own diagnostics.
  */
 export async function getGithubIdentity(
-  options?: GhOptions,
+  options?: GhOptions
 ): Promise<GithubIdentity> {
   const ghCommand = options?.ghCommand ?? DEFAULT_GH_COMMAND;
   const runner = options?.runner ?? defaultRunner;
 
   let result: CommandResult;
   try {
-    result = await runner({ command: ghCommand, args: ["api", "user"] });
+    result = await runner({ args: ["api", "user"], command: ghCommand });
   } catch (error) {
     if (isMissingExecutable(error)) {
       throw new Error(
-        `GitHub CLI (\`${ghCommand}\`) was not found on your PATH. Install it from https://cli.github.com/ and run \`gh auth login\`.`,
+        `GitHub CLI (\`${ghCommand}\`) was not found on your PATH. Install it from https://cli.github.com/ and run \`gh auth login\`.`
       );
     }
     throw error;
@@ -142,7 +144,7 @@ export async function getGithubIdentity(
   if (result.exitCode !== 0) {
     const detail = result.stderr.trim() || `exit code ${result.exitCode}`;
     throw new Error(
-      `GitHub CLI could not read your account. Run \`gh auth login\` to authenticate. Details: ${detail}`,
+      `GitHub CLI could not read your account. Run \`gh auth login\` to authenticate. Details: ${detail}`
     );
   }
 
@@ -151,7 +153,7 @@ export async function getGithubIdentity(
     parsed = JSON.parse(result.stdout);
   } catch {
     throw new Error(
-      "GitHub CLI returned a response that was not valid JSON for `gh api user`.",
+      "GitHub CLI returned a response that was not valid JSON for `gh api user`."
     );
   }
   const login =
@@ -163,7 +165,7 @@ export async function getGithubIdentity(
       : "";
   if (login.length === 0) {
     throw new Error(
-      "GitHub CLI response for `gh api user` did not include a login. Run `gh auth login` to authenticate.",
+      "GitHub CLI response for `gh api user` did not include a login. Run `gh auth login` to authenticate."
     );
   }
   return { login };
@@ -171,22 +173,22 @@ export async function getGithubIdentity(
 
 /** Content and metadata for a public profile Gist to publish. */
 export interface CreatePublicProfileGistInput {
-  /** Gist filename, e.g. `<profile-name>.yml`. Passed verbatim to `gh`. */
-  readonly filename: string;
   /** Exact file contents, piped to `gh` over stdin (no temp file). */
   readonly content: string;
   /** Human-readable Gist description. */
   readonly description: string;
+  /** Gist filename, e.g. `<profile-name>.yml`. Passed verbatim to `gh`. */
+  readonly filename: string;
 }
 
 /** Coordinates of a published Gist. */
 export interface CreatedGist {
-  /** Canonical GitHub API URL: `https://api.github.com/gists/<id>`. */
-  readonly url: string;
-  /** Browser-facing URL as reported by `gh` (`https://gist.github.com/...`). */
-  readonly htmlUrl: string;
   /** The Gist's opaque hex identifier. */
   readonly gistId: string;
+  /** Browser-facing URL as reported by `gh` (`https://gist.github.com/...`). */
+  readonly htmlUrl: string;
+  /** Canonical GitHub API URL: `https://api.github.com/gists/<id>`. */
+  readonly url: string;
 }
 
 /**
@@ -202,7 +204,7 @@ export interface CreatedGist {
  */
 export async function createPublicProfileGist(
   input: CreatePublicProfileGistInput,
-  options?: GhOptions,
+  options?: GhOptions
 ): Promise<CreatedGist> {
   const ghCommand = options?.ghCommand ?? DEFAULT_GH_COMMAND;
   const runner = options?.runner ?? defaultRunner;
@@ -220,11 +222,11 @@ export async function createPublicProfileGist(
 
   let result: CommandResult;
   try {
-    result = await runner({ command: ghCommand, args, stdin: input.content });
+    result = await runner({ args, command: ghCommand, stdin: input.content });
   } catch (error) {
     if (isMissingExecutable(error)) {
       throw new Error(
-        `GitHub CLI (\`${ghCommand}\`) was not found on your PATH. Install it from https://cli.github.com/ and run \`gh auth login\`.`,
+        `GitHub CLI (\`${ghCommand}\`) was not found on your PATH. Install it from https://cli.github.com/ and run \`gh auth login\`.`
       );
     }
     throw error;
@@ -238,21 +240,23 @@ export async function createPublicProfileGist(
   const htmlUrl = extractGistUrl(result.stdout);
   if (htmlUrl === null) {
     throw new Error(
-      `GitHub CLI did not report a Gist URL after creation. Output: ${result.stdout.trim() || "(empty)"}`,
+      `GitHub CLI did not report a Gist URL after creation. Output: ${result.stdout.trim() || "(empty)"}`
     );
   }
   const { gistId } = parseGistLocation(htmlUrl);
   return {
-    url: `https://api.github.com/gists/${gistId}`,
-    htmlUrl,
     gistId,
+    htmlUrl,
+    url: `https://api.github.com/gists/${gistId}`,
   };
 }
 
 /** Find the first `gist.github.com` URL in `gh`'s stdout, or `null`. */
 function extractGistUrl(stdout: string): string | null {
   const match = stdout.match(/https?:\/\/gist\.github\.com\/\S+/);
-  if (match === null) return null;
+  if (match === null) {
+    return null;
+  }
   // Strip trailing punctuation the shell/terminal may have appended.
   return match[0].replace(/[).,]+$/, "");
 }

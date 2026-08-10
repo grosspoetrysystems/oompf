@@ -8,14 +8,15 @@
  * prerequisites). A copyable `oompf add` command makes installation one paste.
  * The canonical Gist is linked directly — never hidden behind an abstraction.
  */
+
+import type { ProfileRecord } from "@oompf/database";
 import Base from "../../layouts/Base.astro";
 import {
-  IndexError,
-  getProfileMetadata,
-  resolveRepository,
   type AppLocals,
+  getProfileMetadata,
+  IndexError,
+  resolveRepository,
 } from "../../lib/services/index-profile.ts";
-import type { ProfileRecord } from "@oompf/database";
 
 export const prerender = false;
 
@@ -42,17 +43,18 @@ try {
 
 const facts = record?.facts ?? null;
 const validation = record?.validation ?? null;
-const installCommand = record !== null ? `oompf add ${record.sourceUrl}` : "";
+const installCommand = record === null ? "" : `oompf add ${record.sourceUrl}`;
 const advisorEntries =
-  facts?.advisor != null
-    ? Object.entries(facts.advisor).filter(([, value]) => value !== undefined)
-    : [];
+  facts?.advisor == null
+    ? []
+    : Object.entries(facts.advisor).filter(([, value]) => value !== undefined);
 ---
 
-<Base title={record !== null ? `${record.profileName} — OOMPF` : "Profile — OOMPF"}>
+<Base
+  title={record !== null ? `${record.profileName} — OOMPF` : "Profile — OOMPF"}
+>
   <div class="wrap">
-    {
-      record === null ? (
+    {record === null ? (
         <section class="hero">
           <h1>Profile not found</h1>
           <p class="notice">{errorMessage}</p>
@@ -200,13 +202,14 @@ const advisorEntries =
             </section>
           )}
         </article>
-      )
-    }
+      )}
   </div>
 </Base>
 
 <script>
-  const button = document.getElementById("copy-btn") as HTMLButtonElement | null;
+  const button = document.getElementById(
+    "copy-btn"
+  ) as HTMLButtonElement | null;
   button?.addEventListener("click", async () => {
     const command = button.dataset.command ?? "";
     try {

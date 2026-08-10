@@ -40,7 +40,7 @@ export function assertProfileDocument(value: unknown): Record<string, unknown> {
           ? "a sequence"
           : `a ${typeof value}`;
     throw new TypeError(
-      `Profile YAML must have a mapping at its root, but found ${kind}.`,
+      `Profile YAML must have a mapping at its root, but found ${kind}.`
     );
   }
   return value as Record<string, unknown>;

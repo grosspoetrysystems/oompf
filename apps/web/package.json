@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "wrangler dev",
     "astro": "astro",
+    "build": "astro build",
+    "dev": "astro dev",
+    "preview": "wrangler dev",
     "typecheck": "astro check"
   },
   "dependencies": {

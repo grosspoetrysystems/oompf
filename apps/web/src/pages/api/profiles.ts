@@ -10,13 +10,13 @@
 import type { APIRoute } from "astro";
 
 import {
+  type AppLocals,
   indexPublicGist,
+  jsonResponse,
   parseRegisterBody,
   resolveRepository,
   toErrorEnvelope,
   toRegisterResponse,
-  jsonResponse,
-  type AppLocals,
 } from "../../lib/services/index-profile.ts";
 
 export const prerender = false;
@@ -27,8 +27,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const repository = await resolveRepository(appLocals);
     const input = await parseRegisterBody(request);
     const record = await indexPublicGist(input, {
-      repository,
       fetchGist: appLocals.fetchGist,
+      repository,
     });
     return jsonResponse(200, toRegisterResponse(record));
   } catch (error) {

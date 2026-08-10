@@ -9,11 +9,11 @@
 import type { APIRoute } from "astro";
 
 import {
+  type AppLocals,
   getProfileMetadata,
+  jsonResponse,
   resolveRepository,
   toErrorEnvelope,
-  jsonResponse,
-  type AppLocals,
 } from "../../../lib/services/index-profile.ts";
 
 export const prerender = false;

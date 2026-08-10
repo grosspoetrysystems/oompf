@@ -15,7 +15,7 @@ import { registerAdd } from "./commands/add.ts";
 import { registerInspect } from "./commands/inspect.ts";
 import { registerPublish } from "./commands/publish.ts";
 import { registerSearch } from "./commands/search.ts";
-import { resolveDeps, type CliDeps } from "./deps.ts";
+import { type CliDeps, resolveDeps } from "./deps.ts";
 
 /** OOMPF CLI version, surfaced by `oompf --version`. */
 export const CLI_VERSION = "0.0.0";
@@ -25,9 +25,9 @@ export function createCli(deps: CliDeps = {}) {
   const resolved = resolveDeps(deps);
   const cli = Cli.create("oompf", {
     description: "Share and install OMP profiles",
-    version: CLI_VERSION,
     // No auto-update network calls; the CLI is agent-oriented and deterministic.
     update: false,
+    version: CLI_VERSION,
   });
   registerPublish(cli, resolved);
   registerAdd(cli, resolved);

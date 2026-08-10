@@ -8,11 +8,11 @@
 import type { APIRoute } from "astro";
 
 import {
-  searchIndexedProfiles,
-  resolveRepository,
-  toErrorEnvelope,
-  jsonResponse,
   type AppLocals,
+  jsonResponse,
+  resolveRepository,
+  searchIndexedProfiles,
+  toErrorEnvelope,
 } from "../../lib/services/index-profile.ts";
 
 export const prerender = false;

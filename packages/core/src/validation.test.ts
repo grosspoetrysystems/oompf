@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
-
+import { sha256 } from "./hash.ts";
 import {
   DEFAULT_MAX_BYTES,
   scanForSecrets,
   validateArtifact,
 } from "./validation.ts";
-import { sha256 } from "./hash.ts";
 import { parseProfileYaml } from "./yaml-config.ts";
 
 /**
@@ -106,9 +105,9 @@ describe("validateArtifact size boundary (UTF-8 bytes)", () => {
     const yaml = 'k: "😀😀😀😀"\n';
     const encoded = new TextEncoder().encode(yaml).length;
     expect(encoded).toBeGreaterThan(yaml.length);
-    const overByBytes = validateArtifact({ yaml, maxBytes: encoded - 1 });
+    const overByBytes = validateArtifact({ maxBytes: encoded - 1, yaml });
     expect(overByBytes.structural).toBe("invalid");
-    const withinBytes = validateArtifact({ yaml, maxBytes: encoded });
+    const withinBytes = validateArtifact({ maxBytes: encoded, yaml });
     expect(withinBytes.structural).toBe("valid");
   });
 });
@@ -116,9 +115,9 @@ describe("validateArtifact size boundary (UTF-8 bytes)", () => {
 describe("scanForSecrets", () => {
   test("flags provider credential patterns as high confidence", () => {
     const doc = {
-      openai: "sk-abcdefghijklmnopqrstuvwxyz0123456789",
-      github: "ghp_0123456789abcdefghijklmnopqrstuvwx12",
       aws: "AKIAABCDEFGHIJKLMNOP",
+      github: "ghp_0123456789abcdefghijklmnopqrstuvwx12",
+      openai: "sk-abcdefghijklmnopqrstuvwxyz0123456789",
       pem: "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----",
     };
     const findings = scanForSecrets(doc);
@@ -136,9 +135,9 @@ describe("scanForSecrets", () => {
     const findings = scanForSecrets({ apiKey: "a-real-looking-token-value" });
     expect(findings).toEqual([
       {
-        path: "apiKey",
-        kind: "credential",
         confidence: "high",
+        kind: "credential",
+        path: "apiKey",
         reason: "credential-like key holds a literal value",
       },
     ]);
@@ -188,10 +187,10 @@ describe("validateArtifact secret handling", () => {
     expect(result.blocking).toHaveLength(1);
     expect(result.blocking[0]?.kind).toBe("github-token");
     const serialized = JSON.stringify({
-      errors: result.errors,
-      warnings: result.warnings,
       blocking: result.blocking,
+      errors: result.errors,
       findings: result.findings,
+      warnings: result.warnings,
     });
     expect(serialized).not.toContain(secret);
   });
@@ -209,7 +208,7 @@ describe("sha256", () => {
   test("hashes UTF-8 bytes deterministically", () => {
     // Known SHA-256 of the ASCII string "abc".
     expect(sha256("abc")).toBe(
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     );
     expect(sha256("abc")).toBe(sha256("abc"));
   });
@@ -237,14 +236,18 @@ describe("parseProfileYaml runtime portability", () => {
     const runtime = globalThis as unknown as { Bun?: { YAML?: unknown } };
     const bun = runtime.Bun;
     const savedYaml = bun?.YAML;
-    if (bun) bun.YAML = undefined;
+    if (bun) {
+      bun.YAML = undefined;
+    }
     try {
       expect(parseProfileYaml("theme: dark\nmodels:\n  - a\n")).toEqual({
-        theme: "dark",
         models: ["a"],
+        theme: "dark",
       });
     } finally {
-      if (bun) bun.YAML = savedYaml;
+      if (bun) {
+        bun.YAML = savedYaml;
+      }
     }
   });
 });

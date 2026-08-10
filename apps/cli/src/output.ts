@@ -20,62 +20,62 @@ export const cliEnv = z.object({
 
 /** `publish` result: where the profile now lives and how to install it. */
 export const publishOutput = z.object({
-  profile: z.string().describe("Local OMP profile that was published"),
-  githubUrl: z.string().describe("Public Gist URL on GitHub"),
-  oompfUrl: z.string().describe("Canonical OOMPF profile URL"),
+  addCommand: z.string().describe("Copyable command to install this profile"),
   gistId: z.string(),
-  revision: z.string().nullable().describe("Pinned Gist revision, when known"),
+  githubUrl: z.string().describe("Public Gist URL on GitHub"),
   hash: z.string().describe("SHA-256 of the published artifact"),
+  oompfUrl: z.string().describe("Canonical OOMPF profile URL"),
+  profile: z.string().describe("Local OMP profile that was published"),
+  revision: z.string().nullable().describe("Pinned Gist revision, when known"),
   structural: z.enum(["valid", "invalid"]),
   warnings: z.array(z.string()),
-  addCommand: z.string().describe("Copyable command to install this profile"),
 });
 
 /** `add` result: the installed profile and how to run it. */
 export const addOutput = z.object({
+  command: z.string().describe("Command to run OMP with this profile"),
+  hash: z.string().describe("SHA-256 of the installed artifact"),
   name: z.string().describe("Local OMP profile name installed"),
   path: z.string().describe("Config file written"),
-  source: z.string().describe("Resolved canonical source"),
   revision: z.string().nullable(),
-  hash: z.string().describe("SHA-256 of the installed artifact"),
-  command: z.string().describe("Command to run OMP with this profile"),
+  source: z.string().describe("Resolved canonical source"),
   warnings: z.array(z.string()),
 });
 
 /** `inspect` result: metadata only — never artifact content. */
 export const inspectOutput = z.object({
+  errors: z.array(z.string()),
+  hash: z.string(),
+  installCommand: z.string(),
+  models: z.array(z.string()),
+  name: z.string(),
+  ompVersion: z.string().nullable(),
+  owner: z.string().nullable(),
+  providers: z.array(z.string()),
+  revision: z.string().nullable(),
   source: z.string(),
   sourceType: z.enum(["gist", "oompf"]),
-  name: z.string(),
-  owner: z.string().nullable(),
-  revision: z.string().nullable(),
-  hash: z.string(),
   structural: z.enum(["valid", "invalid"]),
-  errors: z.array(z.string()),
   warnings: z.array(z.string()),
-  models: z.array(z.string()),
-  providers: z.array(z.string()),
-  ompVersion: z.string().nullable(),
-  installCommand: z.string(),
 });
 
 /** A single compact record in `search` output. */
 export const searchResult = z.object({
   id: z.string(),
+  models: z.array(z.string()),
   name: z.string(),
   owner: z.string().nullable(),
-  source: z.string(),
-  revision: z.string().nullable(),
-  structural: z.enum(["valid", "invalid"]),
-  models: z.array(z.string()),
   providers: z.array(z.string()),
-  url: z.string(),
+  revision: z.string().nullable(),
+  source: z.string(),
+  structural: z.enum(["valid", "invalid"]),
   updatedAt: z.string(),
+  url: z.string(),
 });
 
 /** `search` result: the query plus its compact matches. */
 export const searchOutput = z.object({
-  query: z.string(),
   count: z.number(),
+  query: z.string(),
   results: z.array(searchResult),
 });

@@ -6,8 +6,8 @@
 import "../styles/global.css";
 
 interface Props {
-  title?: string;
   description?: string;
+  title?: string;
 }
 
 const {
@@ -21,9 +21,9 @@ const q = Astro.url.searchParams.get("q") ?? "";
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content={description} />
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <meta content={description} name="description">
     <title>{title}</title>
     <slot name="head" />
   </head>
@@ -34,14 +34,14 @@ const q = Astro.url.searchParams.get("q") ?? "";
           <span class="brand-mark">◆</span>
           <span class="brand-name">OOMPF</span>
         </a>
-        <form class="header-search" method="get" action="/" role="search">
+        <form action="/" class="header-search" method="get">
           <input
-            type="search"
-            name="q"
-            value={q}
-            placeholder="Search profiles, models, providers…"
             aria-label="Search profiles"
-          />
+            name="q"
+            placeholder="Search profiles, models, providers…"
+            type="search"
+            value={q}
+          >
         </form>
         <nav class="header-nav">
           <a href="/">Browse</a>

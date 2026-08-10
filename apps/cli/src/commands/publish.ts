@@ -11,13 +11,12 @@
  * abort the publish before anything leaves the machine.
  */
 
-import { z, type Cli } from "incur";
-
 import { validateArtifact } from "@oompf/core";
 import { createPublicProfileGist, getGithubIdentity } from "@oompf/github";
+import { type Cli, z } from "incur";
 
 import { registerProfile } from "../api.ts";
-import { CommandError, toCliError, type ResolvedDeps } from "../deps.ts";
+import { CommandError, type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, publishOutput } from "../output.ts";
 
 /** Concatenate the base URL and a site-relative path from the register call. */
@@ -26,31 +25,33 @@ function toOompfUrl(baseUrl: string, path: string): string {
 }
 
 /** Read the publisher's OMP setup version from extracted facts, when present. */
-function ompVersionFromFacts(fields: Readonly<Record<string, unknown>>): string | undefined {
+function ompVersionFromFacts(
+  fields: Readonly<Record<string, unknown>>
+): string | undefined {
   const value = fields.setupVersion;
-  if (typeof value === "string" && value.trim() !== "") return value.trim();
-  if (typeof value === "number") return String(value);
-  return undefined;
+  if (typeof value === "string" && value.trim() !== "") {
+    return value.trim();
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
 }
 
 /** Register the `publish` command on the given CLI. */
-export function registerPublish(
-  cli: Cli.Cli,
-  deps: ResolvedDeps,
-): void {
+export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
   cli.command("publish", {
-    description: "Publish a local OMP profile as a public Gist and index it",
     args: z.object({
       profile: z
         .string()
         .optional()
         .describe("Local OMP profile name; omitted picks the sole profile"),
     }),
+    description: "Publish a local OMP profile as a public Gist and index it",
     env: cliEnv,
-    output: publishOutput,
     examples: [
       { args: { profile: "work" }, description: "Publish the 'work' profile" },
     ],
+    output: publishOutput,
     async run(c) {
       try {
         const ompOptions = { ompCommand: deps.ompCommand };
@@ -58,37 +59,37 @@ export function registerPublish(
         // 1. Resolve the named profile (or derive it when unambiguous).
         let name: string;
         let configPath: string | null;
-        if (c.args.profile !== undefined) {
-          const resolved = await deps.resolveProfileConfig(
-            c.args.profile,
-            ompOptions,
-          );
-          name = resolved.profile;
-          configPath = resolved.configPath;
-        } else {
+        if (c.args.profile === undefined) {
           const discovered = await deps.discoverProfiles(ompOptions);
           if (discovered.length === 0) {
             throw new CommandError(
               "no_profile",
-              "No OMP profiles found. Pass a profile name: oompf publish <profile>.",
+              "No OMP profiles found. Pass a profile name: oompf publish <profile>."
             );
           }
           if (discovered.length > 1) {
             const names = discovered.map((p) => p.name).join(", ");
             throw new CommandError(
               "ambiguous_profile",
-              `Multiple profiles found (${names}). Specify one: oompf publish <profile>.`,
+              `Multiple profiles found (${names}). Specify one: oompf publish <profile>.`
             );
           }
           const only = discovered[0]!;
           name = only.name;
           configPath = only.configPath;
+        } else {
+          const resolved = await deps.resolveProfileConfig(
+            c.args.profile,
+            ompOptions
+          );
+          name = resolved.profile;
+          configPath = resolved.configPath;
         }
 
         if (configPath === null) {
           throw new CommandError(
             "missing_config",
-            `Profile "${name}" has no config.yml/config.yaml to publish.`,
+            `Profile "${name}" has no config.yml/config.yaml to publish.`
           );
         }
 
@@ -98,56 +99,59 @@ export function registerPublish(
         if (validation.structural === "invalid") {
           throw new CommandError(
             "invalid_artifact",
-            `Profile "${name}" is not a valid artifact: ${validation.errors.join("; ")}`,
+            `Profile "${name}" is not a valid artifact: ${validation.errors.join("; ")}`
           );
         }
         if (validation.blocking.length > 0) {
           const where = validation.blocking.map((f) => f.path).join(", ");
           throw new CommandError(
             "blocking_secrets",
-            `Refusing to publish: high-confidence secrets detected at ${where}. Remove them and retry.`,
+            `Refusing to publish: high-confidence secrets detected at ${where}. Remove them and retry.`
           );
         }
 
         // 3. Verify GitHub authentication before creating anything.
-        await getGithubIdentity({ runner: deps.runner, ghCommand: deps.ghCommand });
+        await getGithubIdentity({
+          ghCommand: deps.ghCommand,
+          runner: deps.runner,
+        });
 
         // 4. Create the public one-file Gist.
         const gist = await createPublicProfileGist(
           {
-            filename: `${name}.yml`,
             content: yaml,
             description: `OMP profile "${name}" shared via OOMPF`,
+            filename: `${name}.yml`,
           },
-          { runner: deps.runner, ghCommand: deps.ghCommand },
+          { ghCommand: deps.ghCommand, runner: deps.runner }
         );
 
         // 5. Register the source with the OOMPF web API.
         const ompVersion = ompVersionFromFacts(validation.facts?.fields ?? {});
         const registration = await registerProfile(
           c.env.OOMPF_BASE_URL,
-          { source: gist.htmlUrl, ompVersion },
-          deps.httpFetch,
+          { ompVersion, source: gist.htmlUrl },
+          deps.httpFetch
         );
 
         const oompfUrl = toOompfUrl(c.env.OOMPF_BASE_URL, registration.url);
         const addCommand = `oompf add ${oompfUrl}`;
         return c.ok(
           {
-            profile: name,
-            githubUrl: gist.htmlUrl,
-            oompfUrl,
+            addCommand,
             gistId: gist.gistId,
-            revision: null,
+            githubUrl: gist.htmlUrl,
             hash: validation.hash,
+            oompfUrl,
+            profile: name,
+            revision: null,
             structural: registration.validation.structural,
             warnings: [
               ...validation.warnings,
               ...registration.validation.warnings,
             ],
-            addCommand,
           },
-          { cta: { description: "Install it with:", commands: [addCommand] } },
+          { cta: { commands: [addCommand], description: "Install it with:" } }
         );
       } catch (error) {
         return toCliError(c.error, error);

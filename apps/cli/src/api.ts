@@ -14,9 +14,9 @@ import { CommandError, type HttpFetch } from "./deps.ts";
 /** Response body of `POST /api/profiles`. */
 export interface RegisterResponse {
   readonly id: string;
+  readonly source: string;
   /** Site-relative profile path, e.g. `/p/<id>`. */
   readonly url: string;
-  readonly source: string;
   readonly validation: {
     readonly level: "structural";
     readonly structural: "valid" | "invalid";
@@ -28,16 +28,16 @@ export interface RegisterResponse {
 /** A compact profile record as returned by search and listings. */
 export interface CompactProfile {
   readonly id: string;
-  readonly url: string;
-  readonly name: string;
-  readonly owner: string | null;
-  readonly source: string;
-  readonly ompVersion: string | null;
-  readonly structural: "valid" | "invalid";
   readonly models: readonly string[];
+  readonly name: string;
+  readonly ompVersion: string | null;
+  readonly owner: string | null;
   readonly providers: readonly string[];
   readonly revision: string | null;
+  readonly source: string;
+  readonly structural: "valid" | "invalid";
   readonly updatedAt: string;
+  readonly url: string;
 }
 
 /** Response body of `GET /api/search`. */
@@ -48,8 +48,8 @@ export interface SearchResponse {
 
 /** Body accepted by {@link registerProfile}. */
 export interface RegisterBody {
-  readonly source: string;
   readonly ompVersion?: string;
+  readonly source: string;
 }
 
 /** Join a base URL and an absolute path without doubling slashes. */
@@ -60,7 +60,7 @@ function joinUrl(base: string, path: string): string {
 /** Build a {@link CommandError} from a non-OK response's JSON error envelope. */
 async function envelopeError(
   response: { status: number; text(): Promise<string> },
-  fallbackCode: string,
+  fallbackCode: string
 ): Promise<CommandError> {
   let code = fallbackCode;
   let message = `The OOMPF API responded with HTTP ${response.status}.`;
@@ -68,7 +68,10 @@ async function envelopeError(
     const parsed = JSON.parse(await response.text()) as {
       error?: { code?: unknown; message?: unknown };
     };
-    if (typeof parsed.error?.code === "string" && parsed.error.code.length > 0) {
+    if (
+      typeof parsed.error?.code === "string" &&
+      parsed.error.code.length > 0
+    ) {
       code = parsed.error.code;
     }
     if (
@@ -86,7 +89,7 @@ async function envelopeError(
 /** Parse a JSON body, or fail with a stable code when it is malformed. */
 async function parseJson<T>(
   response: { text(): Promise<string> },
-  code: string,
+  code: string
 ): Promise<T> {
   const text = await response.text();
   try {
@@ -94,7 +97,7 @@ async function parseJson<T>(
   } catch {
     throw new CommandError(
       code,
-      "The OOMPF API returned a response that was not valid JSON.",
+      "The OOMPF API returned a response that was not valid JSON."
     );
   }
 }
@@ -103,14 +106,14 @@ async function parseJson<T>(
 async function request(
   fetchImpl: HttpFetch,
   url: string,
-  init: Parameters<HttpFetch>[1],
+  init: Parameters<HttpFetch>[1]
 ) {
   try {
     return await fetchImpl(url, init);
   } catch {
     throw new CommandError(
       "network_error",
-      `Could not reach the OOMPF API at ${url}.`,
+      `Could not reach the OOMPF API at ${url}.`
     );
   }
 }
@@ -119,14 +122,16 @@ async function request(
 export async function registerProfile(
   baseUrl: string,
   body: RegisterBody,
-  fetchImpl: HttpFetch,
+  fetchImpl: HttpFetch
 ): Promise<RegisterResponse> {
   const response = await request(fetchImpl, joinUrl(baseUrl, "/api/profiles"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+    headers: { "content-type": "application/json" },
+    method: "POST",
   });
-  if (!response.ok) throw await envelopeError(response, "register_failed");
+  if (!response.ok) {
+    throw await envelopeError(response, "register_failed");
+  }
   return parseJson<RegisterResponse>(response, "register_failed");
 }
 
@@ -134,14 +139,16 @@ export async function registerProfile(
 export async function fetchProfileMetadata(
   baseUrl: string,
   id: string,
-  fetchImpl: HttpFetch,
+  fetchImpl: HttpFetch
 ): Promise<ProfileRecord> {
   const response = await request(
     fetchImpl,
     joinUrl(baseUrl, `/api/profiles/${encodeURIComponent(id)}`),
-    { method: "GET" },
+    { method: "GET" }
   );
-  if (!response.ok) throw await envelopeError(response, "not_found");
+  if (!response.ok) {
+    throw await envelopeError(response, "not_found");
+  }
   return parseJson<ProfileRecord>(response, "not_found");
 }
 
@@ -149,11 +156,13 @@ export async function fetchProfileMetadata(
 export async function searchProfiles(
   baseUrl: string,
   query: string,
-  fetchImpl: HttpFetch,
+  fetchImpl: HttpFetch
 ): Promise<SearchResponse> {
   const url = joinUrl(baseUrl, `/api/search?q=${encodeURIComponent(query)}`);
   const response = await request(fetchImpl, url, { method: "GET" });
-  if (!response.ok) throw await envelopeError(response, "search_failed");
+  if (!response.ok) {
+    throw await envelopeError(response, "search_failed");
+  }
   return parseJson<SearchResponse>(response, "search_failed");
 }
 
@@ -167,7 +176,9 @@ const PROFILE_ID_PATTERN = /^prof_[0-9a-f]{32}$/;
  */
 export function parseOompfRef(ref: string): string | null {
   const trimmed = ref.trim();
-  if (PROFILE_ID_PATTERN.test(trimmed)) return trimmed;
+  if (PROFILE_ID_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
   const match = trimmed.match(/\/p\/(prof_[0-9a-f]{32})\/?$/);
   return match?.[1] ?? null;
 }

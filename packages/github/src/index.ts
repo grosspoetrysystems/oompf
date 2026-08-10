@@ -9,10 +9,6 @@ import { VERSION } from "@oompf/core";
 /** Marker exposing the shared workspace version this package was built against. */
 export const GITHUB_PACKAGE_VERSION = VERSION;
 
-export {
-  getGithubIdentity,
-  createPublicProfileGist,
-} from "./gh.ts";
 export type {
   CommandInput,
   CommandResult,
@@ -22,16 +18,19 @@ export type {
   GhOptions,
   GithubIdentity,
 } from "./gh.ts";
-
 export {
-  fetchPublicGist,
-  normalizeGistUrl,
-  parseGistLocation,
-} from "./gists.ts";
+  createPublicProfileGist,
+  getGithubIdentity,
+} from "./gh.ts";
 export type {
   FetchPublicGistOptions,
   GistFetch,
   GistFetchResponse,
   GistLocation,
   GistSource,
+} from "./gists.ts";
+export {
+  fetchPublicGist,
+  normalizeGistUrl,
+  parseGistLocation,
 } from "./gists.ts";

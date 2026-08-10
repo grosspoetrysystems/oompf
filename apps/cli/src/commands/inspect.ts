@@ -8,13 +8,12 @@
  * emitted.
  */
 
-import { z, type Cli } from "incur";
-
 import { validateArtifact } from "@oompf/core";
 import { fetchPublicGist } from "@oompf/github";
+import { type Cli, z } from "incur";
 
 import { fetchProfileMetadata, parseOompfRef } from "../api.ts";
-import { toCliError, type ResolvedDeps } from "../deps.ts";
+import { type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, inspectOutput } from "../output.ts";
 
 /** Strip a recognised YAML extension from a Gist filename to get the stem. */
@@ -24,29 +23,33 @@ function filenameStem(filename: string): string {
 
 /** Read the OMP setup version from extracted facts, when present. */
 function ompVersionFromFacts(
-  fields: Readonly<Record<string, unknown>> | undefined,
+  fields: Readonly<Record<string, unknown>> | undefined
 ): string | null {
   const value = fields?.setupVersion;
-  if (typeof value === "string" && value.trim() !== "") return value.trim();
-  if (typeof value === "number") return String(value);
+  if (typeof value === "string" && value.trim() !== "") {
+    return value.trim();
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
   return null;
 }
 
 /** Register the `inspect` command on the given CLI. */
 export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
   cli.command("inspect", {
-    description: "Show a shared profile's metadata without installing it",
     args: z.object({
       ref: z.string().describe("OOMPF URL/id, public Gist URL, or Gist id"),
     }),
+    description: "Show a shared profile's metadata without installing it",
     env: cliEnv,
-    output: inspectOutput,
     examples: [
       {
         args: { ref: "https://gist.github.com/octocat/abc123" },
         description: "Inspect a public Gist profile",
       },
     ],
+    output: inspectOutput,
     async run(c) {
       try {
         const oompfId = parseOompfRef(c.args.ref);
@@ -54,58 +57,60 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
           const record = await fetchProfileMetadata(
             c.env.OOMPF_BASE_URL,
             oompfId,
-            deps.httpFetch,
+            deps.httpFetch
           );
           return c.ok(
             {
+              errors: [...record.validation.errors],
+              hash: record.contentHash,
+              installCommand: `oompf add ${c.args.ref}`,
+              models: [...record.facts.models],
+              name: record.profileName,
+              ompVersion: record.ompVersion,
+              owner: record.owner,
+              providers: [...record.facts.providers],
+              revision: record.revision,
               source: record.sourceUrl,
               sourceType: "oompf",
-              name: record.profileName,
-              owner: record.owner,
-              revision: record.revision,
-              hash: record.contentHash,
               structural: record.validation.structural,
-              errors: [...record.validation.errors],
               warnings: [...record.validation.warnings],
-              models: [...record.facts.models],
-              providers: [...record.facts.providers],
-              ompVersion: record.ompVersion,
-              installCommand: `oompf add ${c.args.ref}`,
             },
             {
               cta: {
-                description: "Install it with:",
                 commands: [`oompf add ${c.args.ref}`],
+                description: "Install it with:",
               },
-            },
+            }
           );
         }
 
-        const gist = await fetchPublicGist(c.args.ref, { fetch: deps.gistFetch });
+        const gist = await fetchPublicGist(c.args.ref, {
+          fetch: deps.gistFetch,
+        });
         const validation = validateArtifact({ yaml: gist.content });
         const facts = validation.facts;
         return c.ok(
           {
+            errors: [...validation.errors],
+            hash: gist.contentHash,
+            installCommand: `oompf add ${c.args.ref}`,
+            models: facts ? [...facts.models] : [],
+            name: filenameStem(gist.filename),
+            ompVersion: ompVersionFromFacts(facts?.fields),
+            owner: gist.owner,
+            providers: facts ? [...facts.providers] : [],
+            revision: gist.revision,
             source: gist.htmlUrl,
             sourceType: "gist",
-            name: filenameStem(gist.filename),
-            owner: gist.owner,
-            revision: gist.revision,
-            hash: gist.contentHash,
             structural: validation.structural,
-            errors: [...validation.errors],
             warnings: [...validation.warnings],
-            models: facts ? [...facts.models] : [],
-            providers: facts ? [...facts.providers] : [],
-            ompVersion: ompVersionFromFacts(facts?.fields),
-            installCommand: `oompf add ${c.args.ref}`,
           },
           {
             cta: {
-              description: "Install it with:",
               commands: [`oompf add ${c.args.ref}`],
+              description: "Install it with:",
             },
-          },
+          }
         );
       } catch (error) {
         return toCliError(c.error, error);

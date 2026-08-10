@@ -4,12 +4,22 @@ import { extractFacts } from "./facts.ts";
 
 /** A representative native OMP profile document. */
 const sample: Record<string, unknown> = {
-  symbolPreset: "nerd",
-  theme: "dark",
-  setupVersion: 7,
+  advisor: {
+    enabled: true,
+    subagents: ["reviewer"],
+    syncBacklog: false,
+  },
+  context: { window: 200_000 },
   defaultThinkingLevel: "high",
   disabledProviders: ["openai"],
   enabledModels: ["deepseek/deepseek-v4-flash", "openai/gpt-4o"],
+  extensions: [{ name: "custom-ext", path: "/local/ext.ts" }],
+  // An unrecognized future OMP key that must be preserved, not dropped.
+  futureSetting: { experimental: true },
+  hooks: ["teacher"],
+  inspect_image: true,
+  memory: { enabled: true },
+  mnemopi: { store: "local" },
   modelRoles: {
     default: "anthropic/claude-opus-4",
     smol: "anthropic/claude-haiku-4",
@@ -20,38 +30,28 @@ const sample: Record<string, unknown> = {
       default: ["anthropic/claude-opus-4", "google/gemini-2.5-pro"],
     },
   },
-  advisor: {
-    enabled: true,
-    subagents: ["reviewer"],
-    syncBacklog: false,
-  },
-  hooks: ["teacher"],
-  extensions: [{ name: "custom-ext", path: "/local/ext.ts" }],
-  memory: { enabled: true },
-  mnemopi: { store: "local" },
-  inspect_image: true,
-  context: { window: 200000 },
-  // An unrecognized future OMP key that must be preserved, not dropped.
-  futureSetting: { experimental: true },
+  setupVersion: 7,
+  symbolPreset: "nerd",
+  theme: "dark",
 };
 
 describe("extractFacts", () => {
   test("captures scalar profile identity fields present", () => {
     const facts = extractFacts(sample);
     expect(facts.fields).toEqual({
+      defaultThinkingLevel: "high",
+      setupVersion: 7,
       symbolPreset: "nerd",
       theme: "dark",
-      setupVersion: 7,
-      defaultThinkingLevel: "high",
     });
   });
 
   test("extracts model roles", () => {
     const facts = extractFacts(sample);
     expect(facts.modelRoles).toEqual([
-      { role: "default", model: "anthropic/claude-opus-4" },
-      { role: "smol", model: "anthropic/claude-haiku-4" },
-      { role: "task", model: "deepseek/deepseek-v4" },
+      { model: "anthropic/claude-opus-4", role: "default" },
+      { model: "anthropic/claude-haiku-4", role: "smol" },
+      { model: "deepseek/deepseek-v4", role: "task" },
     ]);
   });
 
@@ -71,8 +71,8 @@ describe("extractFacts", () => {
     const facts = extractFacts(sample);
     expect(facts.fallbackChains).toEqual([
       {
-        role: "default",
         models: ["anthropic/claude-opus-4", "google/gemini-2.5-pro"],
+        role: "default",
       },
     ]);
   });
@@ -109,7 +109,7 @@ describe("extractFacts", () => {
       mnemopi: { store: "local" },
     });
     expect(facts.inspection).toEqual({ inspect_image: true });
-    expect(facts.context).toEqual({ window: 200000 });
+    expect(facts.context).toEqual({ window: 200_000 });
     expect(facts.disabledProviders).toEqual(["openai"]);
   });
 
@@ -139,8 +139,8 @@ describe("extractFacts", () => {
 
   test("derives environment and project-overlay prerequisites", () => {
     const facts = extractFacts({
-      modelRoles: { default: "anthropic/claude-opus-4" },
       baseUrl: "${OMP_BASE_URL}",
+      modelRoles: { default: "anthropic/claude-opus-4" },
       projectOverlays: [".omp/config.yml"],
     });
     const env = facts.prerequisites.filter((p) => p.kind === "environment");
@@ -148,11 +148,12 @@ describe("extractFacts", () => {
       {
         kind: "environment",
         name: "OMP_BASE_URL",
-        reason: 'Environment variable "OMP_BASE_URL" must be set in the local runtime.',
+        reason:
+          'Environment variable "OMP_BASE_URL" must be set in the local runtime.',
       },
     ]);
     const overlays = facts.prerequisites.filter(
-      (p) => p.kind === "project-overlay",
+      (p) => p.kind === "project-overlay"
     );
     expect(overlays.map((p) => p.name)).toEqual([".omp/config.yml"]);
   });

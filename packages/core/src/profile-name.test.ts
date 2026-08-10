@@ -30,7 +30,9 @@ describe("validateProfileName", () => {
     const tooLong = "a".repeat(MAX_PROFILE_NAME_LENGTH + 1);
     const result = validateProfileName(tooLong);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(/at most 64/);
+    if (!result.ok) {
+      expect(result.reason).toMatch(/at most 64/);
+    }
   });
 
   test("never silently rewrites a name (no lowercasing or truncation)", () => {
@@ -58,19 +60,25 @@ describe("validateProfileName", () => {
   ])("rejects out-of-charset name %p", (name, pattern) => {
     const result = validateProfileName(name);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(pattern);
+    if (!result.ok) {
+      expect(result.reason).toMatch(pattern);
+    }
   });
 
   test.each([".", ".."])("rejects the dotted name %p", (name) => {
     const result = validateProfileName(name);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(/"\." or "\.\."/);
+    if (!result.ok) {
+      expect(result.reason).toMatch(/"\." or "\.\."/);
+    }
   });
 
   test.each(["trail.", "a.."])("rejects trailing-dot name %p", (name) => {
     const result = validateProfileName(name);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(/cannot end with/);
+    if (!result.ok) {
+      expect(result.reason).toMatch(/cannot end with/);
+    }
   });
 
   // Reserved names can only reach the device-name check in lowercase; an
@@ -90,12 +98,16 @@ describe("validateProfileName", () => {
   ])("rejects Windows reserved device name %p", (name) => {
     const result = validateProfileName(name);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(/reserved device name/);
+    if (!result.ok) {
+      expect(result.reason).toMatch(/reserved device name/);
+    }
   });
 
   test("rejects an uppercase reserved spelling via the charset rule", () => {
     const result = validateProfileName("CON");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toMatch(/must match/);
+    if (!result.ok) {
+      expect(result.reason).toMatch(/must match/);
+    }
   });
 });

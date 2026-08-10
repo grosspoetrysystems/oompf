@@ -6,46 +6,46 @@
  * records machine-readably.
  */
 
-import { z, type Cli } from "incur";
+import { type Cli, z } from "incur";
 
 import { searchProfiles } from "../api.ts";
-import { toCliError, type ResolvedDeps } from "../deps.ts";
+import { type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, searchOutput } from "../output.ts";
 
 /** Register the `search` command on the given CLI. */
 export function registerSearch(cli: Cli.Cli, deps: ResolvedDeps): void {
   cli.command("search", {
-    description: "Search the OOMPF index for shared profiles",
     args: z.object({
       query: z.string().optional().describe("Free-text query; empty lists all"),
     }),
+    description: "Search the OOMPF index for shared profiles",
     env: cliEnv,
-    output: searchOutput,
     examples: [
       { args: { query: "anthropic" }, description: "Search for a term" },
     ],
+    output: searchOutput,
     async run(c) {
       try {
         const query = c.args.query ?? "";
         const response = await searchProfiles(
           c.env.OOMPF_BASE_URL,
           query,
-          deps.httpFetch,
+          deps.httpFetch
         );
         return c.ok({
-          query: response.query,
           count: response.results.length,
+          query: response.query,
           results: response.results.map((r) => ({
             id: r.id,
+            models: [...r.models],
             name: r.name,
             owner: r.owner,
-            source: r.source,
-            revision: r.revision,
-            structural: r.structural,
-            models: [...r.models],
             providers: [...r.providers],
-            url: r.url,
+            revision: r.revision,
+            source: r.source,
+            structural: r.structural,
             updatedAt: r.updatedAt,
+            url: r.url,
           })),
         });
       } catch (error) {

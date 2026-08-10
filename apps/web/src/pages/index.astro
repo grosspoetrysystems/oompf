@@ -7,12 +7,12 @@
  */
 import Base from "../layouts/Base.astro";
 import {
+  type AppLocals,
+  type CompactProfile,
   IndexError,
   listFeaturedProfiles,
   resolveRepository,
   searchIndexedProfiles,
-  type AppLocals,
-  type CompactProfile,
 } from "../lib/services/index-profile.ts";
 
 export const prerender = false;
@@ -57,8 +57,7 @@ const heading = q === "" ? "Featured profiles" : `Results for “${q}”`;
 
     <section class="section">
       <h2>{heading}</h2>
-      {
-        dbError !== null ? (
+      {dbError !== null ? (
           <p class="notice">{dbError}</p>
         ) : profiles.length === 0 ? (
           <p class="empty">
@@ -88,8 +87,7 @@ const heading = q === "" ? "Featured profiles" : `Results for “${q}”`;
               </a>
             ))}
           </div>
-        )
-      }
+        )}
     </section>
   </div>
 </Base>

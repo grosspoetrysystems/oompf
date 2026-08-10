@@ -9,12 +9,12 @@
  * driver-agnostic {@link createProfileRepository}, so tests and alternate
  * bindings can supply their own Drizzle database.
  */
-import { VERSION } from "@oompf/core";
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
 
+import { neon } from "@neondatabase/serverless";
+import { VERSION } from "@oompf/core";
+import { drizzle } from "drizzle-orm/neon-http";
+import type { ProfileDatabase } from "./repository.ts";
 import { schema } from "./schema.ts";
-import { type ProfileDatabase } from "./repository.ts";
 
 /** Marker exposing the shared workspace version this package was built against. */
 export const DATABASE_PACKAGE_VERSION = VERSION;
@@ -24,25 +24,26 @@ export const DATABASE_PACKAGE_VERSION = VERSION;
  * The returned handle is passed to {@link createProfileRepository}.
  */
 export function createNeonDatabase(connectionString: string): ProfileDatabase {
-  return drizzle(neon(connectionString), { schema }) as unknown as ProfileDatabase;
+  return drizzle(neon(connectionString), {
+    schema,
+  }) as unknown as ProfileDatabase;
 }
-
-export {
-  profiles,
-  schema,
-  type ProfileInsert,
-  type ProfileRow,
-  type ProfileValidationMetadata,
-  type StoredSecretFinding,
-} from "./schema.ts";
 
 export {
   createProfileRepository,
   deriveProfileId,
-  toValidationMetadata,
   type ProfileDatabase,
   type ProfileRecord,
   type ProfileRepository,
   type RegisterProfileInput,
+  toValidationMetadata,
   type ValidationInput,
 } from "./repository.ts";
+export {
+  type ProfileInsert,
+  type ProfileRow,
+  type ProfileValidationMetadata,
+  profiles,
+  type StoredSecretFinding,
+  schema,
+} from "./schema.ts";

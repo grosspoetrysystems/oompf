@@ -6,32 +6,6 @@
  */
 export const VERSION = "0.0.0";
 
-export {
-  discoverProfiles,
-  resolveInstallTarget,
-  resolveProfileConfig,
-} from "./omp-profile.ts";
-export type {
-  DiscoveredProfile,
-  OmpProfileOptions,
-  ResolvedProfileConfig,
-} from "./omp-profile.ts";
-
-export { validateProfileName, MAX_PROFILE_NAME_LENGTH } from "./profile-name.ts";
-export type {
-  InvalidProfileName,
-  ProfileNameResult,
-  ValidProfileName,
-} from "./profile-name.ts";
-
-export { assertProfileDocument, parseProfileYaml } from "./yaml-config.ts";
-
-export { sha256 } from "./hash.ts";
-
-export { scanForSecrets, validateArtifact, DEFAULT_MAX_BYTES } from "./validation.ts";
-export type { ArtifactValidation, SecretFinding } from "./validation.ts";
-
-export { extractFacts } from "./facts.ts";
 export type {
   AdvisorFacts,
   FallbackChain,
@@ -39,3 +13,31 @@ export type {
   Prerequisite,
   ProfileFacts,
 } from "./facts.ts";
+export { extractFacts } from "./facts.ts";
+export { sha256 } from "./hash.ts";
+export type {
+  DiscoveredProfile,
+  OmpProfileOptions,
+  ResolvedProfileConfig,
+} from "./omp-profile.ts";
+export {
+  discoverProfiles,
+  resolveInstallTarget,
+  resolveProfileConfig,
+} from "./omp-profile.ts";
+export type {
+  InvalidProfileName,
+  ProfileNameResult,
+  ValidProfileName,
+} from "./profile-name.ts";
+export {
+  MAX_PROFILE_NAME_LENGTH,
+  validateProfileName,
+} from "./profile-name.ts";
+export type { ArtifactValidation, SecretFinding } from "./validation.ts";
+export {
+  DEFAULT_MAX_BYTES,
+  scanForSecrets,
+  validateArtifact,
+} from "./validation.ts";
+export { assertProfileDocument, parseProfileYaml } from "./yaml-config.ts";

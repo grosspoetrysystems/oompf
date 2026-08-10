@@ -3,26 +3,25 @@ import { describe, expect, test } from "bun:test";
 import { sha256 } from "@oompf/core";
 import {
   deriveProfileId,
-  toValidationMetadata,
   type ProfileRecord,
   type ProfileRepository,
   type RegisterProfileInput,
+  toValidationMetadata,
 } from "@oompf/database";
 import type { GistSource } from "@oompf/github/gists";
 import type { APIContext } from "astro";
-
+import { GET as getProfileRoute } from "../../pages/api/profiles/[id].ts";
+import { POST } from "../../pages/api/profiles.ts";
+import { GET as searchRoute } from "../../pages/api/search.ts";
 import {
-  IndexError,
+  type FetchPublicGist,
   getProfileMetadata,
+  IndexError,
   indexPublicGist,
   searchIndexedProfiles,
   toCompactProfile,
   toRegisterResponse,
-  type FetchPublicGist,
 } from "./index-profile.ts";
-import { POST } from "../../pages/api/profiles.ts";
-import { GET as getProfileRoute } from "../../pages/api/profiles/[id].ts";
-import { GET as searchRoute } from "../../pages/api/search.ts";
 
 /**
  * A distinctive line that only ever exists in the raw YAML body. It is not a
@@ -64,15 +63,18 @@ const INVALID_YAML = "- just\n- a\n- list\n";
 /** Build a resolved Gist source, defaulting the hash to match its content. */
 function makeGist(overrides: Partial<GistSource> = {}): GistSource {
   const base = {
+    content: VALID_YAML,
+    filename: "atlas.yml",
     gistId: GIST_ID,
+    htmlUrl: SOURCE,
     owner: "octocat" as string | null,
     revision: REV_A as string | null,
-    filename: "atlas.yml",
-    content: VALID_YAML,
-    htmlUrl: SOURCE,
   };
   const merged = { ...base, ...overrides };
-  return { ...merged, contentHash: overrides.contentHash ?? sha256(merged.content) };
+  return {
+    ...merged,
+    contentHash: overrides.contentHash ?? sha256(merged.content),
+  };
 }
 
 /** A fetch seam that always resolves the given source. */
@@ -90,9 +92,9 @@ function throwingFetchGist(message: string): FetchPublicGist {
 /** Call counters exposed by the fake repository. */
 interface RepoCalls {
   createOrUpdate: number;
+  findBySource: number;
   get: number;
   search: number;
-  findBySource: number;
 }
 
 /**
@@ -106,28 +108,14 @@ function fakeRepository(): {
   calls: RepoCalls;
 } {
   const rows = new Map<string, ProfileRecord>();
-  const calls: RepoCalls = { createOrUpdate: 0, get: 0, search: 0, findBySource: 0 };
+  const calls: RepoCalls = {
+    createOrUpdate: 0,
+    findBySource: 0,
+    get: 0,
+    search: 0,
+  };
 
   const repo: ProfileRepository = {
-    async findBySource(sourceUrl) {
-      calls.findBySource++;
-      for (const row of rows.values()) {
-        if (row.sourceUrl === sourceUrl) return row;
-      }
-      return null;
-    },
-    async getProfile(id) {
-      calls.get++;
-      return rows.get(id) ?? null;
-    },
-    async searchProfiles(query) {
-      calls.search++;
-      const q = query.trim().toLowerCase();
-      if (q === "") return [];
-      return [...rows.values()].filter((row) =>
-        JSON.stringify(row).toLowerCase().includes(q),
-      );
-    },
     async createOrUpdateProfile(input: RegisterProfileInput) {
       calls.createOrUpdate++;
       const id = deriveProfileId(input.sourceUrl);
@@ -143,48 +131,71 @@ function fakeRepository(): {
         }
         const updated: ProfileRecord = {
           ...existing,
-          sourceType: input.sourceType,
-          gistId: input.gistId ?? null,
-          owner: input.owner ?? null,
-          profileName: input.profileName,
-          ompVersion: input.ompVersion ?? null,
-          revision,
           contentHash: input.contentHash,
           facts: input.facts,
-          validation,
+          gistId: input.gistId ?? null,
+          ompVersion: input.ompVersion ?? null,
+          owner: input.owner ?? null,
+          profileName: input.profileName,
+          revision,
+          sourceType: input.sourceType,
           updatedAt: new Date(existing.updatedAt.getTime() + 1000),
+          validation,
         };
         rows.set(id, updated);
         return updated;
       }
       const now = new Date("2026-01-01T00:00:00.000Z");
       const row: ProfileRecord = {
-        id,
-        sourceType: input.sourceType,
-        sourceUrl: input.sourceUrl,
+        contentHash: input.contentHash,
+        createdAt: now,
+        facts: input.facts,
         gistId: input.gistId ?? null,
+        id,
+        ompVersion: input.ompVersion ?? null,
         owner: input.owner ?? null,
         profileName: input.profileName,
-        ompVersion: input.ompVersion ?? null,
         revision,
-        contentHash: input.contentHash,
-        facts: input.facts,
-        validation,
-        createdAt: now,
+        sourceType: input.sourceType,
+        sourceUrl: input.sourceUrl,
         updatedAt: now,
+        validation,
       };
       rows.set(id, row);
       return row;
     },
+    async findBySource(sourceUrl) {
+      calls.findBySource++;
+      for (const row of rows.values()) {
+        if (row.sourceUrl === sourceUrl) {
+          return row;
+        }
+      }
+      return null;
+    },
+    async getProfile(id) {
+      calls.get++;
+      return rows.get(id) ?? null;
+    },
+    async searchProfiles(query) {
+      calls.search++;
+      const q = query.trim().toLowerCase();
+      if (q === "") {
+        return [];
+      }
+      return [...rows.values()].filter((row) =>
+        JSON.stringify(row).toLowerCase().includes(q)
+      );
+    },
   };
 
-  return { repo, rows, calls };
+  return { calls, repo, rows };
 }
 
 /** Invoke an Astro route handler with a minimal synthetic context. */
 function callRoute(
   handler: (context: APIContext) => Response | Promise<Response>,
-  context: Partial<APIContext>,
+  context: Partial<APIContext>
 ): Promise<Response> {
   return Promise.resolve(handler(context as unknown as APIContext));
 }
@@ -194,7 +205,7 @@ describe("indexPublicGist", () => {
     const { repo, rows } = fakeRepository();
     const record = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
 
     expect(record.id).toBe(deriveProfileId(CANONICAL));
@@ -214,8 +225,8 @@ describe("indexPublicGist", () => {
   test("preserves the publisher-supplied OMP version", async () => {
     const { repo } = fakeRepository();
     const record = await indexPublicGist(
-      { source: SOURCE, ompVersion: "0.3.1" },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { ompVersion: "0.3.1", source: SOURCE },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     expect(record.ompVersion).toBe("0.3.1");
   });
@@ -224,7 +235,10 @@ describe("indexPublicGist", () => {
     const { repo, calls } = fakeRepository();
     const promise = indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist({ content: INVALID_YAML })) },
+      {
+        fetchGist: stubFetchGist(makeGist({ content: INVALID_YAML })),
+        repository: repo,
+      }
     );
     await expect(promise).rejects.toBeInstanceOf(IndexError);
     await promise.catch((error: IndexError) => {
@@ -240,11 +254,11 @@ describe("indexPublicGist", () => {
     const promise = indexPublicGist(
       { source: SOURCE },
       {
-        repository: repo,
         fetchGist: throwingFetchGist(
-          `Public Gist "${GIST_ID}" was not found. It may be private, deleted, or the ID may be wrong.`,
+          `Public Gist "${GIST_ID}" was not found. It may be private, deleted, or the ID may be wrong.`
         ),
-      },
+        repository: repo,
+      }
     );
     await promise.catch((error: IndexError) => {
       expect(error.code).toBe("source_not_found");
@@ -258,11 +272,11 @@ describe("indexPublicGist", () => {
     const promise = indexPublicGist(
       { source: SOURCE },
       {
-        repository: repo,
         fetchGist: throwingFetchGist(
-          `Gist "${GIST_ID}" contains multiple YAML files (a.yml, b.yaml); the profile source is ambiguous.`,
+          `Gist "${GIST_ID}" contains multiple YAML files (a.yml, b.yaml); the profile source is ambiguous.`
         ),
-      },
+        repository: repo,
+      }
     );
     await promise.catch((error: IndexError) => {
       expect(error.code).toBe("ambiguous_source");
@@ -280,7 +294,7 @@ describe("indexPublicGist", () => {
     };
     const promise = indexPublicGist(
       { source: "https://github.com/octocat/repo" },
-      { repository: repo, fetchGist: spyFetch },
+      { fetchGist: spyFetch, repository: repo }
     );
     await promise.catch((error: IndexError) => {
       expect(error.code).toBe("invalid_source");
@@ -295,11 +309,11 @@ describe("indexPublicGist", () => {
     const { repo, rows, calls } = fakeRepository();
     const first = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const second = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     expect(second.id).toBe(first.id);
     expect(second.updatedAt.getTime()).toBe(first.updatedAt.getTime());
@@ -311,19 +325,23 @@ describe("indexPublicGist", () => {
     const { repo, rows } = fakeRepository();
     const first = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const second = await indexPublicGist(
       { source: SOURCE },
       {
+        fetchGist: stubFetchGist(
+          makeGist({ content: VALID_YAML_V2, revision: REV_B })
+        ),
         repository: repo,
-        fetchGist: stubFetchGist(makeGist({ revision: REV_B, content: VALID_YAML_V2 })),
-      },
+      }
     );
     expect(second.id).toBe(first.id);
     expect(second.revision).toBe(REV_B);
     expect(second.contentHash).toBe(sha256(VALID_YAML_V2));
-    expect(second.updatedAt.getTime()).toBeGreaterThan(first.updatedAt.getTime());
+    expect(second.updatedAt.getTime()).toBeGreaterThan(
+      first.updatedAt.getTime()
+    );
     expect(rows.size).toBe(1);
   });
 
@@ -331,7 +349,7 @@ describe("indexPublicGist", () => {
     const { repo, rows } = fakeRepository();
     const record = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const stored = rows.get(record.id);
     expect(stored).toBeDefined();
@@ -347,13 +365,13 @@ describe("response shaping", () => {
     const { repo } = fakeRepository();
     const record = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const response = toRegisterResponse(record);
     expect(response).toMatchObject({
       id: record.id,
-      url: `/p/${record.id}`,
       source: CANONICAL,
+      url: `/p/${record.id}`,
       validation: { level: "structural", structural: "valid" },
     });
   });
@@ -362,7 +380,7 @@ describe("response shaping", () => {
     const { repo } = fakeRepository();
     const record = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const compact = toCompactProfile(record);
     expect(compact.url).toBe(`/p/${record.id}`);
@@ -379,7 +397,7 @@ describe("getProfileMetadata", () => {
     const { repo } = fakeRepository();
     const record = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const fetched = await getProfileMetadata(repo, record.id);
     expect(fetched.id).toBe(record.id);
@@ -401,7 +419,7 @@ describe("searchIndexedProfiles", () => {
     const { repo } = fakeRepository();
     await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const results = await searchIndexedProfiles(repo, "atlas");
     expect(results.length).toBe(1);
@@ -420,13 +438,16 @@ describe("POST /api/profiles", () => {
   test("returns the registration JSON shape on success", async () => {
     const { repo } = fakeRepository();
     const request = new Request("https://oompf.test/api/profiles", {
-      method: "POST",
+      body: JSON.stringify({ ompVersion: "0.3.1", source: SOURCE }),
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ source: SOURCE, ompVersion: "0.3.1" }),
+      method: "POST",
     });
     const res = await callRoute(POST, {
+      locals: {
+        fetchGist: stubFetchGist(makeGist()),
+        repository: repo,
+      } as never,
       request,
-      locals: { repository: repo, fetchGist: stubFetchGist(makeGist()) } as never,
     });
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -445,16 +466,18 @@ describe("POST /api/profiles", () => {
   test("returns a 400 error envelope for a missing source", async () => {
     const { repo } = fakeRepository();
     const request = new Request("https://oompf.test/api/profiles", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ notSource: 1 }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const res = await callRoute(POST, {
-      request,
       locals: { repository: repo } as never,
+      request,
     });
     expect(res.status).toBe(400);
-    const json = (await res.json()) as { error: { code: string; message: string } };
+    const json = (await res.json()) as {
+      error: { code: string; message: string };
+    };
     expect(json.error.code).toBe("invalid_source");
     expect(typeof json.error.message).toBe("string");
   });
@@ -462,16 +485,16 @@ describe("POST /api/profiles", () => {
   test("returns a 422 error envelope for a structurally invalid profile", async () => {
     const { repo } = fakeRepository();
     const request = new Request("https://oompf.test/api/profiles", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ source: SOURCE }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const res = await callRoute(POST, {
-      request,
       locals: {
-        repository: repo,
         fetchGist: stubFetchGist(makeGist({ content: INVALID_YAML })),
+        repository: repo,
       } as never,
+      request,
     });
     expect(res.status).toBe(422);
     const json = (await res.json()) as {
@@ -487,11 +510,11 @@ describe("GET /api/profiles/:id", () => {
     const { repo } = fakeRepository();
     const record = await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const res = await callRoute(getProfileRoute, {
-      params: { id: record.id },
       locals: { repository: repo } as never,
+      params: { id: record.id },
     });
     expect(res.status).toBe(200);
     const text = await res.text();
@@ -503,8 +526,8 @@ describe("GET /api/profiles/:id", () => {
   test("returns a 404 error envelope for an unknown id", async () => {
     const { repo } = fakeRepository();
     const res = await callRoute(getProfileRoute, {
-      params: { id: "prof_missing" },
       locals: { repository: repo } as never,
+      params: { id: "prof_missing" },
     });
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error: { code: string } };
@@ -517,11 +540,11 @@ describe("GET /api/search", () => {
     const { repo } = fakeRepository();
     await indexPublicGist(
       { source: SOURCE },
-      { repository: repo, fetchGist: stubFetchGist(makeGist()) },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
     const res = await callRoute(searchRoute, {
-      url: new URL("https://oompf.test/api/search?q=atlas"),
       locals: { repository: repo } as never,
+      url: new URL("https://oompf.test/api/search?q=atlas"),
     });
     expect(res.status).toBe(200);
     const json = (await res.json()) as {

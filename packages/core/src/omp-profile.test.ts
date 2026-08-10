@@ -48,7 +48,9 @@ beforeAll(async () => {
 });
 
 afterEach(() => {
-  for (const key of stubEnvKeys) delete process.env[key];
+  for (const key of stubEnvKeys) {
+    delete process.env[key];
+  }
 });
 
 describe("resolveInstallTarget", () => {
@@ -66,7 +68,7 @@ describe("resolveInstallTarget", () => {
   test("rejects an invalid profile name before invoking OMP", async () => {
     process.env.OOMPF_STUB_PROFILE_DIR = join(tmpdir(), "unused");
     await expect(
-      resolveInstallTarget("BAD_UPPER", { ompCommand: stubCommand }),
+      resolveInstallTarget("BAD_UPPER", { ompCommand: stubCommand })
     ).rejects.toThrow(/must match/);
   });
 
@@ -86,7 +88,7 @@ describe("resolveInstallTarget", () => {
     process.env.OOMPF_STUB_PROFILE_DIR = join(tmpdir(), "unused");
     process.env.OOMPF_STUB_EXIT = "1";
     await expect(
-      resolveInstallTarget("boom", { ompCommand: stubCommand }),
+      resolveInstallTarget("boom", { ompCommand: stubCommand })
     ).rejects.toThrow(/OMP failed to resolve/);
   });
 });
@@ -132,7 +134,7 @@ describe("resolveProfileConfig", () => {
     const agentDir = await makeTempDir();
     await writeFile(
       join(agentDir, "config.yml"),
-      "model: opus\nnested:\n  future_flag: true\nunknown_key: 42\n",
+      "model: opus\nnested:\n  future_flag: true\nunknown_key: 42\n"
     );
     process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
 
@@ -150,10 +152,10 @@ describe("resolveProfileConfig", () => {
     process.env.OOMPF_STUB_PROFILE_DIR = join(
       tmpdir(),
       "oompf-missing-profile-987654",
-      "agent",
+      "agent"
     );
     await expect(
-      resolveProfileConfig("ghost", { ompCommand: stubCommand }),
+      resolveProfileConfig("ghost", { ompCommand: stubCommand })
     ).rejects.toThrow(/is not a directory/);
   });
 
@@ -163,13 +165,13 @@ describe("resolveProfileConfig", () => {
     process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
 
     await expect(
-      resolveProfileConfig("work", { ompCommand: stubCommand }),
+      resolveProfileConfig("work", { ompCommand: stubCommand })
     ).rejects.toThrow(/mapping at its root/);
   });
 
   test("rejects an invalid profile name before invoking OMP", async () => {
     await expect(
-      resolveProfileConfig("..", { ompCommand: stubCommand }),
+      resolveProfileConfig("..", { ompCommand: stubCommand })
     ).rejects.toThrow(/"\." or "\.\."/);
   });
 });
@@ -185,7 +187,7 @@ describe("discoverProfiles", () => {
     await mkdir(join(profilesRoot, "alpha", "agent"), { recursive: true });
     await writeFile(
       join(profilesRoot, "alpha", "agent", "config.yml"),
-      "model: opus\n",
+      "model: opus\n"
     );
     // beta: valid, no config file
     await mkdir(join(profilesRoot, "beta", "agent"), { recursive: true });
@@ -204,7 +206,7 @@ describe("discoverProfiles", () => {
     const [alpha, beta] = profiles;
     expect(alpha?.agentDir).toBe(join(profilesRoot, "alpha", "agent"));
     expect(alpha?.configPath).toBe(
-      join(profilesRoot, "alpha", "agent", "config.yml"),
+      join(profilesRoot, "alpha", "agent", "config.yml")
     );
     expect(beta?.configPath).toBeNull();
   });

@@ -13,15 +13,15 @@
  * metadata and `updatedAt` while preserving the first-indexed `createdAt`.
  */
 
-import { sha256 } from "@oompf/core";
 import type { ProfileFacts } from "@oompf/core";
+import { sha256 } from "@oompf/core";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import {
-  profiles,
   type ProfileRow,
   type ProfileValidationMetadata,
+  profiles,
   type StoredSecretFinding,
 } from "./schema.ts";
 
@@ -41,45 +41,45 @@ export type ProfileDatabase = PgDatabase<PgQueryResultHKT>;
  * `yaml`, `facts`) which are projected away before persistence.
  */
 export interface ValidationInput {
-  readonly structural: "valid" | "invalid";
-  readonly errors: readonly string[];
-  readonly warnings: readonly string[];
   readonly blocking: readonly StoredSecretFinding[];
-  readonly findings: readonly StoredSecretFinding[];
   readonly byteLength: number;
+  readonly errors: readonly string[];
+  readonly findings: readonly StoredSecretFinding[];
   readonly hash: string;
+  readonly structural: "valid" | "invalid";
+  readonly warnings: readonly string[];
 }
 
 /** Metadata supplied when registering (or re-registering) a source. */
 export interface RegisterProfileInput {
-  /** Origin kind, e.g. `"gist"`. */
-  readonly sourceType: string;
-  /** Canonical, normalized source URL. */
-  readonly sourceUrl: string;
-  /** Opaque Gist identifier when applicable. */
-  readonly gistId?: string | null;
-  /** Source owner login, or `null`/omitted when anonymous. */
-  readonly owner?: string | null;
-  /** Human-facing profile name. */
-  readonly profileName: string;
-  /** OMP version the profile targets, when declared. */
-  readonly ompVersion?: string | null;
-  /** Pinned source revision (git SHA), when known. */
-  readonly revision?: string | null;
   /** Lowercase hex SHA-256 of the canonical source bytes. */
   readonly contentHash: string;
   /** Normalized, source-derived facts. */
   readonly facts: ProfileFacts;
+  /** Opaque Gist identifier when applicable. */
+  readonly gistId?: string | null;
+  /** OMP version the profile targets, when declared. */
+  readonly ompVersion?: string | null;
+  /** Source owner login, or `null`/omitted when anonymous. */
+  readonly owner?: string | null;
+  /** Human-facing profile name. */
+  readonly profileName: string;
+  /** Pinned source revision (git SHA), when known. */
+  readonly revision?: string | null;
+  /** Origin kind, e.g. `"gist"`. */
+  readonly sourceType: string;
+  /** Canonical, normalized source URL. */
+  readonly sourceUrl: string;
   /** Structural validation results (content fields are stripped). */
   readonly validation: ValidationInput;
 }
 
 /** Persistence surface for indexed profile metadata. */
 export interface ProfileRepository {
-  /** Find the record registered for a canonical source URL, if any. */
-  findBySource(sourceUrl: string): Promise<ProfileRecord | null>;
   /** Register a source or refresh its metadata; idempotent per source URL. */
   createOrUpdateProfile(input: RegisterProfileInput): Promise<ProfileRecord>;
+  /** Find the record registered for a canonical source URL, if any. */
+  findBySource(sourceUrl: string): Promise<ProfileRecord | null>;
   /** Look up a record by its stable opaque id. */
   getProfile(id: string): Promise<ProfileRecord | null>;
   /** Free-text search across name, owner, and normalized facts. */
@@ -99,25 +99,27 @@ export function deriveProfileId(sourceUrl: string): string {
  * Project a validation result down to persisted metadata, dropping any parsed
  * document or original YAML bytes so no canonical artifact content is stored.
  */
-export function toValidationMetadata(input: ValidationInput): ProfileValidationMetadata {
+export function toValidationMetadata(
+  input: ValidationInput
+): ProfileValidationMetadata {
   return {
-    structural: input.structural,
-    errors: [...input.errors],
-    warnings: [...input.warnings],
     blocking: input.blocking.map((f) => ({
-      path: f.path,
-      kind: f.kind,
       confidence: f.confidence,
-      reason: f.reason,
-    })),
-    findings: input.findings.map((f) => ({
-      path: f.path,
       kind: f.kind,
-      confidence: f.confidence,
+      path: f.path,
       reason: f.reason,
     })),
     byteLength: input.byteLength,
+    errors: [...input.errors],
+    findings: input.findings.map((f) => ({
+      confidence: f.confidence,
+      kind: f.kind,
+      path: f.path,
+      reason: f.reason,
+    })),
     hash: input.hash,
+    structural: input.structural,
+    warnings: [...input.warnings],
   };
 }
 
@@ -130,8 +132,12 @@ function likeTerm(query: string): string {
 /**
  * Build a {@link ProfileRepository} backed by the injected Drizzle database.
  */
-export function createProfileRepository(db: ProfileDatabase): ProfileRepository {
-  async function findBySource(sourceUrl: string): Promise<ProfileRecord | null> {
+export function createProfileRepository(
+  db: ProfileDatabase
+): ProfileRepository {
+  async function findBySource(
+    sourceUrl: string
+  ): Promise<ProfileRecord | null> {
     const rows = await db
       .select()
       .from(profiles)
@@ -141,12 +147,16 @@ export function createProfileRepository(db: ProfileDatabase): ProfileRepository 
   }
 
   async function getProfile(id: string): Promise<ProfileRecord | null> {
-    const rows = await db.select().from(profiles).where(eq(profiles.id, id)).limit(1);
+    const rows = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, id))
+      .limit(1);
     return rows[0] ?? null;
   }
 
   async function createOrUpdateProfile(
-    input: RegisterProfileInput,
+    input: RegisterProfileInput
   ): Promise<ProfileRecord> {
     const id = deriveProfileId(input.sourceUrl);
     const revision = input.revision ?? null;
@@ -156,54 +166,63 @@ export function createProfileRepository(db: ProfileDatabase): ProfileRepository 
     if (existing) {
       // Idempotent: identical revision and content hash means nothing changed,
       // so return the current record untouched (createdAt/updatedAt preserved).
-      if (existing.revision === revision && existing.contentHash === input.contentHash) {
+      if (
+        existing.revision === revision &&
+        existing.contentHash === input.contentHash
+      ) {
         return existing;
       }
       const updated = await db
         .update(profiles)
         .set({
-          sourceType: input.sourceType,
-          gistId: input.gistId ?? null,
-          owner: input.owner ?? null,
-          profileName: input.profileName,
-          ompVersion: input.ompVersion ?? null,
-          revision,
           contentHash: input.contentHash,
           facts: input.facts,
-          validation,
+          gistId: input.gistId ?? null,
+          ompVersion: input.ompVersion ?? null,
+          owner: input.owner ?? null,
+          profileName: input.profileName,
+          revision,
+          sourceType: input.sourceType,
           updatedAt: new Date(),
+          validation,
         })
         .where(eq(profiles.id, existing.id))
         .returning();
       const row = updated[0];
-      if (!row) throw new Error(`profile disappeared during update: ${existing.id}`);
+      if (!row) {
+        throw new Error(`profile disappeared during update: ${existing.id}`);
+      }
       return row;
     }
 
     const inserted = await db
       .insert(profiles)
       .values({
-        id,
-        sourceType: input.sourceType,
-        sourceUrl: input.sourceUrl,
-        gistId: input.gistId ?? null,
-        owner: input.owner ?? null,
-        profileName: input.profileName,
-        ompVersion: input.ompVersion ?? null,
-        revision,
         contentHash: input.contentHash,
         facts: input.facts,
+        gistId: input.gistId ?? null,
+        id,
+        ompVersion: input.ompVersion ?? null,
+        owner: input.owner ?? null,
+        profileName: input.profileName,
+        revision,
+        sourceType: input.sourceType,
+        sourceUrl: input.sourceUrl,
         validation,
       })
       .returning();
     const row = inserted[0];
-    if (!row) throw new Error(`profile insert returned no row: ${id}`);
+    if (!row) {
+      throw new Error(`profile insert returned no row: ${id}`);
+    }
     return row;
   }
 
   async function searchProfiles(query: string): Promise<ProfileRecord[]> {
     const trimmed = query.trim();
-    if (trimmed === "") return [];
+    if (trimmed === "") {
+      return [];
+    }
     const term = likeTerm(trimmed);
     // Parameterized ILIKE across displayable columns plus the normalized facts
     // JSON (which carries model/provider/advisor/hook names). Casting JSONB to
@@ -216,11 +235,11 @@ export function createProfileRepository(db: ProfileDatabase): ProfileRepository 
           ilike(profiles.profileName, term),
           ilike(profiles.owner, term),
           ilike(profiles.sourceUrl, term),
-          sql`${profiles.facts}::text ILIKE ${term}`,
-        ),
+          sql`${profiles.facts}::text ILIKE ${term}`
+        )
       )
       .orderBy(profiles.profileName);
   }
 
-  return { findBySource, createOrUpdateProfile, getProfile, searchProfiles };
+  return { createOrUpdateProfile, findBySource, getProfile, searchProfiles };
 }

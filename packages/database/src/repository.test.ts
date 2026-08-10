@@ -1,16 +1,15 @@
 import { describe, expect, test } from "bun:test";
-
-import { validateArtifact, type ArtifactValidation } from "@oompf/core";
 import { PGlite } from "@electric-sql/pglite";
+import { type ArtifactValidation, validateArtifact } from "@oompf/core";
 import { drizzle } from "drizzle-orm/pglite";
 
 import {
   createProfileRepository,
   deriveProfileId,
-  toValidationMetadata,
   type ProfileDatabase,
   type ProfileRepository,
   type RegisterProfileInput,
+  toValidationMetadata,
 } from "./repository.ts";
 import { profiles, schema } from "./schema.ts";
 
@@ -52,30 +51,30 @@ async function freshRepo(): Promise<{
 }> {
   const client = new PGlite();
   const ddl = await Bun.file(
-    new URL("../migrations/0001_profiles.sql", import.meta.url),
+    new URL("../migrations/0001_profiles.sql", import.meta.url)
   ).text();
   await client.exec(ddl);
   const db = drizzle(client, { schema }) as unknown as ProfileDatabase;
-  return { repo: createProfileRepository(db), db };
+  return { db, repo: createProfileRepository(db) };
 }
 
 /** Build register input from a YAML artifact, with overrides. */
 function registerInput(
   yaml: string,
-  overrides: Partial<RegisterProfileInput> = {},
+  overrides: Partial<RegisterProfileInput> = {}
 ): RegisterProfileInput {
   const validation = validateArtifact({ yaml });
   expect(validation.structural).toBe("valid");
   return {
-    sourceType: "gist",
-    sourceUrl: "https://gist.github.com/octocat/abc123def456",
-    gistId: "abc123def456",
-    owner: "octocat",
-    profileName: "atlas",
-    ompVersion: "1.4.0",
-    revision: "a".repeat(40),
     contentHash: validation.hash,
     facts: validation.facts!,
+    gistId: "abc123def456",
+    ompVersion: "1.4.0",
+    owner: "octocat",
+    profileName: "atlas",
+    revision: "a".repeat(40),
+    sourceType: "gist",
+    sourceUrl: "https://gist.github.com/octocat/abc123def456",
     validation,
     ...overrides,
   };
@@ -100,7 +99,9 @@ describe("createOrUpdateProfile", () => {
     expect(record.updatedAt).toBeInstanceOf(Date);
 
     expect(await repo.getProfile(record.id)).toMatchObject({ id: record.id });
-    expect(await repo.findBySource(input.sourceUrl)).toMatchObject({ id: record.id });
+    expect(await repo.findBySource(input.sourceUrl)).toMatchObject({
+      id: record.id,
+    });
   });
 
   test("re-registering the same unchanged source is idempotent", async () => {
@@ -127,11 +128,11 @@ describe("createOrUpdateProfile", () => {
     const changed = validateArtifact({ yaml: changedYaml });
     const second = await repo.createOrUpdateProfile(
       registerInput(changedYaml, {
-        revision: "b".repeat(40),
         contentHash: changed.hash,
         facts: changed.facts!,
+        revision: "b".repeat(40),
         validation: changed,
-      }),
+      })
     );
 
     expect(second.id).toBe(first.id);
@@ -140,7 +141,9 @@ describe("createOrUpdateProfile", () => {
     expect(second.contentHash).not.toBe(first.contentHash);
     // First-indexed time survives; updated time never moves backwards.
     expect(second.createdAt.getTime()).toBe(first.createdAt.getTime());
-    expect(second.updatedAt.getTime()).toBeGreaterThanOrEqual(first.updatedAt.getTime());
+    expect(second.updatedAt.getTime()).toBeGreaterThanOrEqual(
+      first.updatedAt.getTime()
+    );
 
     const all = await db.select().from(profiles);
     expect(all).toHaveLength(1);
@@ -152,7 +155,7 @@ describe("deriveProfileId", () => {
     const url = "https://gist.github.com/octocat/abc123def456";
     expect(deriveProfileId(url)).toBe(deriveProfileId(url));
     expect(deriveProfileId(url)).not.toBe(
-      deriveProfileId("https://gist.github.com/octocat/999999999999"),
+      deriveProfileId("https://gist.github.com/octocat/999999999999")
     );
     expect(deriveProfileId(url)).toMatch(/^prof_[0-9a-f]{32}$/);
   });
@@ -164,7 +167,9 @@ describe("getProfile / findBySource", () => {
     await repo.createOrUpdateProfile(registerInput(PROFILE_YAML));
 
     expect(await repo.getProfile("prof_does_not_exist")).toBeNull();
-    expect(await repo.findBySource("https://gist.github.com/nobody/000")).toBeNull();
+    expect(
+      await repo.findBySource("https://gist.github.com/nobody/000")
+    ).toBeNull();
   });
 });
 
@@ -174,15 +179,15 @@ describe("searchProfiles", () => {
     await repo.createOrUpdateProfile(registerInput(PROFILE_YAML));
     await repo.createOrUpdateProfile(
       registerInput(OTHER_YAML, {
-        sourceUrl: "https://gist.github.com/ada/beacon0000",
-        gistId: "beacon0000",
-        owner: "ada",
-        profileName: "beacon",
-        ompVersion: null,
         contentHash: validateArtifact({ yaml: OTHER_YAML }).hash,
         facts: validateArtifact({ yaml: OTHER_YAML }).facts!,
+        gistId: "beacon0000",
+        ompVersion: null,
+        owner: "ada",
+        profileName: "beacon",
+        sourceUrl: "https://gist.github.com/ada/beacon0000",
         validation: validateArtifact({ yaml: OTHER_YAML }),
-      }),
+      })
     );
     return repo;
   }
@@ -201,7 +206,9 @@ describe("searchProfiles", () => {
       const repo = await seeded();
       const results = await repo.searchProfiles(query);
       expect(results.map((r) => r.profileName)).toContain(expectedName);
-      expect(results.every((r) => r.profileName !== otherThan(expectedName))).toBe(true);
+      expect(
+        results.every((r) => r.profileName !== otherThan(expectedName))
+      ).toBe(true);
     });
   }
 
@@ -225,7 +232,9 @@ describe("searchProfiles", () => {
 describe("metadata-only persistence", () => {
   test("never stores canonical artifact content", async () => {
     const { repo, db } = await freshRepo();
-    const record = await repo.createOrUpdateProfile(registerInput(PROFILE_YAML));
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
 
     const [stored] = await db.select().from(profiles);
     expect(stored).toBeDefined();

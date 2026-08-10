@@ -19,9 +19,11 @@
   --warn: #e5b567;
   --danger: #f0776a;
   --radius: 10px;
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo,
-    Consolas, monospace;
-  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas,
+    monospace;
+  --sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
@@ -34,19 +36,19 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
   font-family: var(--sans);
-  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
   text-rendering: optimizeLegibility;
 }
 
 .wrap {
   width: 100%;
   max-width: 980px;
-  margin: 0 auto;
   padding: 0 1.25rem;
+  margin: 0 auto;
 }
 
 a {
@@ -60,23 +62,23 @@ a:hover {
 
 /* ---------- Header ---------- */
 .site-header {
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-raised) 92%, transparent);
   position: sticky;
   top: 0;
   z-index: 10;
+  background: color-mix(in srgb, var(--bg-raised) 92%, transparent);
+  border-bottom: 1px solid var(--border);
   backdrop-filter: blur(8px);
 }
 .header-inner {
   display: flex;
-  align-items: center;
   gap: 1rem;
+  align-items: center;
   height: 60px;
 }
 .brand {
   display: inline-flex;
-  align-items: center;
   gap: 0.5rem;
+  align-items: center;
   font-weight: 700;
   color: var(--text);
   letter-spacing: 0.02em;
@@ -88,47 +90,47 @@ a:hover {
   color: var(--accent);
 }
 .header-search {
-  flex: 1;
   display: flex;
+  flex: 1;
 }
 .header-search input {
   width: 100%;
 }
 .header-nav {
   display: flex;
-  align-items: center;
   gap: 1rem;
+  align-items: center;
   white-space: nowrap;
 }
 .header-nav a {
-  color: var(--text-dim);
   font-size: 0.94rem;
+  color: var(--text-dim);
 }
 .header-nav a:hover {
   color: var(--text);
 }
 .header-nav .cta {
+  padding: 0.4rem 0.8rem;
+  font-weight: 600;
   color: var(--bg);
   background: var(--accent);
-  padding: 0.4rem 0.8rem;
   border-radius: var(--radius);
-  font-weight: 600;
 }
 .header-nav .cta:hover {
-  background: var(--accent-strong);
   text-decoration: none;
+  background: var(--accent-strong);
 }
 
 /* ---------- Inputs ---------- */
 input[type="search"],
 input[type="text"],
 input[type="url"] {
+  padding: 0.55rem 0.75rem;
   font: inherit;
   color: var(--text);
   background: var(--bg-inset);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  padding: 0.55rem 0.75rem;
 }
 input:focus {
   outline: 2px solid var(--accent);
@@ -136,14 +138,14 @@ input:focus {
 }
 
 button {
+  padding: 0.55rem 1rem;
   font: inherit;
   font-weight: 600;
   color: var(--bg);
+  cursor: pointer;
   background: var(--accent);
   border: 0;
   border-radius: var(--radius);
-  padding: 0.55rem 1rem;
-  cursor: pointer;
 }
 button:hover {
   background: var(--accent-strong);
@@ -162,34 +164,34 @@ button.ghost:hover {
   padding: 2.5rem 0 3.5rem;
 }
 .site-footer {
-  border-top: 1px solid var(--border);
-  color: var(--text-faint);
-  font-size: 0.86rem;
   padding: 1.5rem 0;
+  font-size: 0.86rem;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
 }
 
 .hero h1 {
+  margin: 0 0 0.6rem;
   font-size: clamp(1.9rem, 4vw, 2.7rem);
   line-height: 1.1;
-  margin: 0 0 0.6rem;
   letter-spacing: -0.01em;
 }
 .hero .lede {
-  color: var(--text-dim);
-  font-size: 1.1rem;
   max-width: 62ch;
   margin: 0 0 1.5rem;
+  font-size: 1.1rem;
+  color: var(--text-dim);
 }
 
 .section {
   margin-top: 2.75rem;
 }
 .section h2 {
+  margin: 0 0 1rem;
   font-size: 1.1rem;
+  color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-faint);
-  margin: 0 0 1rem;
 }
 
 /* ---------- Profile grid / cards ---------- */
@@ -200,58 +202,58 @@ button.ghost:hover {
 }
 .profile-card {
   display: block;
+  padding: 1rem 1.1rem;
+  color: inherit;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem;
-  color: inherit;
 }
 .profile-card:hover {
-  border-color: var(--border-strong);
   text-decoration: none;
+  border-color: var(--border-strong);
 }
 .profile-card .name {
-  font-weight: 700;
   font-size: 1.05rem;
+  font-weight: 700;
 }
 .profile-card .owner {
-  color: var(--text-faint);
-  font-size: 0.86rem;
   margin-left: 0.35rem;
+  font-size: 0.86rem;
+  color: var(--text-faint);
 }
 .profile-card .meta {
-  margin-top: 0.6rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  margin-top: 0.6rem;
 }
 
 .tag {
+  padding: 0.15rem 0.55rem;
   font-family: var(--mono);
   font-size: 0.76rem;
   color: var(--text-dim);
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.15rem 0.55rem;
 }
 
 .empty {
+  padding: 1.5rem;
   color: var(--text-faint);
+  text-align: center;
   background: var(--bg-inset);
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
-  padding: 1.5rem;
-  text-align: center;
 }
 
 /* ---------- Register form ---------- */
 .form-card {
+  max-width: 640px;
+  padding: 1.5rem;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.5rem;
-  max-width: 640px;
 }
 .form-row {
   display: flex;
@@ -262,24 +264,24 @@ button.ghost:hover {
   flex: 1;
 }
 .field-hint {
-  color: var(--text-faint);
-  font-size: 0.86rem;
   margin-top: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--text-faint);
 }
 .result {
-  margin-top: 1.25rem;
   padding: 1rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-strong);
-  background: var(--bg-inset);
+  margin-top: 1.25rem;
   font-size: 0.94rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
 }
 .result.ok {
   border-color: color-mix(in srgb, var(--ok) 55%, var(--border-strong));
 }
 .result.error {
-  border-color: color-mix(in srgb, var(--danger) 55%, var(--border-strong));
   color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border-strong));
 }
 .result[hidden] {
   display: none;
@@ -288,9 +290,9 @@ button.ghost:hover {
 /* ---------- Profile detail ---------- */
 .profile-head {
   display: flex;
-  align-items: baseline;
   flex-wrap: wrap;
   gap: 0.6rem 1rem;
+  align-items: baseline;
 }
 .profile-head h1 {
   margin: 0;
@@ -298,12 +300,12 @@ button.ghost:hover {
   letter-spacing: -0.01em;
 }
 .badge {
+  padding: 0.2rem 0.6rem;
   font-family: var(--mono);
   font-size: 0.78rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
   color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
 }
 .badge.valid {
   color: var(--ok);
@@ -327,11 +329,11 @@ button.ghost:hover {
 }
 .install label {
   display: block;
-  color: var(--text-faint);
+  margin-bottom: 0.4rem;
   font-size: 0.82rem;
+  color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 0.4rem;
 }
 .copy-row {
   display: flex;
@@ -340,14 +342,14 @@ button.ghost:hover {
 }
 .copy-row code {
   flex: 1;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
   font-family: var(--mono);
   font-size: 0.95rem;
+  white-space: nowrap;
   background: var(--bg-inset);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  padding: 0.6rem 0.8rem;
-  overflow-x: auto;
-  white-space: nowrap;
 }
 
 .facts {
@@ -356,21 +358,21 @@ button.ghost:hover {
   gap: 1rem;
 }
 .fact {
+  padding: 1rem 1.1rem;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem;
 }
 .fact h3 {
   margin: 0 0 0.6rem;
   font-size: 0.82rem;
+  color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-faint);
 }
 .fact ul {
-  margin: 0;
   padding-left: 1.1rem;
+  margin: 0;
 }
 .fact li {
   font-family: var(--mono);
@@ -378,9 +380,9 @@ button.ghost:hover {
   color: var(--text);
 }
 .fact .none {
-  color: var(--text-faint);
-  font-style: italic;
   font-family: var(--sans);
+  font-style: italic;
+  color: var(--text-faint);
 }
 .chip-row {
   display: flex;
@@ -389,31 +391,31 @@ button.ghost:hover {
 }
 
 .warnings {
-  margin-top: 1.5rem;
-  border-left: 3px solid var(--warn);
-  background: color-mix(in srgb, var(--warn) 8%, var(--bg-raised));
-  border-radius: 0 var(--radius) var(--radius) 0;
   padding: 0.9rem 1.1rem;
+  margin-top: 1.5rem;
+  background: color-mix(in srgb, var(--warn) 8%, var(--bg-raised));
+  border-left: 3px solid var(--warn);
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 .warnings h3 {
   margin: 0 0 0.5rem;
-  color: var(--warn);
   font-size: 0.9rem;
+  color: var(--warn);
 }
 .warnings ul {
-  margin: 0;
   padding-left: 1.1rem;
-  color: var(--text-dim);
+  margin: 0;
   font-size: 0.9rem;
+  color: var(--text-dim);
 }
 
 .notice {
+  padding: 1rem 1.1rem;
+  font-size: 0.9rem;
   color: var(--text-dim);
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem;
-  font-size: 0.9rem;
 }
 
 @media (max-width: 640px) {

@@ -1,15 +1,14 @@
 import { describe, expect, test } from "bun:test";
-
+import type { CliDeps } from "../deps.ts";
 import {
-  GIST_HTML,
-  PROFILE_ID,
-  STEM,
   apiFetch,
   compactProfile,
+  GIST_HTML,
   jsonResponse,
+  PROFILE_ID,
   runCli,
+  STEM,
 } from "../test-helpers.ts";
-import type { CliDeps } from "../deps.ts";
 
 function searchDeps(overrides: Partial<CliDeps> = {}): CliDeps {
   return { httpFetch: apiFetch(), ...overrides };

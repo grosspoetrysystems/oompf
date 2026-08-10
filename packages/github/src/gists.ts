@@ -41,20 +41,20 @@ export interface GistLocation {
 
 /** Resolved public Gist source: metadata plus the canonical YAML content. */
 export interface GistSource {
-  /** The Gist's opaque hex identifier. */
-  readonly gistId: string;
-  /** Owner login as reported by the API, or `null` for anonymous Gists. */
-  readonly owner: string | null;
-  /** The revision (git SHA) the content was read from, when known. */
-  readonly revision: string | null;
-  /** Profile YAML filename within the Gist (a validated `<name>.yml`). */
-  readonly filename: string;
   /** Exact YAML bytes fetched from the canonical raw URL, as text. */
   readonly content: string;
   /** Lowercase hex SHA-256 of {@link content}. */
   readonly contentHash: string;
+  /** Profile YAML filename within the Gist (a validated `<name>.yml`). */
+  readonly filename: string;
+  /** The Gist's opaque hex identifier. */
+  readonly gistId: string;
   /** Browser-facing Gist URL. */
   readonly htmlUrl: string;
+  /** Owner login as reported by the API, or `null` for anonymous Gists. */
+  readonly owner: string | null;
+  /** The revision (git SHA) the content was read from, when known. */
+  readonly revision: string | null;
 }
 
 /** Minimal structural view of a `fetch` response used by this module. */
@@ -67,7 +67,7 @@ export interface GistFetchResponse {
 /** Injectable `fetch` seam so tests never hit the network. */
 export type GistFetch = (
   url: string,
-  init?: { readonly headers?: Record<string, string> },
+  init?: { readonly headers?: Record<string, string> }
 ) => Promise<GistFetchResponse>;
 
 /** Options for {@link fetchPublicGist}. */
@@ -114,7 +114,7 @@ export function parseGistLocation(input: string): GistLocation {
   const urlMatch = trimmed.match(/^https?:\/\/([^/?#]+)\/([^?#]*)/i);
   if (urlMatch === null) {
     throw new Error(
-      `Unsupported Gist reference: "${trimmed}". Provide a public Gist URL or ID.`,
+      `Unsupported Gist reference: "${trimmed}". Provide a public Gist URL or ID.`
     );
   }
   const host = (urlMatch[1] ?? "").toLowerCase();
@@ -124,10 +124,15 @@ export function parseGistLocation(input: string): GistLocation {
     // /gists/<id>[/<revision>]
     if (segments[0] !== "gists" || segments.length < 2 || segments.length > 3) {
       throw new Error(
-        `Unsupported api.github.com Gist reference: "${trimmed}".`,
+        `Unsupported api.github.com Gist reference: "${trimmed}".`
       );
     }
-    return finishLocation(segments[1] ?? "", null, segments[2] ?? null, trimmed);
+    return finishLocation(
+      segments[1] ?? "",
+      null,
+      segments[2] ?? null,
+      trimmed
+    );
   }
 
   if (host === "gist.github.com") {
@@ -135,7 +140,7 @@ export function parseGistLocation(input: string): GistLocation {
   }
 
   throw new Error(
-    `Unsupported host "${host}" for Gist reference: "${trimmed}". Only gist.github.com and api.github.com are accepted.`,
+    `Unsupported host "${host}" for Gist reference: "${trimmed}". Only gist.github.com and api.github.com are accepted.`
   );
 }
 
@@ -156,9 +161,16 @@ function parseGistWebPath(segments: string[], raw: string): GistLocation {
     return finishLocation(second ?? "", first ?? null, null, raw);
   }
   if (segments.length === 3) {
-    return finishLocation(segments[1] ?? "", segments[0] ?? null, segments[2] ?? null, raw);
+    return finishLocation(
+      segments[1] ?? "",
+      segments[0] ?? null,
+      segments[2] ?? null,
+      raw
+    );
   }
-  throw new Error(`Ambiguous Gist reference with too many path segments: "${raw}".`);
+  throw new Error(
+    `Ambiguous Gist reference with too many path segments: "${raw}".`
+  );
 }
 
 /** Validate the resolved ID and revision, then build a {@link GistLocation}. */
@@ -166,16 +178,14 @@ function finishLocation(
   gistId: string,
   owner: string | null,
   revision: string | null,
-  raw: string,
+  raw: string
 ): GistLocation {
   if (!GIST_ID_PATTERN.test(gistId)) {
-    throw new Error(
-      `Could not find a valid Gist ID in reference: "${raw}".`,
-    );
+    throw new Error(`Could not find a valid Gist ID in reference: "${raw}".`);
   }
   if (revision !== null && !REVISION_PATTERN.test(revision)) {
     throw new Error(
-      `Invalid Gist revision "${revision}" in reference: "${raw}".`,
+      `Invalid Gist revision "${revision}" in reference: "${raw}".`
     );
   }
   return {
@@ -200,10 +210,10 @@ export function normalizeGistUrl(input: string): string {
 
 /** Shape of a single file entry inside a Gist API response. */
 interface GistFileEntry {
-  readonly filename: string;
-  readonly rawUrl: string | null;
   /** Inline content the API embedded for small, untruncated files, else `null`. */
   readonly content: string | null;
+  readonly filename: string;
+  readonly rawUrl: string | null;
 }
 
 /**
@@ -220,13 +230,13 @@ interface GistFileEntry {
  */
 export async function fetchPublicGist(
   source: string,
-  options?: FetchPublicGistOptions,
+  options?: FetchPublicGistOptions
 ): Promise<GistSource> {
   const location = parseGistLocation(source);
   const doFetch = options?.fetch ?? bunFetchHolder.fetch;
   if (doFetch === undefined) {
     throw new Error(
-      "No fetch implementation is available; inject one via options.fetch.",
+      "No fetch implementation is available; inject one via options.fetch."
     );
   }
 
@@ -239,11 +249,11 @@ export async function fetchPublicGist(
   if (!metaResponse.ok) {
     if (metaResponse.status === 404) {
       throw new Error(
-        `Public Gist "${location.gistId}" was not found. It may be private, deleted, or the ID may be wrong.`,
+        `Public Gist "${location.gistId}" was not found. It may be private, deleted, or the ID may be wrong.`
       );
     }
     throw new Error(
-      `Failed to fetch Gist "${location.gistId}": HTTP ${metaResponse.status}.`,
+      `Failed to fetch Gist "${location.gistId}": HTTP ${metaResponse.status}.`
     );
   }
 
@@ -257,35 +267,35 @@ export async function fetchPublicGist(
     });
     if (!rawResponse.ok) {
       throw new Error(
-        `Failed to fetch raw content for "${yamlFile.filename}" in Gist "${location.gistId}": HTTP ${rawResponse.status}.`,
+        `Failed to fetch raw content for "${yamlFile.filename}" in Gist "${location.gistId}": HTTP ${rawResponse.status}.`
       );
     }
     content = await rawResponse.text();
-  } else if (yamlFile.content !== null) {
-    content = yamlFile.content;
-  } else {
+  } else if (yamlFile.content === null) {
     throw new Error(
-      `Gist "${location.gistId}" file "${yamlFile.filename}" exposed no raw URL or content.`,
+      `Gist "${location.gistId}" file "${yamlFile.filename}" exposed no raw URL or content.`
     );
+  } else {
+    content = yamlFile.content;
   }
 
   return {
-    gistId: location.gistId,
-    owner: meta.owner,
-    revision: location.revision ?? meta.revision,
-    filename: yamlFile.filename,
     content,
     contentHash: sha256(content),
+    filename: yamlFile.filename,
+    gistId: location.gistId,
     htmlUrl: meta.htmlUrl ?? `https://gist.github.com/${location.gistId}`,
+    owner: meta.owner,
+    revision: location.revision ?? meta.revision,
   };
 }
 
 /** Structured subset of a Gist API response this module consumes. */
 interface GistMetadata {
+  readonly files: GistFileEntry[];
+  readonly htmlUrl: string | null;
   readonly owner: string | null;
   readonly revision: string | null;
-  readonly htmlUrl: string | null;
-  readonly files: GistFileEntry[];
 }
 
 /** Parse the Gist API JSON body into {@link GistMetadata}. */
@@ -294,7 +304,9 @@ function parseGistMetadata(body: string, gistId: string): GistMetadata {
   try {
     json = JSON.parse(body);
   } catch {
-    throw new Error(`Gist "${gistId}" returned a response that was not valid JSON.`);
+    throw new Error(
+      `Gist "${gistId}" returned a response that was not valid JSON.`
+    );
   }
   if (typeof json !== "object" || json === null) {
     throw new Error(`Gist "${gistId}" returned an unexpected response shape.`);
@@ -314,7 +326,11 @@ function parseGistMetadata(body: string, gistId: string): GistMetadata {
   }
 
   let revision: string | null = null;
-  if ("history" in json && Array.isArray(json.history) && json.history.length > 0) {
+  if (
+    "history" in json &&
+    Array.isArray(json.history) &&
+    json.history.length > 0
+  ) {
     const head: unknown = json.history[0];
     if (
       typeof head === "object" &&
@@ -332,14 +348,22 @@ function parseGistMetadata(body: string, gistId: string): GistMetadata {
   }
 
   const files: GistFileEntry[] = [];
-  if ("files" in json && typeof json.files === "object" && json.files !== null) {
+  if (
+    "files" in json &&
+    typeof json.files === "object" &&
+    json.files !== null
+  ) {
     for (const value of Object.values(json.files)) {
-      if (typeof value !== "object" || value === null) continue;
+      if (typeof value !== "object" || value === null) {
+        continue;
+      }
       const filename =
         "filename" in value && typeof value.filename === "string"
           ? value.filename
           : null;
-      if (filename === null) continue;
+      if (filename === null) {
+        continue;
+      }
       const rawUrl =
         "raw_url" in value && typeof value.raw_url === "string"
           ? value.raw_url
@@ -348,11 +372,11 @@ function parseGistMetadata(body: string, gistId: string): GistMetadata {
         "content" in value && typeof value.content === "string"
           ? value.content
           : null;
-      files.push({ filename, rawUrl, content });
+      files.push({ content, filename, rawUrl });
     }
   }
 
-  return { owner, revision, htmlUrl, files };
+  return { files, htmlUrl, owner, revision };
 }
 
 /**
@@ -361,17 +385,17 @@ function parseGistMetadata(body: string, gistId: string): GistMetadata {
  */
 function selectYamlFile(files: GistFileEntry[], gistId: string): GistFileEntry {
   const yamlFiles = files.filter((file) =>
-    YAML_EXTENSIONS.some((ext) => file.filename.toLowerCase().endsWith(ext)),
+    YAML_EXTENSIONS.some((ext) => file.filename.toLowerCase().endsWith(ext))
   );
   if (yamlFiles.length === 0) {
     throw new Error(
-      `Gist "${gistId}" contains no YAML (.yml/.yaml) profile file.`,
+      `Gist "${gistId}" contains no YAML (.yml/.yaml) profile file.`
     );
   }
   if (yamlFiles.length > 1) {
     const names = yamlFiles.map((file) => file.filename).join(", ");
     throw new Error(
-      `Gist "${gistId}" contains multiple YAML files (${names}); the profile source is ambiguous.`,
+      `Gist "${gistId}" contains multiple YAML files (${names}); the profile source is ambiguous.`
     );
   }
   const file = yamlFiles[0];
@@ -382,7 +406,7 @@ function selectYamlFile(files: GistFileEntry[], gistId: string): GistFileEntry {
   const nameCheck = validateProfileName(stem);
   if (!nameCheck.ok) {
     throw new Error(
-      `Gist "${gistId}" file "${file.filename}" is not a supported profile filename: ${nameCheck.reason}`,
+      `Gist "${gistId}" file "${file.filename}" is not a supported profile filename: ${nameCheck.reason}`
     );
   }
   return file;

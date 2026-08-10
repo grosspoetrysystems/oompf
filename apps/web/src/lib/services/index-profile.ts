@@ -15,19 +15,19 @@
  * tests exercise the flow hermetically, without a network or a database.
  */
 
-import { validateArtifact, type ProfileFacts } from "@oompf/core";
-import {
-  fetchPublicGist,
-  normalizeGistUrl,
-  type GistFetch,
-  type GistSource,
-} from "@oompf/github/gists";
+import { type ProfileFacts, validateArtifact } from "@oompf/core";
 import {
   createNeonDatabase,
   createProfileRepository,
   type ProfileRecord,
   type ProfileRepository,
 } from "@oompf/database";
+import {
+  fetchPublicGist,
+  type GistFetch,
+  type GistSource,
+  normalizeGistUrl,
+} from "@oompf/github/gists";
 
 /** Stable machine-readable error codes returned in the JSON error envelope. */
 export type IndexErrorCode =
@@ -55,7 +55,7 @@ export class IndexError extends Error {
     code: IndexErrorCode,
     status: number,
     message: string,
-    details: readonly string[] = [],
+    details: readonly string[] = []
   ) {
     super(message);
     this.name = "IndexError";
@@ -72,24 +72,24 @@ function messageOf(error: unknown): string {
 
 /** Input to {@link indexPublicGist}: a public Gist reference plus optional version. */
 export interface IndexProfileInput {
-  /** A public Gist URL or bare Gist ID. */
-  readonly source: string;
   /** OMP version the publisher declares this profile targets, if any. */
   readonly ompVersion?: string;
+  /** A public Gist URL or bare Gist ID. */
+  readonly source: string;
 }
 
 /** The Gist-fetch seam; defaults to {@link fetchPublicGist}. */
 export type FetchPublicGist = (
   source: string,
-  options?: { readonly fetch?: GistFetch },
+  options?: { readonly fetch?: GistFetch }
 ) => Promise<GistSource>;
 
 /** Injectable dependencies for {@link indexPublicGist}. */
 export interface IndexProfileDeps {
-  /** Metadata persistence surface. */
-  readonly repository: ProfileRepository;
   /** Gist-fetch override for tests; defaults to the real Worker-safe fetch. */
   readonly fetchGist?: FetchPublicGist;
+  /** Metadata persistence surface. */
+  readonly repository: ProfileRepository;
 }
 
 /** Strip a recognised YAML extension from a Gist filename to get the profile name. */
@@ -131,14 +131,14 @@ function classifyGistError(error: unknown): IndexError {
  */
 export async function indexPublicGist(
   input: IndexProfileInput,
-  deps: IndexProfileDeps,
+  deps: IndexProfileDeps
 ): Promise<ProfileRecord> {
   const source = (input.source ?? "").trim();
   if (source === "") {
     throw new IndexError(
       "invalid_source",
       400,
-      "Provide a public Gist URL or ID.",
+      "Provide a public Gist URL or ID."
     );
   }
 
@@ -167,7 +167,7 @@ export async function indexPublicGist(
       "validation_failed",
       422,
       "The Gist is not a structurally valid OMP profile.",
-      validation.errors,
+      validation.errors
     );
   }
   if (validation.blocking.length > 0) {
@@ -175,23 +175,23 @@ export async function indexPublicGist(
       "blocking_secrets",
       422,
       "The profile contains high-confidence secrets and was not indexed. Remove them and re-publish.",
-      validation.blocking.map((finding) => `${finding.path}: ${finding.reason}`),
+      validation.blocking.map((finding) => `${finding.path}: ${finding.reason}`)
     );
   }
 
   const facts: ProfileFacts = validation.facts;
 
   return deps.repository.createOrUpdateProfile({
-    sourceType: "gist",
-    sourceUrl,
-    gistId: gist.gistId,
-    owner: gist.owner,
-    profileName: profileNameFromFilename(gist.filename),
-    // Preserve the publisher-declared OMP version when supplied.
-    ompVersion: input.ompVersion ?? null,
-    revision: gist.revision,
     contentHash: gist.contentHash,
     facts,
+    gistId: gist.gistId,
+    // Preserve the publisher-declared OMP version when supplied.
+    ompVersion: input.ompVersion ?? null,
+    owner: gist.owner,
+    profileName: profileNameFromFilename(gist.filename),
+    revision: gist.revision,
+    sourceType: "gist",
+    sourceUrl,
     validation,
   });
 }
@@ -208,11 +208,11 @@ export interface RuntimeEnv {
  * `repository`/`fetchGist` seams so no real database or network is touched.
  */
 export interface AppLocals {
-  runtime?: { env?: RuntimeEnv };
-  /** Test seam: a pre-built repository, bypassing env-based construction. */
-  repository?: ProfileRepository;
   /** Test seam: a Gist-fetch override threaded into {@link indexPublicGist}. */
   fetchGist?: FetchPublicGist;
+  /** Test seam: a pre-built repository, bypassing env-based construction. */
+  repository?: ProfileRepository;
+  runtime?: { env?: RuntimeEnv };
 }
 
 /**
@@ -221,8 +221,12 @@ export interface AppLocals {
  * `DATABASE_URL`. Throws a `server_misconfigured` {@link IndexError} when no
  * binding is available so the routes return a clean 500 envelope.
  */
-export async function resolveRepository(locals: AppLocals): Promise<ProfileRepository> {
-  if (locals.repository) return locals.repository;
+export async function resolveRepository(
+  locals: AppLocals
+): Promise<ProfileRepository> {
+  if (locals.repository) {
+    return locals.repository;
+  }
   let url = locals.runtime?.env?.DATABASE_URL;
   if (url === undefined) {
     try {
@@ -238,7 +242,7 @@ export async function resolveRepository(locals: AppLocals): Promise<ProfileRepos
     throw new IndexError(
       "server_misconfigured",
       500,
-      "The profile index database is not configured.",
+      "The profile index database is not configured."
     );
   }
   return createProfileRepository(createNeonDatabase(url));
@@ -252,8 +256,8 @@ export function profilePath(id: string): string {
 /** JSON returned by `POST /api/profiles`. */
 export interface RegisterResponse {
   readonly id: string;
-  readonly url: string;
   readonly source: string;
+  readonly url: string;
   readonly validation: {
     /** Server validation is always structural in v0. */
     readonly level: "structural";
@@ -267,12 +271,12 @@ export interface RegisterResponse {
 export function toRegisterResponse(record: ProfileRecord): RegisterResponse {
   return {
     id: record.id,
-    url: profilePath(record.id),
     source: record.sourceUrl,
+    url: profilePath(record.id),
     validation: {
+      errors: [...record.validation.errors],
       level: "structural",
       structural: record.validation.structural,
-      errors: [...record.validation.errors],
       warnings: [...record.validation.warnings],
     },
   };
@@ -281,16 +285,16 @@ export function toRegisterResponse(record: ProfileRecord): RegisterResponse {
 /** A compact profile record for search results and index listings. */
 export interface CompactProfile {
   readonly id: string;
-  readonly url: string;
-  readonly name: string;
-  readonly owner: string | null;
-  readonly source: string;
-  readonly ompVersion: string | null;
-  readonly structural: "valid" | "invalid";
   readonly models: readonly string[];
+  readonly name: string;
+  readonly ompVersion: string | null;
+  readonly owner: string | null;
   readonly providers: readonly string[];
   readonly revision: string | null;
+  readonly source: string;
+  readonly structural: "valid" | "invalid";
   readonly updatedAt: string;
+  readonly url: string;
 }
 
 /** Normalize a possibly-`Date` timestamp to an ISO string. */
@@ -302,23 +306,23 @@ function isoTimestamp(value: Date | string): string {
 export function toCompactProfile(record: ProfileRecord): CompactProfile {
   return {
     id: record.id,
-    url: profilePath(record.id),
-    name: record.profileName,
-    owner: record.owner,
-    source: record.sourceUrl,
-    ompVersion: record.ompVersion,
-    structural: record.validation.structural,
     models: [...record.facts.models],
+    name: record.profileName,
+    ompVersion: record.ompVersion,
+    owner: record.owner,
     providers: [...record.facts.providers],
     revision: record.revision,
+    source: record.sourceUrl,
+    structural: record.validation.structural,
     updatedAt: isoTimestamp(record.updatedAt),
+    url: profilePath(record.id),
   };
 }
 
 /** Free-text search over the index, returning compact records. */
 export async function searchIndexedProfiles(
   repository: ProfileRepository,
-  query: string,
+  query: string
 ): Promise<CompactProfile[]> {
   const records = await repository.searchProfiles(query);
   return records.map(toCompactProfile);
@@ -335,7 +339,7 @@ const FEATURED_QUERY = "gist.github.com";
 /** Surface a capped sample of indexed profiles for the home page. */
 export async function listFeaturedProfiles(
   repository: ProfileRepository,
-  limit = 12,
+  limit = 12
 ): Promise<CompactProfile[]> {
   const records = await repository.searchProfiles(FEATURED_QUERY);
   return records.slice(0, limit).map(toCompactProfile);
@@ -344,11 +348,15 @@ export async function listFeaturedProfiles(
 /** Fetch a single profile's metadata, or throw a `not_found` {@link IndexError}. */
 export async function getProfileMetadata(
   repository: ProfileRepository,
-  id: string,
+  id: string
 ): Promise<ProfileRecord> {
   const record = id.trim() === "" ? null : await repository.getProfile(id);
   if (record === null) {
-    throw new IndexError("not_found", 404, `No indexed profile with id "${id}".`);
+    throw new IndexError(
+      "not_found",
+      404,
+      `No indexed profile with id "${id}".`
+    );
   }
   return record;
 }
@@ -364,7 +372,7 @@ export async function parseRegisterBody(request: {
     throw new IndexError(
       "invalid_source",
       400,
-      "Request body must be JSON with a `source` field.",
+      "Request body must be JSON with a `source` field."
     );
   }
   if (
@@ -376,7 +384,7 @@ export async function parseRegisterBody(request: {
     throw new IndexError(
       "invalid_source",
       400,
-      "Request body must include a `source` string (a public Gist URL or ID).",
+      "Request body must include a `source` string (a public Gist URL or ID)."
     );
   }
   const record = body as { source: string; ompVersion?: unknown };
@@ -384,7 +392,7 @@ export async function parseRegisterBody(request: {
     typeof record.ompVersion === "string" && record.ompVersion.trim() !== ""
       ? record.ompVersion.trim()
       : undefined;
-  return { source: record.source, ompVersion };
+  return { ompVersion, source: record.source };
 }
 
 /** The stable JSON error envelope shape. */
@@ -403,7 +411,6 @@ export function toErrorEnvelope(error: unknown): {
 } {
   if (error instanceof IndexError) {
     return {
-      status: error.status,
       body: {
         error: {
           code: error.code,
@@ -411,23 +418,24 @@ export function toErrorEnvelope(error: unknown): {
           ...(error.details.length > 0 ? { details: [...error.details] } : {}),
         },
       },
+      status: error.status,
     };
   }
   return {
-    status: 500,
     body: {
       error: {
         code: "internal_error",
         message: "An unexpected error occurred.",
       },
     },
+    status: 500,
   };
 }
 
 /** Build a JSON `Response` with the given status. */
 export function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
-    status,
     headers: { "content-type": "application/json; charset=utf-8" },
+    status,
   });
 }

@@ -33,19 +33,19 @@ export type HttpFetch = (
     readonly method?: string;
     readonly headers?: Record<string, string>;
     readonly body?: string;
-  },
+  }
 ) => Promise<HttpResponse>;
 
 /** Injectable filesystem seam for reading and atomically installing configs. */
 export interface FsSeam {
+  /** True when a path exists (file or directory). */
+  exists(path: string): Promise<boolean>;
+  /** Recursively create a directory with the given octal permission mode. */
+  mkdir(path: string, mode: number): Promise<void>;
   /** Read a UTF-8 text file. */
   readFile(path: string): Promise<string>;
   /** Write a UTF-8 text file with the given octal permission mode. */
   writeFile(path: string, data: string, mode: number): Promise<void>;
-  /** Recursively create a directory with the given octal permission mode. */
-  mkdir(path: string, mode: number): Promise<void>;
-  /** True when a path exists (file or directory). */
-  exists(path: string): Promise<boolean>;
 }
 
 /**
@@ -56,7 +56,7 @@ export interface FsSeam {
 export class CommandError extends Error {
   constructor(
     readonly code: string,
-    message: string,
+    message: string
   ) {
     super(message);
     this.name = "CommandError";
@@ -64,10 +64,7 @@ export class CommandError extends Error {
 }
 
 /** The `c.error` control-flow helper a command handler exposes. */
-export type CliErrorFn = (options: {
-  code: string;
-  message: string;
-}) => never;
+export type CliErrorFn = (options: { code: string; message: string }) => never;
 
 /**
  * Translate a thrown value into an Incur `c.error`. A {@link CommandError}
@@ -85,8 +82,10 @@ export function toCliError(error: CliErrorFn, err: unknown): never {
 
 /** Every seam a command may need, each optional and defaulted at the boundary. */
 export interface CliDeps {
-  /** `gh` command runner seam (auth check + Gist creation). */
-  readonly runner?: CommandRunner;
+  /** Profile discovery seam (publish default-profile derivation). */
+  readonly discoverProfiles?: typeof discoverProfiles;
+  /** Filesystem seam. */
+  readonly fs?: FsSeam;
   /** `gh` executable name; defaults to `"gh"`. */
   readonly ghCommand?: string;
   /** Gist raw-fetch seam; defaults to the global `fetch`. */
@@ -95,14 +94,12 @@ export interface CliDeps {
   readonly httpFetch?: HttpFetch;
   /** `omp` executable name; defaults to `"omp"`. */
   readonly ompCommand?: string;
-  /** Existing-profile resolver seam (publish). */
-  readonly resolveProfileConfig?: typeof resolveProfileConfig;
   /** Install-target resolver seam (add). */
   readonly resolveInstallTarget?: typeof resolveInstallTarget;
-  /** Profile discovery seam (publish default-profile derivation). */
-  readonly discoverProfiles?: typeof discoverProfiles;
-  /** Filesystem seam. */
-  readonly fs?: FsSeam;
+  /** Existing-profile resolver seam (publish). */
+  readonly resolveProfileConfig?: typeof resolveProfileConfig;
+  /** `gh` command runner seam (auth check + Gist creation). */
+  readonly runner?: CommandRunner;
 }
 
 /** The global `fetch`, if the runtime provides one. */
@@ -113,7 +110,7 @@ const defaultHttpFetch: HttpFetch = (url, init) => {
   if (globalFetch === undefined) {
     throw new CommandError(
       "network_error",
-      "No fetch implementation is available in this runtime.",
+      "No fetch implementation is available in this runtime."
     );
   }
   return globalFetch(url, init);
@@ -121,11 +118,6 @@ const defaultHttpFetch: HttpFetch = (url, init) => {
 
 /** Default filesystem seam backed by `node:fs/promises`. */
 export const defaultFs: FsSeam = {
-  readFile: (path) => readFile(path, "utf8"),
-  writeFile: (path, data, mode) => writeFile(path, data, { mode }),
-  mkdir: async (path, mode) => {
-    await mkdir(path, { recursive: true, mode });
-  },
   exists: async (path) => {
     try {
       await access(path);
@@ -134,20 +126,25 @@ export const defaultFs: FsSeam = {
       return false;
     }
   },
+  mkdir: async (path, mode) => {
+    await mkdir(path, { mode, recursive: true });
+  },
+  readFile: (path) => readFile(path, "utf8"),
+  writeFile: (path, data, mode) => writeFile(path, data, { mode }),
 };
 
 /** Resolve a fully-defaulted seam bundle from partial {@link CliDeps}. */
 export function resolveDeps(deps: CliDeps = {}) {
   return {
-    runner: deps.runner,
+    discoverProfiles: deps.discoverProfiles ?? discoverProfiles,
+    fs: deps.fs ?? defaultFs,
     ghCommand: deps.ghCommand,
     gistFetch: deps.gistFetch,
     httpFetch: deps.httpFetch ?? defaultHttpFetch,
     ompCommand: deps.ompCommand,
-    resolveProfileConfig: deps.resolveProfileConfig ?? resolveProfileConfig,
     resolveInstallTarget: deps.resolveInstallTarget ?? resolveInstallTarget,
-    discoverProfiles: deps.discoverProfiles ?? discoverProfiles,
-    fs: deps.fs ?? defaultFs,
+    resolveProfileConfig: deps.resolveProfileConfig ?? resolveProfileConfig,
+    runner: deps.runner,
   } as const;
 }
 

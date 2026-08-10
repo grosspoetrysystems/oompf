@@ -19,38 +19,38 @@ import { assertProfileDocument, parseProfileYaml } from "./yaml-config.ts";
 
 /** A likely secret located in the artifact, described without its value. */
 export interface SecretFinding {
-  /** Dotted key path to the offending value (contains no secret value). */
-  readonly path: string;
-  /** Category of the finding, e.g. `openai-api-key` or `credential`. */
-  readonly kind: string;
   /** High-confidence findings block publication; low ones are warnings. */
   readonly confidence: "high" | "low";
+  /** Category of the finding, e.g. `openai-api-key` or `credential`. */
+  readonly kind: string;
+  /** Dotted key path to the offending value (contains no secret value). */
+  readonly path: string;
   /** Value-free explanation safe to display or log. */
   readonly reason: string;
 }
 
 /** Result of structurally validating a single canonical YAML artifact. */
 export interface ArtifactValidation {
-  /** Structural verdict; `invalid` when size/parse/root checks fail. */
-  readonly structural: "valid" | "invalid";
-  /** Structural errors (oversize, unparseable YAML, non-mapping root). */
-  readonly errors: readonly string[];
-  /** Non-blocking advisories, including low-confidence secret findings. */
-  readonly warnings: readonly string[];
   /** High-confidence findings that block publication. */
   readonly blocking: readonly SecretFinding[];
-  /** Every secret finding (high and low confidence). */
-  readonly findings: readonly SecretFinding[];
-  /** Extracted facts, or `null` when the artifact is structurally invalid. */
-  readonly facts: ProfileFacts | null;
-  /** Parsed document, preserved for later tasks; `null` when invalid. */
-  readonly document: Record<string, unknown> | null;
-  /** The original YAML bytes as provided. */
-  readonly yaml: string;
   /** UTF-8 byte length of the artifact. */
   readonly byteLength: number;
+  /** Parsed document, preserved for later tasks; `null` when invalid. */
+  readonly document: Record<string, unknown> | null;
+  /** Structural errors (oversize, unparseable YAML, non-mapping root). */
+  readonly errors: readonly string[];
+  /** Extracted facts, or `null` when the artifact is structurally invalid. */
+  readonly facts: ProfileFacts | null;
+  /** Every secret finding (high and low confidence). */
+  readonly findings: readonly SecretFinding[];
   /** SHA-256 of the canonical bytes. */
   readonly hash: string;
+  /** Structural verdict; `invalid` when size/parse/root checks fail. */
+  readonly structural: "valid" | "invalid";
+  /** Non-blocking advisories, including low-confidence secret findings. */
+  readonly warnings: readonly string[];
+  /** The original YAML bytes as provided. */
+  readonly yaml: string;
 }
 
 /** Default maximum artifact size: 1 MiB of UTF-8 bytes. */
@@ -58,11 +58,12 @@ export const DEFAULT_MAX_BYTES = 1024 * 1024;
 
 /** Value patterns that identify a specific provider credential with high confidence. */
 const HIGH_CONFIDENCE_VALUE_PATTERNS: Record<string, RegExp> = {
-  "private-key": /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/,
-  "openai-api-key": /\bsk-[A-Za-z0-9_-]{20,}\b/,
-  "github-token": /\b(?:gh[posur]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})\b/,
   "aws-access-key": /\bAKIA[0-9A-Z]{16}\b/,
+  "github-token":
+    /\b(?:gh[posur]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})\b/,
   "google-api-key": /\bAIza[0-9A-Za-z_-]{35}\b/,
+  "openai-api-key": /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  "private-key": /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/,
   "slack-token": /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/,
 };
 
@@ -87,35 +88,43 @@ const CREDENTIAL_KEY_SUBSTRINGS = [
 
 /** Literal values that are obvious placeholders rather than real secrets. */
 const PLACEHOLDER_LITERALS: Record<string, true> = {
-  changeme: true,
+  "...": true,
   "change-me": true,
-  yourkey: true,
-  "your-key": true,
-  xxx: true,
-  todo: true,
-  redacted: true,
+  changeme: true,
   example: true,
-  placeholder: true,
   none: true,
   null: true,
-  "...": true,
+  placeholder: true,
+  redacted: true,
+  todo: true,
+  xxx: true,
+  "your-key": true,
+  yourkey: true,
 };
 
 /** True when `key`, normalized, reads as a credential-bearing field. */
 function isCredentialKey(key: string): boolean {
   const normalized = key.toLowerCase().replaceAll(/[_-]/g, "");
   return CREDENTIAL_KEY_SUBSTRINGS.some((needle) =>
-    normalized.includes(needle),
+    normalized.includes(needle)
   );
 }
 
 /** Classify a credential-key value as a real secret or a placeholder/ref. */
 function classifyCredentialValue(value: string): "high" | "low" {
   const trimmed = value.trim();
-  if (trimmed.length === 0) return "low";
-  if (/^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$/.test(trimmed)) return "low";
-  if (/^<.+>$/.test(trimmed)) return "low";
-  if (Object.hasOwn(PLACEHOLDER_LITERALS, trimmed.toLowerCase())) return "low";
+  if (trimmed.length === 0) {
+    return "low";
+  }
+  if (/^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$/.test(trimmed)) {
+    return "low";
+  }
+  if (/^<.+>$/.test(trimmed)) {
+    return "low";
+  }
+  if (Object.hasOwn(PLACEHOLDER_LITERALS, trimmed.toLowerCase())) {
+    return "low";
+  }
   return "high";
 }
 
@@ -124,25 +133,29 @@ function evaluateLeaf(
   key: string,
   value: string,
   path: string,
-  findings: SecretFinding[],
+  findings: SecretFinding[]
 ): void {
-  for (const [kind, pattern] of Object.entries(HIGH_CONFIDENCE_VALUE_PATTERNS)) {
+  for (const [kind, pattern] of Object.entries(
+    HIGH_CONFIDENCE_VALUE_PATTERNS
+  )) {
     if (pattern.test(value)) {
       findings.push({
-        path,
-        kind,
         confidence: "high",
+        kind,
+        path,
         reason: `value matches ${kind} pattern`,
       });
       return;
     }
   }
-  if (!isCredentialKey(key)) return;
+  if (!isCredentialKey(key)) {
+    return;
+  }
   const confidence = classifyCredentialValue(value);
   findings.push({
-    path,
-    kind: "credential",
     confidence,
+    kind: "credential",
+    path,
     reason:
       confidence === "high"
         ? "credential-like key holds a literal value"
@@ -155,7 +168,7 @@ function walk(
   node: unknown,
   key: string,
   path: string,
-  findings: SecretFinding[],
+  findings: SecretFinding[]
 ): void {
   if (typeof node === "string") {
     evaluateLeaf(key, node, path, findings);
@@ -205,20 +218,20 @@ export function validateArtifact(input: {
   const { yaml, maxBytes = DEFAULT_MAX_BYTES } = input;
   const byteLength = new TextEncoder().encode(yaml).length;
   const hash = sha256(yaml);
-  const base = { yaml, byteLength, hash } as const;
+  const base = { byteLength, hash, yaml } as const;
 
   if (byteLength > maxBytes) {
     return {
       ...base,
-      structural: "invalid",
+      blocking: [],
+      document: null,
       errors: [
         `Artifact is ${byteLength} bytes, exceeding the ${maxBytes}-byte limit.`,
       ],
-      warnings: [],
-      blocking: [],
-      findings: [],
       facts: null,
-      document: null,
+      findings: [],
+      structural: "invalid",
+      warnings: [],
     };
   }
 
@@ -229,13 +242,13 @@ export function validateArtifact(input: {
     const message = error instanceof Error ? error.message : String(error);
     return {
       ...base,
-      structural: "invalid",
-      errors: [`Artifact is not valid YAML: ${message}`],
-      warnings: [],
       blocking: [],
-      findings: [],
-      facts: null,
       document: null,
+      errors: [`Artifact is not valid YAML: ${message}`],
+      facts: null,
+      findings: [],
+      structural: "invalid",
+      warnings: [],
     };
   }
 
@@ -246,13 +259,13 @@ export function validateArtifact(input: {
     const message = error instanceof Error ? error.message : String(error);
     return {
       ...base,
-      structural: "invalid",
-      errors: [message],
-      warnings: [],
       blocking: [],
-      findings: [],
-      facts: null,
       document: null,
+      errors: [message],
+      facts: null,
+      findings: [],
+      structural: "invalid",
+      warnings: [],
     };
   }
 
@@ -264,12 +277,12 @@ export function validateArtifact(input: {
 
   return {
     ...base,
-    structural: "valid",
-    errors: [],
-    warnings,
     blocking,
-    findings,
-    facts: extractFacts(document),
     document,
+    errors: [],
+    facts: extractFacts(document),
+    findings,
+    structural: "valid",
+    warnings,
   };
 }

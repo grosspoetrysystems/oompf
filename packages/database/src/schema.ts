@@ -13,7 +13,13 @@
  */
 
 import type { ProfileFacts } from "@oompf/core";
-import { jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 /**
  * A single secret finding as persisted in the index. This mirrors the core
@@ -21,9 +27,9 @@ import { jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-cor
  * explicit and never drifts into carrying a secret value.
  */
 export interface StoredSecretFinding {
-  readonly path: string;
-  readonly kind: string;
   readonly confidence: "high" | "low";
+  readonly kind: string;
+  readonly path: string;
   readonly reason: string;
 }
 
@@ -34,15 +40,15 @@ export interface StoredSecretFinding {
  * and must never be stored here.
  */
 export interface ProfileValidationMetadata {
-  readonly structural: "valid" | "invalid";
-  readonly errors: readonly string[];
-  readonly warnings: readonly string[];
   readonly blocking: readonly StoredSecretFinding[];
-  readonly findings: readonly StoredSecretFinding[];
   /** UTF-8 byte length of the artifact the metadata was derived from. */
   readonly byteLength: number;
+  readonly errors: readonly string[];
+  readonly findings: readonly StoredSecretFinding[];
   /** SHA-256 of the canonical bytes, retained for cross-checking sources. */
   readonly hash: string;
+  readonly structural: "valid" | "invalid";
+  readonly warnings: readonly string[];
 }
 
 /**
@@ -55,38 +61,40 @@ export interface ProfileValidationMetadata {
 export const profiles = pgTable(
   "profiles",
   {
-    /** Stable opaque profile identifier (see {@link deriveProfileId}). */
-    id: text("id").primaryKey(),
-    /** Origin kind, e.g. `"gist"`. */
-    sourceType: text("source_type").notNull(),
-    /** Canonical, normalized source URL; unique across the index. */
-    sourceUrl: text("source_url").notNull(),
+    /** Lowercase hex SHA-256 of the canonical source bytes. */
+    contentHash: text("content_hash").notNull(),
+    /** First-indexed timestamp; preserved across re-registration. */
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Normalized, source-derived facts. */
+    facts: jsonb("facts").$type<ProfileFacts>().notNull(),
     /** Opaque Gist identifier when the source is a Gist, else `null`. */
     gistId: text("gist_id"),
+    /** Stable opaque profile identifier (see {@link deriveProfileId}). */
+    id: text("id").primaryKey(),
+    /** OMP version the profile targets, when declared. */
+    ompVersion: text("omp_version"),
     /** Source owner login, or `null` for anonymous sources. */
     owner: text("owner"),
     /** Human-facing profile name (validated `<name>`). */
     profileName: text("profile_name").notNull(),
-    /** OMP version the profile targets, when declared. */
-    ompVersion: text("omp_version"),
     /** Pinned source revision (git SHA) the metadata was read from. */
     revision: text("revision"),
-    /** Lowercase hex SHA-256 of the canonical source bytes. */
-    contentHash: text("content_hash").notNull(),
-    /** Normalized, source-derived facts. */
-    facts: jsonb("facts").$type<ProfileFacts>().notNull(),
-    /** Structural validation metadata (never artifact content). */
-    validation: jsonb("validation").$type<ProfileValidationMetadata>().notNull(),
-    /** First-indexed timestamp; preserved across re-registration. */
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
-      .notNull()
-      .defaultNow(),
+    /** Origin kind, e.g. `"gist"`. */
+    sourceType: text("source_type").notNull(),
+    /** Canonical, normalized source URL; unique across the index. */
+    sourceUrl: text("source_url").notNull(),
     /** Last-updated timestamp; bumped only when metadata changes. */
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
+    /** Structural validation metadata (never artifact content). */
+    validation: jsonb("validation")
+      .$type<ProfileValidationMetadata>()
+      .notNull(),
   },
-  (table) => [uniqueIndex("profiles_source_url_key").on(table.sourceUrl)],
+  (table) => [uniqueIndex("profiles_source_url_key").on(table.sourceUrl)]
 );
 
 /** A row as selected from {@link profiles}. */

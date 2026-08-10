@@ -1,16 +1,15 @@
 import { describe, expect, test } from "bun:test";
-
+import type { CliDeps } from "../deps.ts";
 import {
-  GIST_HTML,
-  OOMPF_URL,
-  REVISION,
-  STEM,
   apiFetch,
+  GIST_HTML,
   gistFetch,
   jsonResponse,
+  OOMPF_URL,
+  REVISION,
   runCli,
+  STEM,
 } from "../test-helpers.ts";
-import type { CliDeps } from "../deps.ts";
 
 function inspectDeps(overrides: Partial<CliDeps> = {}): CliDeps {
   return {
@@ -22,7 +21,11 @@ function inspectDeps(overrides: Partial<CliDeps> = {}): CliDeps {
 
 describe("inspect", () => {
   test("prints metadata for a Gist ref without artifact content", async () => {
-    const { out, code } = await runCli(inspectDeps(), ["inspect", GIST_HTML, "--json"]);
+    const { out, code } = await runCli(inspectDeps(), [
+      "inspect",
+      GIST_HTML,
+      "--json",
+    ]);
     const result = JSON.parse(out);
     expect(code).toBeUndefined();
     expect(result.sourceType).toBe("gist");
@@ -38,7 +41,11 @@ describe("inspect", () => {
   });
 
   test("answers an OOMPF ref from the index metadata", async () => {
-    const { out, code } = await runCli(inspectDeps(), ["inspect", OOMPF_URL, "--json"]);
+    const { out, code } = await runCli(inspectDeps(), [
+      "inspect",
+      OOMPF_URL,
+      "--json",
+    ]);
     const result = JSON.parse(out);
     expect(code).toBeUndefined();
     expect(result.sourceType).toBe("oompf");

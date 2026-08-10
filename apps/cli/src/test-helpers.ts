@@ -7,9 +7,8 @@
  */
 
 import type { CommandRunner } from "@oompf/github";
-
-import { createCli } from "./index.ts";
 import type { CliDeps, FsSeam, HttpFetch, HttpResponse } from "./deps.ts";
+import { createCli } from "./index.ts";
 
 /** Deterministic fixtures reused across the command tests. */
 export const OWNER = "octocat";
@@ -40,12 +39,12 @@ export function jsonResponse(status: number, body: unknown): HttpResponse {
 /** A public-Gist API metadata body with a single inline `work.yml` file. */
 export function gistMetadataBody(content = CONTENT): string {
   return JSON.stringify({
-    owner: { login: OWNER },
-    html_url: GIST_HTML,
-    history: [{ version: REVISION }],
     files: {
-      "work.yml": { filename: "work.yml", raw_url: null, content },
+      "work.yml": { content, filename: "work.yml", raw_url: null },
     },
+    history: [{ version: REVISION }],
+    html_url: GIST_HTML,
+    owner: { login: OWNER },
   });
 }
 
@@ -61,19 +60,19 @@ export function gistFetch(content = CONTENT) {
 
 /** A `gh` command runner returning a successful auth + Gist creation. */
 export function ghRunner(
-  overrides: Partial<{ authExit: number; gistUrl: string }> = {},
+  overrides: Partial<{ authExit: number; gistUrl: string }> = {}
 ): CommandRunner {
   const { authExit = 0, gistUrl = GIST_HTML } = overrides;
   return async ({ args }) => {
     if (args[0] === "api" && args[1] === "user") {
       return authExit === 0
-        ? { stdout: JSON.stringify({ login: OWNER }), stderr: "", exitCode: 0 }
-        : { stdout: "", stderr: "gh: not authenticated", exitCode: authExit };
+        ? { exitCode: 0, stderr: "", stdout: JSON.stringify({ login: OWNER }) }
+        : { exitCode: authExit, stderr: "gh: not authenticated", stdout: "" };
     }
     if (args[0] === "gist" && args[1] === "create") {
-      return { stdout: `${gistUrl}\n`, stderr: "", exitCode: 0 };
+      return { exitCode: 0, stderr: "", stdout: `${gistUrl}\n` };
     }
-    return { stdout: "", stderr: "unexpected command", exitCode: 1 };
+    return { exitCode: 1, stderr: "unexpected command", stdout: "" };
   };
 }
 
@@ -83,21 +82,23 @@ export function memoryFs(seed: Record<string, string> = {}) {
   const dirs = new Set<string>();
   const writes: Array<{ path: string; data: string; mode: number }> = [];
   const fs: FsSeam = {
-    readFile: async (path) => {
-      const value = files.get(path);
-      if (value === undefined) throw new Error(`ENOENT: ${path}`);
-      return value;
-    },
-    writeFile: async (path, data, mode) => {
-      writes.push({ path, data, mode });
-      files.set(path, data);
-    },
+    exists: async (path) => files.has(path) || dirs.has(path),
     mkdir: async (path) => {
       dirs.add(path);
     },
-    exists: async (path) => files.has(path) || dirs.has(path),
+    readFile: async (path) => {
+      const value = files.get(path);
+      if (value === undefined) {
+        throw new Error(`ENOENT: ${path}`);
+      }
+      return value;
+    },
+    writeFile: async (path, data, mode) => {
+      writes.push({ data, mode, path });
+      files.set(path, data);
+    },
   };
-  return { fs, files, dirs, writes };
+  return { dirs, files, fs, writes };
 }
 
 /** A register/search/metadata HTTP seam over route→response handlers. */
@@ -106,7 +107,7 @@ export function apiFetch(
     register: (body: string) => HttpResponse;
     metadata: HttpResponse;
     search: HttpResponse;
-  }> = {},
+  }> = {}
 ): HttpFetch {
   return async (url, init) => {
     const method = init?.method ?? "GET";
@@ -115,12 +116,12 @@ export function apiFetch(
         routes.register?.(init?.body ?? "") ??
         jsonResponse(200, {
           id: PROFILE_ID,
-          url: `/p/${PROFILE_ID}`,
           source: GIST_HTML,
+          url: `/p/${PROFILE_ID}`,
           validation: {
+            errors: [],
             level: "structural",
             structural: "valid",
-            errors: [],
             warnings: [],
           },
         })
@@ -142,19 +143,19 @@ export function apiFetch(
 /** A full-enough persisted profile record for metadata responses. */
 export function profileRecord(): Record<string, unknown> {
   return {
-    id: PROFILE_ID,
-    sourceType: "gist",
-    sourceUrl: GIST_HTML,
+    contentHash: "f".repeat(64),
+    createdAt: "2026-08-08T00:00:00.000Z",
+    facts: { models: ["anthropic/claude-x"], providers: ["anthropic"] },
     gistId: GIST_ID,
+    id: PROFILE_ID,
+    ompVersion: "7",
     owner: OWNER,
     profileName: STEM,
-    ompVersion: "7",
     revision: REVISION,
-    contentHash: "f".repeat(64),
-    facts: { models: ["anthropic/claude-x"], providers: ["anthropic"] },
-    validation: { structural: "valid", errors: [], warnings: [] },
-    createdAt: "2026-08-08T00:00:00.000Z",
+    sourceType: "gist",
+    sourceUrl: GIST_HTML,
     updatedAt: "2026-08-08T00:00:00.000Z",
+    validation: { errors: [], structural: "valid", warnings: [] },
   };
 }
 
@@ -162,16 +163,16 @@ export function profileRecord(): Record<string, unknown> {
 export function compactProfile(): Record<string, unknown> {
   return {
     id: PROFILE_ID,
-    url: `/p/${PROFILE_ID}`,
-    name: STEM,
-    owner: OWNER,
-    source: GIST_HTML,
-    ompVersion: "7",
-    structural: "valid",
     models: ["anthropic/claude-x"],
+    name: STEM,
+    ompVersion: "7",
+    owner: OWNER,
     providers: ["anthropic"],
     revision: REVISION,
+    source: GIST_HTML,
+    structural: "valid",
     updatedAt: "2026-08-08T00:00:00.000Z",
+    url: `/p/${PROFILE_ID}`,
   };
 }
 
@@ -179,18 +180,18 @@ export function compactProfile(): Record<string, unknown> {
 export async function runCli(
   deps: CliDeps,
   argv: string[],
-  env: Record<string, string | undefined> = {},
+  env: Record<string, string | undefined> = {}
 ): Promise<{ out: string; code: number | undefined }> {
   let out = "";
   let code: number | undefined;
   await createCli(deps).serve(argv, {
-    stdout: (s) => {
-      out += s;
-    },
+    env: { OOMPF_BASE_URL: BASE_URL, ...env },
     exit: (c) => {
       code = c;
     },
-    env: { OOMPF_BASE_URL: BASE_URL, ...env },
+    stdout: (s) => {
+      out += s;
+    },
   });
-  return { out, code };
+  return { code, out };
 }
