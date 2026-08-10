@@ -42,7 +42,7 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
         description: "Install a profile from a public Gist",
       },
       {
-        args: { ref: "https://oompf.ai/p/prof_0123" },
+        args: { ref: "https://oompf.run/p/prof_0123" },
         description: "Install under an explicit local name",
         options: { name: "work" },
       },

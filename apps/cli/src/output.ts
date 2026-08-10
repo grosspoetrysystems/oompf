@@ -14,7 +14,7 @@ import { z } from "incur";
 export const cliEnv = z.object({
   OOMPF_BASE_URL: z
     .string()
-    .default("https://oompf.ai")
+    .default("https://oompf.run")
     .describe("Base URL of the OOMPF web API"),
 });
 

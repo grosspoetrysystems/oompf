@@ -17,7 +17,7 @@ import {
 import type { CommandRunner, GistFetch } from "@oompf/github";
 
 /** Default OOMPF web endpoint; overridable through `OOMPF_BASE_URL`. */
-export const DEFAULT_BASE_URL = "https://oompf.ai";
+export const DEFAULT_BASE_URL = "https://oompf.run";
 
 /** Minimal structural view of an HTTP response the API client consumes. */
 export interface HttpResponse {
