@@ -1,0 +1,226 @@
+---
+/**
+ * Profile detail: a community show piece for a single indexed OMP profile.
+ *
+ * It foregrounds the canonical GitHub source and owner, the pinned
+ * revision/content hash, the structural validation verdict and OMP version,
+ * and the source-derived facts (models, providers, advisors, hooks,
+ * prerequisites). A copyable `oompf add` command makes installation one paste.
+ * The canonical Gist is linked directly — never hidden behind an abstraction.
+ */
+
+import type { ProfileRecord } from "@oompf/database";
+import Base from "../../layouts/Base.astro";
+import {
+  type AppLocals,
+  getProfileMetadata,
+  IndexError,
+  resolveRepository,
+} from "../../lib/services/index-profile.ts";
+
+export const prerender = false;
+
+const id = Astro.params.id ?? "";
+const locals = Astro.locals as unknown as AppLocals;
+
+let record: ProfileRecord | null = null;
+let errorMessage: string | null = null;
+try {
+  const repository = await resolveRepository(locals);
+  record = await getProfileMetadata(repository, id);
+} catch (error) {
+  if (error instanceof IndexError && error.code === "not_found") {
+    Astro.response.status = 404;
+    errorMessage = error.message;
+  } else if (error instanceof IndexError) {
+    Astro.response.status = error.status;
+    errorMessage = error.message;
+  } else {
+    Astro.response.status = 500;
+    errorMessage = "The index is temporarily unavailable.";
+  }
+}
+
+const facts = record?.facts ?? null;
+const validation = record?.validation ?? null;
+const installCommand = record === null ? "" : `oompf add ${record.sourceUrl}`;
+const advisorEntries =
+  facts?.advisor == null
+    ? []
+    : Object.entries(facts.advisor).filter(([, value]) => value !== undefined);
+---
+
+<Base
+  title={record !== null ? `${record.profileName} — OOMPF` : "Profile — OOMPF"}
+>
+  <div class="wrap">
+    {record === null ? (
+        <section class="hero">
+          <h1>Profile not found</h1>
+          <p class="notice">{errorMessage}</p>
+          <p><a href="/">← Back to the index</a></p>
+        </section>
+      ) : (
+        <article>
+          <header>
+            <div class="profile-head">
+              <h1>{record.profileName}</h1>
+              <span
+                class={`badge ${validation?.structural === "valid" ? "valid" : "invalid"}`}
+              >
+                {validation?.structural === "valid"
+                  ? "structural: valid"
+                  : "structural: invalid"}
+              </span>
+              {record.ompVersion !== null && (
+                <span class="badge">omp {record.ompVersion}</span>
+              )}
+            </div>
+
+            <p class="source-line">
+              <a href={record.sourceUrl} rel="noopener noreferrer" target="_blank">
+                {record.sourceUrl}
+              </a>
+              {record.owner !== null && <> · by @{record.owner}</>}
+            </p>
+            <p class="source-line">
+              {record.revision !== null && <>revision {record.revision.slice(0, 12)} · </>}
+              sha256 {record.contentHash.slice(0, 16)}…
+            </p>
+          </header>
+
+          <section class="install">
+            <label for="install-cmd">Install</label>
+            <div class="copy-row">
+              <code id="install-cmd">{installCommand}</code>
+              <button
+                class="ghost"
+                id="copy-btn"
+                type="button"
+                data-command={installCommand}
+              >
+                Copy
+              </button>
+            </div>
+          </section>
+
+          <section class="facts">
+            <div class="fact">
+              <h3>Models</h3>
+              {facts && facts.models.length > 0 ? (
+                <ul>
+                  {facts.models.map((model) => (
+                    <li>{model}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="none">None declared</p>
+              )}
+            </div>
+
+            <div class="fact">
+              <h3>Providers</h3>
+              {facts && facts.providers.length > 0 ? (
+                <div class="chip-row">
+                  {facts.providers.map((provider) => (
+                    <span class="tag">{provider}</span>
+                  ))}
+                </div>
+              ) : (
+                <p class="none">None inferred</p>
+              )}
+              {facts && facts.disabledProviders.length > 0 && (
+                <p class="field-hint">
+                  Disabled: {facts.disabledProviders.join(", ")}
+                </p>
+              )}
+            </div>
+
+            <div class="fact">
+              <h3>Advisor</h3>
+              {advisorEntries.length > 0 ? (
+                <ul>
+                  {advisorEntries.map(([key, value]) => (
+                    <li>{key}: {JSON.stringify(value)}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="none">Not configured</p>
+              )}
+            </div>
+
+            <div class="fact">
+              <h3>Hooks</h3>
+              {facts && facts.hooks.length > 0 ? (
+                <ul>
+                  {facts.hooks.map((hook) => (
+                    <li>{hook}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="none">None</p>
+              )}
+            </div>
+
+            <div class="fact">
+              <h3>Extensions</h3>
+              {facts && facts.extensions.length > 0 ? (
+                <ul>
+                  {facts.extensions.map((extension) => (
+                    <li>{extension}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="none">None</p>
+              )}
+            </div>
+
+            <div class="fact">
+              <h3>Prerequisites</h3>
+              {facts && facts.prerequisites.length > 0 ? (
+                <ul>
+                  {facts.prerequisites.map((prereq) => (
+                    <li>
+                      {prereq.name} <span class="owner">({prereq.kind})</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="none">None detected</p>
+              )}
+            </div>
+          </section>
+
+          {validation && validation.warnings.length > 0 && (
+            <section class="warnings">
+              <h3>Warnings</h3>
+              <ul>
+                {validation.warnings.map((warning) => (
+                  <li>{warning}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </article>
+      )}
+  </div>
+</Base>
+
+<script>
+  const button = document.getElementById(
+    "copy-btn"
+  ) as HTMLButtonElement | null;
+  button?.addEventListener("click", async () => {
+    const command = button.dataset.command ?? "";
+    try {
+      await navigator.clipboard.writeText(command);
+      const original = button.textContent;
+      button.textContent = "Copied";
+      setTimeout(() => {
+        button.textContent = original;
+      }, 1500);
+    } catch {
+      button.textContent = "Copy failed";
+    }
+  });
+</script>

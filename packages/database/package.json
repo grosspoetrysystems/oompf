@@ -1,0 +1,27 @@
+{
+  "name": "@oompf/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsdown && tsc -b --force",
+    "migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "test": "bun test src",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
+    "@oompf/core": "workspace:*",
+    "drizzle-orm": "0.45.2"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.4",
+    "drizzle-kit": "0.31.10"
+  }
+}

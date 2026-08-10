@@ -1,0 +1,20 @@
+{
+  "name": "@oompf/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsdown && tsc -b --force",
+    "test": "bun test src",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "yaml": "2.9.0"
+  }
+}

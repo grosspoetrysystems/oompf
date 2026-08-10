@@ -1,2 +1,16 @@
 .worktrees/
 .superpowers/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Astro / Cloudflare
+.astro/
+.wrangler/
+
+coverage/
+.turbo/

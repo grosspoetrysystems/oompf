@@ -1,0 +1,15 @@
+{
+  // Cloudflare Worker configuration for the OOMPF web index.
+  // Set DATABASE_URL as a Wrangler/Cloudflare secret before deploying:
+  //   bun run --filter='@oompf/database' migrate
+  //   cd apps/web && bunx wrangler secret put DATABASE_URL
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "oompf-web",
+  "compatibility_date": "2026-08-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  }
+}

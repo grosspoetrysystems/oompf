@@ -1,0 +1,27 @@
+{
+  "name": "@oompf/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "bin": {
+    "oompf": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsdown && tsc -b --force",
+    "test": "bun test src",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@oompf/core": "workspace:*",
+    "@oompf/database": "workspace:*",
+    "@oompf/github": "workspace:*",
+    "incur": "0.4.26",
+    "zod": "4.4.3"
+  }
+}

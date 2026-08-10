@@ -1,0 +1,425 @@
+/*
+ * OOMPF global styles. A restrained, developer-oriented dark theme: a single
+ * accent, a monospace-forward type system for source/hash/command detail, and
+ * generous whitespace so profile facts read like a spec sheet, not a card wall.
+ */
+
+:root {
+  --bg: #0b0d12;
+  --bg-raised: #12151d;
+  --bg-inset: #0e1117;
+  --border: #232936;
+  --border-strong: #313a4d;
+  --text: #e6e9ef;
+  --text-dim: #9aa4b6;
+  --text-faint: #6b7488;
+  --accent: #7c9cff;
+  --accent-strong: #9db4ff;
+  --ok: #4ec9a5;
+  --warn: #e5b567;
+  --danger: #f0776a;
+  --radius: 10px;
+  --mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas,
+    monospace;
+  --sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  text-rendering: optimizeLegibility;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 980px;
+  padding: 0 1.25rem;
+  margin: 0 auto;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
+/* ---------- Header ---------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg-raised) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+.header-inner {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  height: 60px;
+}
+.brand {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.brand:hover {
+  text-decoration: none;
+}
+.brand-mark {
+  color: var(--accent);
+}
+.header-search {
+  display: flex;
+  flex: 1;
+}
+.header-search input {
+  width: 100%;
+}
+.header-nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  white-space: nowrap;
+}
+.header-nav a {
+  font-size: 0.94rem;
+  color: var(--text-dim);
+}
+.header-nav a:hover {
+  color: var(--text);
+}
+.header-nav .cta {
+  padding: 0.4rem 0.8rem;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: var(--radius);
+}
+.header-nav .cta:hover {
+  text-decoration: none;
+  background: var(--accent-strong);
+}
+
+/* ---------- Inputs ---------- */
+input[type="search"],
+input[type="text"],
+input[type="url"] {
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  padding: 0.55rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--bg);
+  cursor: pointer;
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius);
+}
+button:hover {
+  background: var(--accent-strong);
+}
+button.ghost {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+button.ghost:hover {
+  background: var(--bg-raised);
+}
+
+/* ---------- Layout blocks ---------- */
+.site-main {
+  padding: 2.5rem 0 3.5rem;
+}
+.site-footer {
+  padding: 1.5rem 0;
+  font-size: 0.86rem;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+}
+
+.hero h1 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.9rem, 4vw, 2.7rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.hero .lede {
+  max-width: 62ch;
+  margin: 0 0 1.5rem;
+  font-size: 1.1rem;
+  color: var(--text-dim);
+}
+
+.section {
+  margin-top: 2.75rem;
+}
+.section h2 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ---------- Profile grid / cards ---------- */
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.profile-card {
+  display: block;
+  padding: 1rem 1.1rem;
+  color: inherit;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.profile-card:hover {
+  text-decoration: none;
+  border-color: var(--border-strong);
+}
+.profile-card .name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.profile-card .owner {
+  margin-left: 0.35rem;
+  font-size: 0.86rem;
+  color: var(--text-faint);
+}
+.profile-card .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.tag {
+  padding: 0.15rem 0.55rem;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.empty {
+  padding: 1.5rem;
+  color: var(--text-faint);
+  text-align: center;
+  background: var(--bg-inset);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+/* ---------- Register form ---------- */
+.form-card {
+  max-width: 640px;
+  padding: 1.5rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.form-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.form-row input {
+  flex: 1;
+}
+.field-hint {
+  margin-top: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--text-faint);
+}
+.result {
+  padding: 1rem;
+  margin-top: 1.25rem;
+  font-size: 0.94rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+.result.ok {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--border-strong));
+}
+.result.error {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border-strong));
+}
+.result[hidden] {
+  display: none;
+}
+
+/* ---------- Profile detail ---------- */
+.profile-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: baseline;
+}
+.profile-head h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: -0.01em;
+}
+.badge {
+  padding: 0.2rem 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+}
+.badge.valid {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--border-strong));
+}
+.badge.invalid {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border-strong));
+}
+
+.source-line {
+  margin-top: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  word-break: break-all;
+}
+
+.install {
+  margin: 1.5rem 0 2rem;
+}
+.install label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.copy-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.copy-row code {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.fact {
+  padding: 1rem 1.1rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.fact h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.fact ul {
+  padding-left: 1.1rem;
+  margin: 0;
+}
+.fact li {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.fact .none {
+  font-family: var(--sans);
+  font-style: italic;
+  color: var(--text-faint);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.warnings {
+  padding: 0.9rem 1.1rem;
+  margin-top: 1.5rem;
+  background: color-mix(in srgb, var(--warn) 8%, var(--bg-raised));
+  border-left: 3px solid var(--warn);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.warnings h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--warn);
+}
+.warnings ul {
+  padding-left: 1.1rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.notice {
+  padding: 1rem 1.1rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+@media (max-width: 640px) {
+  .header-search {
+    display: none;
+  }
+}

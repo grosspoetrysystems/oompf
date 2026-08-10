@@ -1,0 +1,127 @@
+---
+/**
+ * Register page: a small public-Gist URL form that POSTs to `/api/profiles`
+ * and renders the resulting profile link (or an actionable error). v0 accepts
+ * public Gists only.
+ */
+import Base from "../layouts/Base.astro";
+
+export const prerender = false;
+---
+
+<Base title="Register a profile — OOMPF">
+  <div class="wrap">
+    <section class="hero">
+      <h1>Register a profile</h1>
+      <p class="lede">
+        Paste the public GitHub Gist that holds your OMP profile. OOMPF fetches
+        the canonical YAML, validates it structurally, and indexes its facts. In
+        v0 only <strong>public Gists</strong> are accepted.
+      </p>
+    </section>
+
+    <section class="section">
+      <form class="form-card" id="register-form">
+        <label for="source">Public Gist URL or ID</label>
+        <div class="form-row">
+          <input
+            autocomplete="off"
+            id="source"
+            name="source"
+            placeholder="https://gist.github.com/you/abc123…"
+            required
+            spellcheck="false"
+            type="text"
+          >
+          <button id="submit-btn" type="submit">Index profile</button>
+        </div>
+        <p class="field-hint">
+          Accepts <code>gist.github.com</code> URLs (optionally pinned to a
+          revision) or a bare Gist ID. The Gist must contain exactly one
+          <code>&lt;name&gt;.yml</code>
+          profile file.
+        </p>
+        <div class="result" hidden id="result"></div>
+      </form>
+    </section>
+  </div>
+</Base>
+
+<script>
+  const form = document.getElementById("register-form") as HTMLFormElement;
+  const input = document.getElementById("source") as HTMLInputElement;
+  const button = document.getElementById("submit-btn") as HTMLButtonElement;
+  const result = document.getElementById("result") as HTMLDivElement;
+
+  function show(kind: "ok" | "error", html: string): void {
+    result.className = `result ${kind}`;
+    result.innerHTML = html;
+    result.hidden = false;
+  }
+
+  function escapeHtml(value: string): string {
+    return value.replace(
+      /[&<>"']/g,
+      (char) =>
+        ({
+          "'": "&#39;",
+          '"': "&quot;",
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+        })[char] ?? char
+    );
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const source = input.value.trim();
+    if (source === "") {
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Indexing…";
+    result.hidden = true;
+
+    try {
+      const response = await fetch("/api/profiles", {
+        body: JSON.stringify({ source }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      const data = (await response.json()) as {
+        id?: string;
+        url?: string;
+        source?: string;
+        validation?: { warnings?: string[] };
+        error?: { message?: string; details?: string[] };
+      };
+
+      if (response.ok && data.url) {
+        const warnings = data.validation?.warnings ?? [];
+        const warnHtml =
+          warnings.length > 0
+            ? `<p>Advisories: ${escapeHtml(warnings.join("; "))}</p>`
+            : "";
+        show(
+          "ok",
+          `<p>Indexed. <a href="${escapeHtml(data.url)}">View profile →</a></p>${warnHtml}`
+        );
+      } else {
+        const detail = data.error?.details?.length
+          ? `: ${escapeHtml(data.error.details.join("; "))}`
+          : "";
+        show(
+          "error",
+          `${escapeHtml(data.error?.message ?? "Indexing failed.")}${detail}`
+        );
+      }
+    } catch {
+      show("error", "Network error — could not reach the index. Try again.");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Index profile";
+    }
+  });
+</script>

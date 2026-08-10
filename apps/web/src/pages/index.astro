@@ -1,0 +1,93 @@
+---
+/**
+ * OOMPF home: explains the product, then surfaces search results (when `?q=`
+ * is present) or a featured sample of the index. Rendered on the Worker; the
+ * repository is resolved from the Cloudflare runtime env, degrading to a notice
+ * when the database binding is unavailable.
+ */
+import Base from "../layouts/Base.astro";
+import {
+  type AppLocals,
+  type CompactProfile,
+  IndexError,
+  listFeaturedProfiles,
+  resolveRepository,
+  searchIndexedProfiles,
+} from "../lib/services/index-profile.ts";
+
+export const prerender = false;
+
+const q = (Astro.url.searchParams.get("q") ?? "").trim();
+const locals = Astro.locals as unknown as AppLocals;
+
+let profiles: CompactProfile[] = [];
+let dbError: string | null = null;
+try {
+  const repository = await resolveRepository(locals);
+  profiles =
+    q === ""
+      ? await listFeaturedProfiles(repository)
+      : await searchIndexedProfiles(repository, q);
+} catch (error) {
+  dbError =
+    error instanceof IndexError
+      ? error.message
+      : "The index is temporarily unavailable.";
+}
+
+const heading = q === "" ? "Featured profiles" : `Results for “${q}”`;
+---
+
+<Base>
+  <div class="wrap">
+    <section class="hero">
+      <h1>The public index for OMP profiles.</h1>
+      <p class="lede">
+        OOMPF is where proficient, agent-oriented developers discover, inspect,
+        and install <strong>OMP (Oh My Pi)</strong> profiles. Every profile is a
+        public GitHub Gist — OOMPF indexes the facts (models, providers,
+        advisors, hooks, prerequisites) and links straight back to the canonical
+        source. Nothing is hidden behind an abstraction.
+      </p>
+      <p class="lede">
+        Found one you like? Copy its <code>oompf add</code> command and pull it
+        into your own setup.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>{heading}</h2>
+      {dbError !== null ? (
+          <p class="notice">{dbError}</p>
+        ) : profiles.length === 0 ? (
+          <p class="empty">
+            {q === ""
+              ? "No profiles indexed yet. Be the first — register a public Gist."
+              : `Nothing matched “${q}”. Try a model, provider, or profile name.`}
+          </p>
+        ) : (
+          <div class="profile-grid">
+            {profiles.map((profile) => (
+              <a class="profile-card" href={profile.url}>
+                <div>
+                  <span class="name">{profile.name}</span>
+                  {profile.owner !== null && (
+                    <span class="owner">@{profile.owner}</span>
+                  )}
+                </div>
+                <div class="meta">
+                  {profile.ompVersion !== null && (
+                    <span class="tag">omp {profile.ompVersion}</span>
+                  )}
+                  <span class="tag">{profile.models.length} models</span>
+                  {profile.providers.slice(0, 3).map((provider) => (
+                    <span class="tag">{provider}</span>
+                  ))}
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+    </section>
+  </div>
+</Base>
