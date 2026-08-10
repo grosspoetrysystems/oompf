@@ -195,24 +195,12 @@ export async function indexPublicGist(
     validation,
   });
 }
-
-/** Cloudflare runtime environment surface consumed by the web app. */
-export interface RuntimeEnv {
-  /** Postgres connection string for the metadata index (Neon serverless). */
-  readonly DATABASE_URL?: string;
-}
-
 /**
- * The subset of `Astro.locals` the routes rely on. In production only
- * `runtime.env` is present (populated by the Cloudflare adapter); tests inject
- * `repository`/`fetchGist` seams so no real database or network is touched.
+ * The subset of `Astro.locals` used by the routes.
  */
 export interface AppLocals {
-  /** Test seam: a Gist-fetch override threaded into {@link indexPublicGist}. */
   fetchGist?: FetchPublicGist;
-  /** Test seam: a pre-built repository, bypassing env-based construction. */
   repository?: ProfileRepository;
-  runtime?: { env?: RuntimeEnv };
 }
 
 /**
@@ -410,13 +398,6 @@ export interface ErrorEnvelope {
   };
 }
 
-/** Remove credentials from runtime error messages before writing diagnostics. */
-function redactDiagnosticMessage(message: string): string {
-  return message
-    .replace(/(?:postgres(?:ql)?):\/\/[^\s"'`]+/gi, "postgres://[redacted]")
-    .replace(/(password\s*[=:]\s*)[^,\s]+/gi, "$1[redacted]");
-}
-
 /** Map any thrown value to an HTTP status and error envelope body. */
 export function toErrorEnvelope(error: unknown): {
   status: number;
@@ -434,12 +415,6 @@ export function toErrorEnvelope(error: unknown): {
       status: error.status,
     };
   }
-  console.error("[oompf] unhandled request error", {
-    message: redactDiagnosticMessage(
-      error instanceof Error ? error.message : String(error)
-    ),
-    name: error instanceof Error ? error.name : typeof error,
-  });
   return {
     body: {
       error: {
