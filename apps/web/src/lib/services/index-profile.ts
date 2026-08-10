@@ -404,6 +404,13 @@ export interface ErrorEnvelope {
   };
 }
 
+/** Remove credentials from runtime error messages before writing diagnostics. */
+function redactDiagnosticMessage(message: string): string {
+  return message
+    .replace(/(?:postgres(?:ql)?):\/\/[^\s"'`]+/gi, "postgres://[redacted]")
+    .replace(/(password\s*[=:]\s*)[^,\s]+/gi, "$1[redacted]");
+}
+
 /** Map any thrown value to an HTTP status and error envelope body. */
 export function toErrorEnvelope(error: unknown): {
   status: number;
@@ -421,6 +428,12 @@ export function toErrorEnvelope(error: unknown): {
       status: error.status,
     };
   }
+  console.error("[oompf] unhandled request error", {
+    message: redactDiagnosticMessage(
+      error instanceof Error ? error.message : String(error)
+    ),
+    name: error instanceof Error ? error.name : typeof error,
+  });
   return {
     body: {
       error: {
