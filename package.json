@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "db:migrate": "if test -f .env.local; then bun --env-file=.env.local run --filter='@oompf/database' migrate; else bun run --filter='@oompf/database' migrate; fi",
+    "db:migrate": "bun scripts/with-env.ts -- bun run --filter=@oompf/database migrate",
     "dev": "bun run --filter='@oompf/web' dev",
     "format": "ultracite fix",
     "format:check": "ultracite check",
