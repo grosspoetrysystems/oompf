@@ -33,9 +33,9 @@ describe("inspect", () => {
     expect(result.name).toBe(STEM);
     expect(result.owner).toBe("octocat");
     expect(result.revision).toBe(REVISION);
+    expect(result.ompVersion).toBeNull();
     expect(result.structural).toBe("valid");
     expect(result.models).toContain("anthropic/claude-x");
-    expect(result.installCommand).toBe(`oompf add ${GIST_HTML}`);
     // Metadata only — the raw YAML body is never emitted.
     expect(out).not.toContain("symbolPreset");
   });

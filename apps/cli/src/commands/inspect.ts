@@ -21,20 +21,6 @@ function filenameStem(filename: string): string {
   return filename.replace(/\.(ya?ml)$/i, "");
 }
 
-/** Read the OMP setup version from extracted facts, when present. */
-function ompVersionFromFacts(
-  fields: Readonly<Record<string, unknown>> | undefined
-): string | null {
-  const value = fields?.setupVersion;
-  if (typeof value === "string" && value.trim() !== "") {
-    return value.trim();
-  }
-  if (typeof value === "number") {
-    return String(value);
-  }
-  return null;
-}
-
 /** Register the `inspect` command on the given CLI. */
 export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
   cli.command("inspect", {
@@ -96,7 +82,7 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
             installCommand: `oompf add ${c.args.ref}`,
             models: facts ? [...facts.models] : [],
             name: filenameStem(gist.filename),
-            ompVersion: ompVersionFromFacts(facts?.fields),
+            ompVersion: null,
             owner: gist.owner,
             providers: facts ? [...facts.providers] : [],
             revision: gist.revision,

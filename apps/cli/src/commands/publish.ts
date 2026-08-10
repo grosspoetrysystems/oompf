@@ -24,19 +24,6 @@ function toOompfUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-/** Read the publisher's OMP setup version from extracted facts, when present. */
-function ompVersionFromFacts(
-  fields: Readonly<Record<string, unknown>>
-): string | undefined {
-  const value = fields.setupVersion;
-  if (typeof value === "string" && value.trim() !== "") {
-    return value.trim();
-  }
-  if (typeof value === "number") {
-    return String(value);
-  }
-}
-
 /** Register the `publish` command on the given CLI. */
 export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
   cli.command("publish", {
@@ -126,11 +113,11 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
           { ghCommand: deps.ghCommand, runner: deps.runner }
         );
 
-        // 5. Register the source with the OOMPF web API.
-        const ompVersion = ompVersionFromFacts(validation.facts?.fields ?? {});
+        // The YAML setupVersion is a config schema marker, not the installed
+        // OMP runtime version. Register only explicitly supplied metadata.
         const registration = await registerProfile(
           c.env.OOMPF_BASE_URL,
-          { ompVersion, source: gist.htmlUrl },
+          { source: gist.htmlUrl },
           deps.httpFetch
         );
 

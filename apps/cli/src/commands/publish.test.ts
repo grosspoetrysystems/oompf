@@ -52,7 +52,7 @@ describe("publish", () => {
     expect(result.addCommand).toBe(`oompf add ${OOMPF_URL}`);
   });
 
-  test("registers with the source URL and derived OMP version", async () => {
+  test("does not label setupVersion as an OMP runtime version", async () => {
     let captured = "";
     const deps = publishDeps({
       httpFetch: apiFetch({
@@ -75,7 +75,7 @@ describe("publish", () => {
     await runCli(deps, ["publish", "work", "--json"]);
     const sent = JSON.parse(captured);
     expect(sent.source).toBe(GIST_HTML);
-    expect(sent.ompVersion).toBe("7");
+    expect(sent.ompVersion).toBeUndefined();
   });
 
   test("human output includes a copyable install command", async () => {
