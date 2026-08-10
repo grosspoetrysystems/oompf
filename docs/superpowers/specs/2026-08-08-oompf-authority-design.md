@@ -148,9 +148,13 @@ OOMPF is designed to be consumed without HTML scraping.
 
 ### Documentation indexes
 
-- `/llms.txt` is a concise documentation and endpoint map.
-- `/llms-full.txt` is the expanded machine-readable documentation bundle.
-- `/docs` pages have stable URLs and a text/Markdown representation suitable for retrieval.
+- `/llms.txt` is the concise site-wide documentation and endpoint map.
+- `/docs/llms.txt` is the scoped index for documentation pages.
+- Documentation pages expose clean Markdown variants, linked with `rel="alternate" type="text/markdown"`.
+- Pages and Markdown variants identify the applicable `llms.txt` with `rel="describedby"`.
+- `/llms-full.txt` MAY be generated as a convenience export, but it is non-normative; agents must follow the curated indexes and linked Markdown pages instead.
+
+The indexes follow the llms.txt proposal: an H1, concise summary, short interpretation notes, and H2 sections containing Markdown links with useful descriptions. The root index routes agents to scoped documentation indexes and machine-readable contracts, following the hierarchical pattern used by major developer documentation sites.
 
 ### Versioned API
 
@@ -161,6 +165,12 @@ Canonical agent API routes use `/api/v1`:
 - `POST /api/v1/profiles` — fetch, validate, normalize, and register a public Gist.
 - `GET /api/v1/mappings/providers` — curated provider identities and canonical links.
 - `GET /api/v1/mappings/models/:provider` — curated model patterns, display names, and canonical links.
+
+The API is described by an OpenAPI 3.1 document at `/openapi.json`. Shared response shapes are also published as JSON Schema documents:
+
+- `/schemas/profile-metadata.json`
+- `/schemas/profile-mappings.json`
+- `/schemas/error.json`
 
 Existing `/api/...` routes remain compatibility aliases during the v0 transition. The CLI uses the versioned routes after migration. JSON response envelopes, field meanings, and stable error codes are documented in the API reference.
 
@@ -212,7 +222,7 @@ canonical YAML
 - `/docs` is discoverable from global navigation and contains the listed authority/reference pages.
 - CLI examples and profile-page install commands exercise the same canonical URL flow.
 - Existing validation, provenance, indexing, and install safety behavior remains intact.
-- `/llms.txt` and `/llms-full.txt` are reachable and describe the same documented contracts.
+- `/llms.txt` and `/docs/llms.txt` are reachable, concise, and link to clean Markdown pages; `/llms-full.txt`, if generated, is a non-normative convenience export.
 - `/api/v1` routes expose documented JSON shapes and stable error codes.
 - Existing `/api/...` routes remain compatibility aliases.
 - Provider/model mappings are machine-readable and never fabricate unknown links.
