@@ -227,16 +227,14 @@ export async function resolveRepository(
   if (locals.repository) {
     return locals.repository;
   }
-  let url = locals.runtime?.env?.DATABASE_URL;
-  if (url === undefined) {
-    try {
-      const workerModule = (await import("cloudflare:workers")) as {
-        env?: { DATABASE_URL?: string };
-      };
-      url = workerModule.env?.DATABASE_URL;
-    } catch {
-      // The virtual Worker module is unavailable in local Node/Bun execution.
-    }
+  let url: string | undefined;
+  try {
+    const workerModule = (await import("cloudflare:workers")) as {
+      env?: { DATABASE_URL?: string };
+    };
+    url = workerModule.env?.DATABASE_URL;
+  } catch {
+    // The virtual Worker module is unavailable in local Node/Bun execution.
   }
   if (url === undefined || url.trim() === "") {
     throw new IndexError(
