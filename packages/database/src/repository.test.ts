@@ -119,6 +119,18 @@ describe("createOrUpdateProfile", () => {
     const all = await db.select().from(profiles);
     expect(all).toHaveLength(1);
   });
+  test("updates version metadata when the unchanged source is re-registered", async () => {
+    const { repo } = await freshRepo();
+    const input = registerInput(PROFILE_YAML);
+
+    await repo.createOrUpdateProfile(input);
+    const updated = await repo.createOrUpdateProfile({
+      ...input,
+      ompVersion: null,
+    });
+
+    expect(updated.ompVersion).toBeNull();
+  });
 
   test("a changed revision/hash refreshes metadata but preserves first-indexed time", async () => {
     const { repo, db } = await freshRepo();

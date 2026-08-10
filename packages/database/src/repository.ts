@@ -164,13 +164,25 @@ export function createProfileRepository(
     const existing = await findBySource(input.sourceUrl);
 
     if (existing) {
-      // Idempotent: identical revision and content hash means nothing changed,
-      // so return the current record untouched (createdAt/updatedAt preserved).
+      // Identical content is still allowed to refresh publisher metadata.
       if (
         existing.revision === revision &&
         existing.contentHash === input.contentHash
       ) {
-        return existing;
+        const ompVersion = input.ompVersion ?? null;
+        if (existing.ompVersion === ompVersion) {
+          return existing;
+        }
+        const updated = await db
+          .update(profiles)
+          .set({ ompVersion, updatedAt: new Date() })
+          .where(eq(profiles.id, existing.id))
+          .returning();
+        const row = updated[0];
+        if (!row) {
+          throw new Error(`profile disappeared during update: ${existing.id}`);
+        }
+        return row;
       }
       const updated = await db
         .update(profiles)
