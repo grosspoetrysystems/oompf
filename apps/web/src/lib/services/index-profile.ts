@@ -245,7 +245,15 @@ export async function resolveRepository(
       "The profile index database is not configured."
     );
   }
-  return createProfileRepository(createNeonDatabase(url));
+  try {
+    return createProfileRepository(createNeonDatabase(url));
+  } catch {
+    throw new IndexError(
+      "server_misconfigured",
+      500,
+      "The profile index database configuration is invalid."
+    );
+  }
 }
 
 /** The `/p/<id>` path for a profile id. */
