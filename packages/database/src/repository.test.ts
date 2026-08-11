@@ -50,7 +50,10 @@ async function freshRepo(): Promise<{
   db: ProfileDatabase;
 }> {
   const client = new PGlite();
-  for (const migration of ["0001_profiles.sql", "0002_profile_metadata.sql"]) {
+  for (const migration of [
+    "0000_nosy_liz_osborn.sql",
+    "0001_marvelous_emma_frost.sql",
+  ]) {
     const ddl = await Bun.file(
       new URL(`../migrations/${migration}`, import.meta.url)
     ).text();
