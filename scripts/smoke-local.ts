@@ -64,7 +64,7 @@ async function freshRepository(): Promise<{
 }> {
   const client = new PGlite();
   const migrations = await Promise.all(
-    ["0001_profiles.sql", "0002_profile_metadata.sql"].map((name) =>
+    ["0000_nosy_liz_osborn.sql", "0001_marvelous_emma_frost.sql"].map((name) =>
       Bun.file(
         new URL(`../packages/database/migrations/${name}`, import.meta.url)
       ).text()

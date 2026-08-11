@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "metadata" jsonb DEFAULT '{"kind":null,"links":[],"summary":null,"tags":[]}'::jsonb NOT NULL;
