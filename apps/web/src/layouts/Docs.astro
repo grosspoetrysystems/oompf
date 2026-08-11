@@ -5,16 +5,17 @@
  * page metadata — a clean Markdown alternate (`rel="alternate"
  * type="text/markdown"`) and the applicable `llms.txt` (`rel="describedby"`).
  */
-import Base from "./Base.astro";
+
 import { type DocSection, loadDocSections } from "../lib/docs/nav.ts";
+import Base from "./Base.astro";
 
 interface Props {
-  title: string;
+  /** Path of the current page, used to mark the active sidebar link. */
+  activePath?: string;
   description?: string;
   /** Clean Markdown variant of this page, linked as an alternate. */
   markdownPath?: string;
-  /** Path of the current page, used to mark the active sidebar link. */
-  activePath?: string;
+  title: string;
 }
 
 const { title, description, markdownPath, activePath } = Astro.props;
@@ -24,19 +25,16 @@ const pageTitle = `${title} — OOMPF docs`;
 
 <Base title={pageTitle} description={description}>
   <Fragment slot="head">
-    {
-      markdownPath ? (
+    {markdownPath ? (
         <link href={markdownPath} rel="alternate" type="text/markdown" />
-      ) : null
-    }
-    <link href="/docs/llms.txt" rel="describedby" type="text/plain" />
+      ) : null}
+    <link href="/docs/llms.txt" rel="describedby" type="text/plain">
   </Fragment>
 
   <div class="wrap docs-layout">
     <aside class="docs-sidebar">
       <nav aria-label="Documentation">
-        {
-          sections.map((section) => (
+        {sections.map((section) => (
             <div class="docs-section">
               <h2>{section.title}</h2>
               <ul>
@@ -53,8 +51,7 @@ const pageTitle = `${title} — OOMPF docs`;
                 ))}
               </ul>
             </div>
-          ))
-        }
+          ))}
       </nav>
     </aside>
 

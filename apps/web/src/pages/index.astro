@@ -1,9 +1,12 @@
 ---
 /**
- * OOMPF home: explains the product, then surfaces search results (when `?q=`
- * is present) or a featured sample of the index. Rendered on the Worker; the
- * repository is resolved from the Cloudflare runtime env, degrading to a notice
- * when the database binding is unavailable.
+ * OOMPF home. The hero states the whole product as a transcript — publish,
+ * index, install, run — because that loop is the thesis. Below it the index
+ * itself is the content: one ledger row per profile, shaped like OMP's own
+ * output, plus the documentation entry points a first-time visitor needs.
+ *
+ * Rendered on the Worker; the repository comes from the Cloudflare runtime env
+ * and degrades to a directed notice when the binding is unavailable.
  */
 import Base from "../layouts/Base.astro";
 import {
@@ -32,27 +35,67 @@ try {
   dbError =
     error instanceof IndexError
       ? error.message
-      : "The index is temporarily unavailable.";
+      : "The index is unreachable right now. The profiles themselves are unaffected — they live on GitHub.";
 }
 
-const heading = q === "" ? "Featured profiles" : `Results for “${q}”`;
+const heading = q === "" ? "Index" : `Matches for “${q}”`;
+
+/** Shorten an opaque profile id for display; the page carries the full one. */
+function shortId(id: string): string {
+  return id.length > 16 ? `${id.slice(0, 14)}…` : id;
+}
+
+const docsRail = [
+  {
+    body: "What a profile actually is, which fields OOMPF reads, and where the runtime authority stays.",
+    href: "/docs/omp-profiles",
+    role: "concept",
+    title: "OMP profiles",
+  },
+  {
+    body: "Turn a local profile into a public Gist, scan it for secrets, and register its metadata.",
+    href: "/docs/publishing-a-profile",
+    role: "publish",
+    title: "Publishing",
+  },
+  {
+    body: "Install someone else's profile by its OOMPF URL, and what happens when the name collides.",
+    href: "/docs/installing-a-profile",
+    role: "install",
+    title: "Installing",
+  },
+];
 ---
 
 <Base>
   <div class="wrap">
     <section class="hero">
-      <h1>The public index for OMP profiles.</h1>
+      <h1>
+        Share a working OMP profile as <span class="accent">one link</span>.
+      </h1>
       <p class="lede">
-        OOMPF is where proficient, agent-oriented developers discover, inspect,
-        and install <strong>OMP (Oh My Pi)</strong> profiles. Every profile is a
-        public GitHub Gist — OOMPF indexes the facts (models, providers,
-        advisors, hooks, prerequisites) and links straight back to the canonical
-        source. Nothing is hidden behind an abstraction.
+        Profiles get passed around as screenshots and half a YAML file. OOMPF
+        indexes them from public GitHub Gists, shows the facts —
+        <strong>models, providers, advisors, hooks, prerequisites</strong>
+        — and hands back a command that installs the profile natively.
       </p>
-      <p class="lede">
-        Found one you like? Copy its <code>oompf add</code> command and pull it
-        into your own setup.
-      </p>
+
+      <div class="transcript">
+        <div class="transcript-bar">
+          <span>◆</span><span>the whole loop</span>
+        </div>
+        <pre
+          class="transcript-body"
+        ><span class="cmd">oompf publish daily-driver</span><span
+            class="out"
+          >  <span class="ok">✓</span> gist      gist.github.com/alice/cfcdad13…</span><span
+            class="out"
+          >  <span class="ok">✓</span> indexed   oompf.run/p/prof_00e08f39…</span><span class="cmd">oompf add https://oompf.run/p/prof_00e08f39…</span><span
+            class="out"
+          >  <span class="ok">✓</span> installed ~/.omp/profiles/alice-daily-driver</span><span class="cmd">omp --profile alice-daily-driver<span
+              class="cursor"
+              aria-hidden="true"></span></span></pre>
+      </div>
     </section>
 
     <section class="section">
@@ -62,32 +105,75 @@ const heading = q === "" ? "Featured profiles" : `Results for “${q}”`;
         ) : profiles.length === 0 ? (
           <p class="empty">
             {q === ""
-              ? "No profiles indexed yet. Be the first — register a public Gist."
-              : `Nothing matched “${q}”. Try a model, provider, or profile name.`}
+              ? "Nothing indexed yet. Publish a profile with oompf publish, or register a public Gist URL."
+              : `No profile matches “${q}”. Search a model selector, a provider, or a profile name.`}
           </p>
         ) : (
-          <div class="profile-grid">
+          <div class="ledger">
             {profiles.map((profile) => (
-              <a class="profile-card" href={profile.url}>
-                <div>
-                  <span class="name">{profile.name}</span>
+              <a class="ledger-row" href={profile.url}>
+                <span class="ledger-head">
+                  <span class="ledger-name">{profile.name}</span>
                   {profile.owner !== null && (
-                    <span class="owner">@{profile.owner}</span>
+                    <span class="ledger-owner">@{profile.owner}</span>
                   )}
-                </div>
-                <div class="meta">
-                  {profile.ompVersion !== null && (
-                    <span class="tag">omp {profile.ompVersion}</span>
+                  {profile.kind !== null && (
+                    <span class="kind-chip">{profile.kind.value}</span>
                   )}
-                  <span class="tag">{profile.models.length} models</span>
-                  {profile.providers.slice(0, 3).map((provider) => (
-                    <span class="tag">{provider}</span>
-                  ))}
-                </div>
+                  {profile.structural === "invalid" && (
+                    <span class="badge invalid">invalid</span>
+                  )}
+                </span>
+                {profile.summary !== null && (
+                  <p class="ledger-summary">{profile.summary}</p>
+                )}
+                <span class="ledger-facts">
+                  <div>
+                    <span class="ledger-key">models</span>
+                    <span class="model">
+                      {profile.models.length === 0
+                        ? "none declared"
+                        : profile.models.slice(0, 3).join(" · ")}
+                      {profile.models.length > 3 &&
+                        ` +${profile.models.length - 3}`}
+                    </span>
+                  </div>
+                  {profile.providers.length > 0 && (
+                    <div>
+                      <span class="ledger-key">providers</span>
+                      <span class="provider">
+                        {profile.providers.join(" · ")}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span class="ledger-key">install</span>
+                    <span class="ledger-cmd">
+                      oompf add oompf.run/p/{shortId(profile.id)}
+                    </span>
+                  </div>
+                </span>
               </a>
             ))}
           </div>
         )}
+    </section>
+
+    <section class="section">
+      <h2>Start here</h2>
+      <p class="section-note">
+        OOMPF documents the shareable profile format. OMP remains the authority
+        for how a profile behaves once it is installed.
+      </p>
+      <div class="docs-rail">
+        {docsRail.map((card) => (
+          <article class="docs-rail-card">
+            <span class="step">{card.role}</span>
+            <h3><a href={card.href}>{card.title}</a></h3>
+            <p>{card.body}</p>
+          </article>
+        ))}
+      </div>
     </section>
   </div>
 </Base>

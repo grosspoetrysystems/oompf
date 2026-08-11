@@ -146,10 +146,19 @@ const view =
                 Copy
               </button>
             </div>
+            <p class="section-note">
+              Installs as a native OMP profile. Nothing is overwritten — a name
+              collision fails instead.
+              <a href="/docs/installing-a-profile">How installing works</a>
+            </p>
           </section>
 
           <section class="detail-section" aria-labelledby="models-heading">
             <h2 id="models-heading">Models</h2>
+            <p class="section-note">
+              Friendly name first, exact OMP selector beneath.
+              <a href="/docs/models-and-providers">How models are resolved</a>
+            </p>
             {view.models.length > 0 ? (
               <ul class="model-list">
                 {view.models.map((model) => (
@@ -340,6 +349,10 @@ const view =
           <details class="provenance">
             <summary>Source &amp; provenance</summary>
             <div class="provenance-body">
+              <p class="prov-explain">
+                What each identifier means, and how to verify a download:
+                <a href="/docs/provenance-and-revisions">Provenance and revisions</a>
+              </p>
               <div class="prov-item">
                 <span class="prov-label">Canonical source</span>
                 <a

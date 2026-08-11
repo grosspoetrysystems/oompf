@@ -4,8 +4,9 @@
  * collection. Each page declares its clean Markdown alternate (`/docs/<slug>.md`)
  * and the applicable `llms.txt` via the {@link Docs} layout.
  */
-import type { GetStaticPaths } from "astro";
+
 import { getCollection, render } from "astro:content";
+import type { GetStaticPaths } from "astro";
 import Docs from "../../layouts/Docs.astro";
 
 export const prerender = true;

@@ -26,13 +26,13 @@ const sections = await loadDocSections();
     </p>
     <p class="docs-machine">
       Machine-readable: <a href="/docs/llms.txt">/docs/llms.txt</a> ·
-      <a href="/openapi.json">/openapi.json</a> ·
+      <a href="/openapi.json">/openapi.json</a>
+      ·
       <a href="/llms.txt">/llms.txt</a>
     </p>
   </header>
 
-  {
-    sections.map((section) => (
+  {sections.map((section) => (
       <section class="docs-index-section">
         <h2>{section.title}</h2>
         <ul class="docs-index-list">
@@ -44,6 +44,5 @@ const sections = await loadDocSections();
           ))}
         </ul>
       </section>
-    ))
-  }
+    ))}
 </Docs>

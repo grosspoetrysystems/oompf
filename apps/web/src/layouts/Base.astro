@@ -1,7 +1,11 @@
 ---
 /**
- * Base layout for the OOMPF web index: global styles, a persistent header with
- * the primary actions (home, register, search), and a content slot.
+ * Base layout for the OOMPF web index: global styles, the instrument-bar header
+ * (wordmark, index search, primary navigation), and a footer that exposes both
+ * the human docs and the machine-readable contracts.
+ *
+ * The header marks the current section with `aria-current="page"` so navigation
+ * state is announced, not only colored.
  */
 import "../styles/global.css";
 
@@ -16,6 +20,9 @@ const {
 } = Astro.props;
 
 const q = Astro.url.searchParams.get("q") ?? "";
+const path = Astro.url.pathname;
+const inDocs = path === "/docs" || path.startsWith("/docs/");
+const inIndex = path === "/" || path.startsWith("/p/");
 ---
 
 <!doctype html>
@@ -25,6 +32,13 @@ const q = Astro.url.searchParams.get("q") ?? "";
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <meta content={description} name="description">
     <title>{title}</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Doto:wght@400..900&family=IBM+Plex+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    >
+    <link href="/llms.txt" rel="describedby" type="text/plain">
     <slot name="head" />
   </head>
   <body>
@@ -38,15 +52,15 @@ const q = Astro.url.searchParams.get("q") ?? "";
           <input
             aria-label="Search profiles"
             name="q"
-            placeholder="Search profiles, models, providers…"
+            placeholder="search models, providers, profiles…"
             type="search"
             value={q}
           >
         </form>
         <nav class="header-nav">
-          <a href="/">Browse</a>
-          <a href="/docs">Docs</a>
-          <a class="cta" href="/register">Register a profile</a>
+          <a aria-current={inIndex ? "page" : undefined} href="/">Index</a>
+          <a aria-current={inDocs ? "page" : undefined} href="/docs">Docs</a>
+          <a class="cta" href="/register">Publish</a>
         </nav>
       </div>
     </header>
@@ -56,11 +70,46 @@ const q = Astro.url.searchParams.get("q") ?? "";
     </main>
 
     <footer class="site-footer">
-      <div class="wrap">
-        <p>
-          OOMPF indexes public GitHub Gists as OMP profiles. The canonical
-          source always lives at its Gist — OOMPF stores metadata only.
-        </p>
+      <div class="wrap footer-grid">
+        <div>
+          <span class="brand">
+            <span class="brand-mark">◆</span>
+            <span class="brand-name">OOMPF</span>
+          </span>
+          <p class="footer-note">
+            An open index of OMP profiles. Every profile stays a public GitHub
+            Gist — OOMPF holds metadata, never your configuration.
+          </p>
+        </div>
+        <div>
+          <h2>Docs</h2>
+          <ul>
+            <li><a href="/docs/what-is-oompf">What is OOMPF</a></li>
+            <li><a href="/docs/getting-started">Getting started</a></li>
+            <li><a href="/docs/profile-format">Profile format</a></li>
+            <li><a href="/docs/cli-reference">CLI reference</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>For agents</h2>
+          <ul>
+            <li><a href="/llms.txt">llms.txt</a></li>
+            <li><a href="/docs/llms.txt">docs/llms.txt</a></li>
+            <li><a href="/openapi.json">openapi.json</a></li>
+            <li><a href="/api/v1/search">api/v1/search</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Source</h2>
+          <ul>
+            <li>
+              <a href="https://github.com/grosspoetrysystems/oompf">GitHub</a>
+            </li>
+            <li>
+              <a href="/docs/compatibility-and-limitations">Limitations</a>
+            </li>
+          </ul>
+        </div>
       </div>
     </footer>
   </body>
