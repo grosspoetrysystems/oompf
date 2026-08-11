@@ -115,6 +115,16 @@ const REGISTRY: Record<string, ProviderEntry> = {
     },
     url: "https://mistral.ai",
   },
+  ollama: {
+    displayName: "Ollama",
+    models: {
+      "qwen3.6": {
+        label: "Qwen 3.6",
+        url: "https://ollama.com/library/qwen3.6",
+      },
+    },
+    url: "https://ollama.com/library",
+  },
   openai: {
     displayName: "OpenAI",
     models: {
@@ -129,6 +139,16 @@ const REGISTRY: Record<string, ProviderEntry> = {
       o1: { label: "o1", url: "https://platform.openai.com/docs/models" },
     },
     url: "https://openai.com",
+  },
+  "opencode-go": {
+    displayName: "OpenCode Go",
+    models: {
+      "kimi-k2.7-code": {
+        label: "Kimi K2.7 Code",
+        url: "https://opencode.ai/docs/models/",
+      },
+    },
+    url: "https://opencode.ai/docs/models/",
   },
   "x-ai": {
     displayName: "xAI",
