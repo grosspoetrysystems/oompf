@@ -145,10 +145,10 @@ const REGISTRY: Record<string, ProviderEntry> = {
     models: {
       "kimi-k2.7-code": {
         label: "Kimi K2.7 Code",
-        url: "https://opencode.ai/docs/models/",
+        url: "https://opencode.ai/zen/go/v1/models",
       },
     },
-    url: "https://opencode.ai/docs/models/",
+    url: "https://opencode.ai/zen/go/v1/models",
   },
   "x-ai": {
     displayName: "xAI",

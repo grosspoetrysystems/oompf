@@ -8,7 +8,7 @@ describe("provider and model permalinks", () => {
       isAlias: false,
       providerId: "opencode-go",
       selector: "opencode-go/kimi-k2.7-code",
-      url: "https://opencode.ai/docs/models/",
+      url: "https://opencode.ai/zen/go/v1/models",
     });
   });
 
