@@ -727,12 +727,56 @@ a.tag {
 
 .facts {
   display: grid;
-  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.75rem;
 }
 
 .fact {
   display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.fact h3 {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--fg-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.fact ul {
+  display: grid;
   gap: 0.2rem;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--model);
+  list-style: none;
+}
+
+.fact dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.8rem;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+}
+
+.fact dt {
+  color: var(--fg-mute);
+}
+
+.fact dd {
+  margin: 0;
+  color: var(--fg);
 }
 
 .fact .role,
