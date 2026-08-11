@@ -13,7 +13,7 @@
  * metadata and `updatedAt` while preserving the first-indexed `createdAt`.
  */
 
-import type { ProfileFacts } from "@oompf/core";
+import type { ProfileFacts, ProfileMetadata } from "@oompf/core";
 import { sha256 } from "@oompf/core";
 import { eq, ilike, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -58,6 +58,8 @@ export interface RegisterProfileInput {
   readonly facts: ProfileFacts;
   /** Opaque Gist identifier when applicable. */
   readonly gistId?: string | null;
+  /** Publisher-curated `oompf` metadata (summary, kind, tags, links). */
+  readonly metadata: ProfileMetadata;
   /** OMP version the profile targets, when declared. */
   readonly ompVersion?: string | null;
   /** Source owner login, or `null`/omitted when anonymous. */
@@ -190,6 +192,7 @@ export function createProfileRepository(
           contentHash: input.contentHash,
           facts: input.facts,
           gistId: input.gistId ?? null,
+          metadata: input.metadata,
           ompVersion: input.ompVersion ?? null,
           owner: input.owner ?? null,
           profileName: input.profileName,
@@ -214,6 +217,7 @@ export function createProfileRepository(
         facts: input.facts,
         gistId: input.gistId ?? null,
         id,
+        metadata: input.metadata,
         ompVersion: input.ompVersion ?? null,
         owner: input.owner ?? null,
         profileName: input.profileName,

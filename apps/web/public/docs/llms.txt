@@ -1,0 +1,17 @@
+# OOMPF Documentation
+
+Reference pages for sharing, inspecting, and installing native OMP profiles through OOMPF.
+
+## Concepts
+- [What is OOMPF](https://oompf.run/docs/what-is-oompf.md): OOMPF's authority boundary and canonical source model.
+- [Profile format](https://oompf.run/docs/profile-format.md): Native OMP YAML and the optional `oompf:` metadata block.
+- [Models and providers](https://oompf.run/docs/models-and-providers.md): Friendly names, exact selectors, aliases, and verified links.
+
+## Workflow
+- [Profile workflow](https://oompf.run/docs/profile-workflow.md): Publish, register, inspect, search, and install.
+- [CLI reference](https://oompf.run/docs/cli.md): Commands and machine-readable output.
+- [Provenance](https://oompf.run/docs/provenance.md): Revisions, hashes, canonical sources, and reproducibility.
+
+## Contracts
+- [API reference](https://oompf.run/docs/api.md): Versioned routes, response envelopes, and errors.
+- [OpenAPI](https://oompf.run/openapi.json): Machine-readable API contract.

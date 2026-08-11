@@ -12,7 +12,7 @@
  * driver dependency, so this module runs unchanged in a Cloudflare Worker.
  */
 
-import type { ProfileFacts } from "@oompf/core";
+import type { ProfileFacts, ProfileMetadata } from "@oompf/core";
 import {
   jsonb,
   pgTable,
@@ -73,6 +73,11 @@ export const profiles = pgTable(
     gistId: text("gist_id"),
     /** Stable opaque profile identifier (see {@link deriveProfileId}). */
     id: text("id").primaryKey(),
+    /** Publisher-curated `oompf` metadata (summary, kind, tags, links). */
+    metadata: jsonb("metadata")
+      .$type<ProfileMetadata>()
+      .notNull()
+      .default({ kind: null, links: [], summary: null, tags: [] }),
     /** OMP version the profile targets, when declared. */
     ompVersion: text("omp_version"),
     /** Source owner login, or `null` for anonymous sources. */

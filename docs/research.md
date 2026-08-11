@@ -67,3 +67,11 @@ Date: 2026-08-08
 - OMP loads `.env` files from the project, agent, config-root, and home locations. These files can affect runtime behavior and may contain secrets; they are machine/environment inputs, not safe profile artifacts.
 - OMP's own settings schema and migrations are implemented in the upstream TypeScript source and can change with OMP releases. OOMPF's Cloudflare indexer cannot depend on a locally installed OMP binary, so server validation must be distinguished from local OMP validation.
 - OMP is advertised for macOS, Linux, and Windows and has platform-specific path, shell, XDG, and reserved-name behavior. OOMPF must use platform path APIs and OMP's resolver rather than constructing paths from POSIX assumptions.
+
+## Project intent learnings
+
+- The primary persona is an extremely proficient, agent-oriented developer. The product should favor terse terminal UX, inspectable source, deterministic behavior, and machine-readable output over onboarding flows.
+- Gists are the first-class v0 source because the community share loop matters more than broad source support.
+- Installation must result in a native OMP profile usable directly with `omp --profile <name>`.
+- Local collisions must fail safely; there is no overwrite or `--force` path.
+- The implementation subagents for this project are pinned to `deepseek/deepseek-v4-flash-0731` so the build process remains reproducible and aligned with the chosen cost/speed profile.

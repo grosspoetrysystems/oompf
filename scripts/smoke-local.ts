@@ -63,13 +63,16 @@ async function freshRepository(): Promise<{
   readonly close: () => Promise<void>;
 }> {
   const client = new PGlite();
-  const ddl = await Bun.file(
-    new URL(
-      "../packages/database/migrations/0001_profiles.sql",
-      import.meta.url
+  const migrations = await Promise.all(
+    ["0001_profiles.sql", "0002_profile_metadata.sql"].map((name) =>
+      Bun.file(
+        new URL(`../packages/database/migrations/${name}`, import.meta.url)
+      ).text()
     )
-  ).text();
-  await client.exec(ddl);
+  );
+  for (const ddl of migrations) {
+    await client.exec(ddl);
+  }
   const db = drizzle(client, { schema }) as unknown as ProfileDatabase;
   return {
     close: () => client.close(),
@@ -129,7 +132,11 @@ export async function runLocalSmoke(): Promise<SmokeSummary> {
       const method = init?.method ?? "GET";
       const parsed = new URL(url);
 
-      if (parsed.pathname === "/api/profiles" && method === "POST") {
+      if (
+        (parsed.pathname === "/api/profiles" ||
+          parsed.pathname === "/api/v1/profiles") &&
+        method === "POST"
+      ) {
         const body = JSON.parse(init?.body ?? "{}");
         const record = await indexPublicGist(
           { ompVersion: body.ompVersion, source: String(body.source ?? "") },
@@ -138,13 +145,24 @@ export async function runLocalSmoke(): Promise<SmokeSummary> {
         return jsonResponse(200, toRegisterResponse(record));
       }
 
-      if (parsed.pathname.startsWith("/api/profiles/") && method === "GET") {
-        const id = parsed.pathname.slice("/api/profiles/".length);
+      if (
+        (parsed.pathname.startsWith("/api/profiles/") ||
+          parsed.pathname.startsWith("/api/v1/profiles/")) &&
+        method === "GET"
+      ) {
+        const prefix = parsed.pathname.startsWith("/api/v1/")
+          ? "/api/v1/profiles/"
+          : "/api/profiles/";
+        const id = parsed.pathname.slice(prefix.length);
         const record = await getProfileMetadata(repository, id);
         return jsonResponse(200, record);
       }
 
-      if (parsed.pathname === "/api/search" && method === "GET") {
+      if (
+        (parsed.pathname === "/api/search" ||
+          parsed.pathname === "/api/v1/search") &&
+        method === "GET"
+      ) {
         const query = parsed.searchParams.get("q") ?? "";
         const results = await searchIndexedProfiles(repository, query);
         return jsonResponse(200, { query, results });

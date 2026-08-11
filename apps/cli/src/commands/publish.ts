@@ -126,9 +126,15 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
         return c.ok(
           {
             addCommand,
+            aliases: validation.facts ? [...validation.facts.aliases] : [],
             gistId: gist.gistId,
             githubUrl: gist.htmlUrl,
             hash: validation.hash,
+            metadata: {
+              ...validation.metadata,
+              links: [...validation.metadata.links],
+              tags: [...validation.metadata.tags],
+            },
             oompfUrl,
             profile: name,
             revision: null,

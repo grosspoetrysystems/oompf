@@ -47,9 +47,15 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
           );
           return c.ok(
             {
+              aliases: [...record.facts.aliases],
               errors: [...record.validation.errors],
               hash: record.contentHash,
               installCommand: `oompf add ${c.args.ref}`,
+              metadata: {
+                ...record.metadata,
+                links: [...record.metadata.links],
+                tags: [...record.metadata.tags],
+              },
               models: [...record.facts.models],
               name: record.profileName,
               ompVersion: record.ompVersion,
@@ -77,9 +83,15 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
         const facts = validation.facts;
         return c.ok(
           {
+            aliases: facts ? [...facts.aliases] : [],
             errors: [...validation.errors],
             hash: gist.contentHash,
             installCommand: `oompf add ${c.args.ref}`,
+            metadata: {
+              ...validation.metadata,
+              links: [...validation.metadata.links],
+              tags: [...validation.metadata.tags],
+            },
             models: facts ? [...facts.models] : [],
             name: filenameStem(gist.filename),
             ompVersion: null,

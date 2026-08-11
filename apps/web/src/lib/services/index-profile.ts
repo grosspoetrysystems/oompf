@@ -15,7 +15,11 @@
  * tests exercise the flow hermetically, without a network or a database.
  */
 
-import { type ProfileFacts, validateArtifact } from "@oompf/core";
+import {
+  type ProfileFacts,
+  type ProfileKind,
+  validateArtifact,
+} from "@oompf/core";
 import {
   createNeonDatabase,
   createProfileRepository,
@@ -185,6 +189,7 @@ export async function indexPublicGist(
     contentHash: gist.contentHash,
     facts,
     gistId: gist.gistId,
+    metadata: validation.metadata,
     // Preserve the publisher-declared OMP version when supplied.
     ompVersion: input.ompVersion ?? null,
     owner: gist.owner,
@@ -279,6 +284,7 @@ export function toRegisterResponse(record: ProfileRecord): RegisterResponse {
 /** A compact profile record for search results and index listings. */
 export interface CompactProfile {
   readonly id: string;
+  readonly kind: ProfileKind | null;
   readonly models: readonly string[];
   readonly name: string;
   readonly ompVersion: string | null;
@@ -287,6 +293,8 @@ export interface CompactProfile {
   readonly revision: string | null;
   readonly source: string;
   readonly structural: "valid" | "invalid";
+  readonly summary: string | null;
+  readonly tags: readonly string[];
   readonly updatedAt: string;
   readonly url: string;
 }
@@ -300,6 +308,7 @@ function isoTimestamp(value: Date | string): string {
 export function toCompactProfile(record: ProfileRecord): CompactProfile {
   return {
     id: record.id,
+    kind: record.metadata.kind,
     models: [...record.facts.models],
     name: record.profileName,
     ompVersion: record.ompVersion,
@@ -308,6 +317,8 @@ export function toCompactProfile(record: ProfileRecord): CompactProfile {
     revision: record.revision,
     source: record.sourceUrl,
     structural: record.validation.structural,
+    summary: record.metadata.summary,
+    tags: [...record.metadata.tags],
     updatedAt: isoTimestamp(record.updatedAt),
     url: profilePath(record.id),
   };

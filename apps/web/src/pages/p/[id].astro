@@ -1,16 +1,20 @@
 ---
 /**
- * Profile detail: a community show piece for a single indexed OMP profile.
+ * Profile detail: a human-facing overview of a single indexed OMP profile.
  *
- * It foregrounds the canonical GitHub source and owner, the pinned
- * revision/content hash, the structural validation verdict and OMP version,
- * and the source-derived facts (models, providers, advisors, hooks,
- * prerequisites). A copyable `oompf add` command makes installation one paste.
- * The canonical Gist is linked directly — never hidden behind an abstraction.
+ * It leads with author context — summary, kind, and tags — then presents the
+ * profile the way a person reads it: friendly model names with their exact
+ * selectors, linked providers, OMP aliases kept distinct from concrete models,
+ * runtime behavior, and only the requirements a person must actually satisfy.
+ * The canonical `oompf add https://oompf.run/p/<id>` command makes installation
+ * one paste. Source and integrity provenance stay available and explained under
+ * an expandable section — never bare header strings.
  */
 
+import { resolveModelDisplay, resolveProviderLink } from "@oompf/core";
 import type { ProfileRecord } from "@oompf/database";
 import Base from "../../layouts/Base.astro";
+import { buildProfileView } from "../../lib/profile-view.ts";
 import {
   type AppLocals,
   getProfileMetadata,
@@ -41,186 +45,385 @@ try {
   }
 }
 
-const facts = record?.facts ?? null;
-const validation = record?.validation ?? null;
-const installCommand = record === null ? "" : `oompf add ${record.sourceUrl}`;
-const advisorEntries =
-  facts?.advisor == null
-    ? []
-    : Object.entries(facts.advisor).filter(([, value]) => value !== undefined);
+const view =
+  record === null
+    ? null
+    : buildProfileView(record, {
+        resolveModel: resolveModelDisplay,
+        resolveProvider: resolveProviderLink,
+        siteOrigin: Astro.site?.origin ?? null,
+      });
 ---
 
-<Base
-  title={record !== null ? `${record.profileName} — OOMPF` : "Profile — OOMPF"}
->
+<Base title={view !== null ? `${view.profileName} — OOMPF` : "Profile — OOMPF"}>
   <div class="wrap">
-    {record === null ? (
+    {view === null ? (
         <section class="hero">
           <h1>Profile not found</h1>
           <p class="notice">{errorMessage}</p>
           <p><a href="/">← Back to the index</a></p>
         </section>
       ) : (
-        <article>
-          <header>
-            <div class="profile-head">
-              <h1>{record.profileName}</h1>
+        <article class="profile">
+          <header class="profile-header">
+            <div class="profile-title">
+              <h1>{view.profileName}</h1>
               <span
-                class={`badge ${validation?.structural === "valid" ? "valid" : "invalid"}`}
+                class={`badge ${view.structuralValid ? "valid" : "invalid"}`}
               >
-                {validation?.structural === "valid"
-                  ? "structural: valid"
-                  : "structural: invalid"}
+                {view.structuralValid
+                  ? "structurally valid"
+                  : "structurally invalid"}
               </span>
-              {record.ompVersion !== null && (
-                <span class="badge">omp {record.ompVersion}</span>
+              {view.ompVersion !== null && (
+                <span class="badge">omp {view.ompVersion}</span>
               )}
             </div>
 
-            <p class="source-line">
-              <a href={record.sourceUrl} rel="noopener noreferrer" target="_blank">
-                {record.sourceUrl}
-              </a>
-              {record.owner !== null && <> · by @{record.owner}</>}
-            </p>
-            <p class="source-line">
-              {record.revision !== null && <>revision {record.revision.slice(0, 12)} · </>}
-              sha256 {record.contentHash.slice(0, 16)}…
-            </p>
+            {view.summary !== null && (
+              <p class="profile-summary">{view.summary}</p>
+            )}
+
+            <div class="profile-meta">
+              {view.kind !== null && (
+                <span
+                  class="kind-chip"
+                  title={
+                    view.kind.controlled ? "Standard kind" : "Custom kind"
+                  }
+                >
+                  {view.kind.value}
+                </span>
+              )}
+              {view.tags.length > 0 && (
+                <span class="tag-row">
+                  {view.tags.map((tag) => (
+                    <span class="tag">#{tag}</span>
+                  ))}
+                </span>
+              )}
+              {view.owner !== null && (
+                <span class="attribution">
+                  by{" "}
+                  <a
+                    href={`https://github.com/${view.owner}`}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    @{view.owner}
+                  </a>
+                </span>
+              )}
+            </div>
+
+            {view.links.length > 0 && (
+              <ul class="curated-links">
+                {view.links.map((link) => (
+                  <li>
+                    <a
+                      href={link.url}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {link.label} ↗
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </header>
 
-          <section class="install">
-            <label for="install-cmd">Install</label>
+          <section class="install" aria-labelledby="install-label">
+            <span class="section-eyebrow" id="install-label">Install</span>
             <div class="copy-row">
-              <code id="install-cmd">{installCommand}</code>
+              <code id="install-cmd">{view.installCommand}</code>
               <button
-                class="ghost"
-                id="copy-btn"
+                class="ghost copy-btn"
                 type="button"
-                data-command={installCommand}
+                data-copy={view.installCommand}
+                aria-label="Copy install command"
               >
                 Copy
               </button>
             </div>
           </section>
 
-          <section class="facts">
-            <div class="fact">
-              <h3>Models</h3>
-              {facts && facts.models.length > 0 ? (
-                <ul>
-                  {facts.models.map((model) => (
-                    <li>{model}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p class="none">None declared</p>
-              )}
-            </div>
-
-            <div class="fact">
-              <h3>Providers</h3>
-              {facts && facts.providers.length > 0 ? (
-                <div class="chip-row">
-                  {facts.providers.map((provider) => (
-                    <span class="tag">{provider}</span>
-                  ))}
-                </div>
-              ) : (
-                <p class="none">None inferred</p>
-              )}
-              {facts && facts.disabledProviders.length > 0 && (
-                <p class="field-hint">
-                  Disabled: {facts.disabledProviders.join(", ")}
-                </p>
-              )}
-            </div>
-
-            <div class="fact">
-              <h3>Advisor</h3>
-              {advisorEntries.length > 0 ? (
-                <ul>
-                  {advisorEntries.map(([key, value]) => (
-                    <li>{key}: {JSON.stringify(value)}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p class="none">Not configured</p>
-              )}
-            </div>
-
-            <div class="fact">
-              <h3>Hooks</h3>
-              {facts && facts.hooks.length > 0 ? (
-                <ul>
-                  {facts.hooks.map((hook) => (
-                    <li>{hook}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p class="none">None</p>
-              )}
-            </div>
-
-            <div class="fact">
-              <h3>Extensions</h3>
-              {facts && facts.extensions.length > 0 ? (
-                <ul>
-                  {facts.extensions.map((extension) => (
-                    <li>{extension}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p class="none">None</p>
-              )}
-            </div>
-
-            <div class="fact">
-              <h3>Prerequisites</h3>
-              {facts && facts.prerequisites.length > 0 ? (
-                <ul>
-                  {facts.prerequisites.map((prereq) => (
-                    <li>
-                      {prereq.name} <span class="owner">({prereq.kind})</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p class="none">None detected</p>
-              )}
-            </div>
+          <section class="detail-section" aria-labelledby="models-heading">
+            <h2 id="models-heading">Models</h2>
+            {view.models.length > 0 ? (
+              <ul class="model-list">
+                {view.models.map((model) => (
+                  <li class="model-item">
+                    <span class="model-name">{model.friendlyName}</span>
+                    <code class="model-selector">{model.selector}</code>
+                    {model.url !== null && (
+                      <a
+                        class="model-link"
+                        href={model.url}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        Open provider page ↗
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="none">
+                No concrete models are declared in this profile.
+              </p>
+            )}
           </section>
 
-          {validation && validation.warnings.length > 0 && (
-            <section class="warnings">
-              <h3>Warnings</h3>
+          <section class="detail-section" aria-labelledby="providers-heading">
+            <h2 id="providers-heading">Providers</h2>
+            {view.providers.length > 0 ? (
+              <div class="chip-row">
+                {view.providers.map((provider) =>
+                  provider.url !== null ? (
+                    <a
+                      class="tag linked"
+                      href={provider.url}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {provider.displayName} ↗
+                    </a>
+                  ) : (
+                    <span class="tag">{provider.displayName}</span>
+                  )
+                )}
+              </div>
+            ) : (
+              <p class="none">
+                No providers are inferred from this profile's models.
+              </p>
+            )}
+          </section>
+
+          {view.aliases.length > 0 && (
+            <section class="detail-section" aria-labelledby="aliases-heading">
+              <h2 id="aliases-heading">OMP aliases</h2>
+              <p class="section-note">
+                Shorthands OMP resolves at install time — not concrete models.
+              </p>
+              <div class="chip-row">
+                {view.aliases.map((alias) => (
+                  <code class="alias">{alias}</code>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view.behavior.present && (
+            <section class="detail-section" aria-labelledby="behavior-heading">
+              <h2 id="behavior-heading">Behavior</h2>
+              <div class="facts">
+                {view.behavior.modelRoles.length > 0 && (
+                  <div class="fact">
+                    <h3>Model roles</h3>
+                    <ul>
+                      {view.behavior.modelRoles.map((entry) => (
+                        <li>
+                          <span class="role">{entry.role}</span> → {entry.model}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {view.behavior.fallbackChains.length > 0 && (
+                  <div class="fact">
+                    <h3>Fallback chains</h3>
+                    <ul>
+                      {view.behavior.fallbackChains.map((chain) => (
+                        <li>
+                          <span class="role">{chain.role}</span> →{" "}
+                          {chain.models.join(" → ")}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {view.behavior.advisor.length > 0 && (
+                  <div class="fact">
+                    <h3>Advisor</h3>
+                    <dl class="setting-list">
+                      {view.behavior.advisor.map((setting) => (
+                        <Fragment>
+                          <dt>{setting.label}</dt>
+                          <dd>{setting.value}</dd>
+                        </Fragment>
+                      ))}
+                    </dl>
+                  </div>
+                )}
+                {view.behavior.settings.length > 0 && (
+                  <div class="fact">
+                    <h3>Settings</h3>
+                    <dl class="setting-list">
+                      {view.behavior.settings.map((setting) => (
+                        <Fragment>
+                          <dt>{setting.label}</dt>
+                          <dd>{setting.value}</dd>
+                        </Fragment>
+                      ))}
+                    </dl>
+                  </div>
+                )}
+                {view.behavior.hooks.length > 0 && (
+                  <div class="fact">
+                    <h3>Hooks</h3>
+                    <ul>
+                      {view.behavior.hooks.map((hook) => (
+                        <li>{hook}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {view.behavior.extensions.length > 0 && (
+                  <div class="fact">
+                    <h3>Extensions</h3>
+                    <ul>
+                      {view.behavior.extensions.map((extension) => (
+                        <li>{extension}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {view.behavior.disabledProviders.length > 0 && (
+                  <div class="fact">
+                    <h3>Disabled providers</h3>
+                    <div class="chip-row">
+                      {view.behavior.disabledProviders.map((provider) => (
+                        <span class="tag">{provider}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          <section class="detail-section" aria-labelledby="requirements-heading">
+            <h2 id="requirements-heading">Requirements</h2>
+            {view.requirements.length > 0 ? (
+              <ul class="requirement-list">
+                {view.requirements.map((req) => (
+                  <li class="requirement">
+                    <div class="req-head">
+                      <code class="req-name">{req.name}</code>
+                      <span class="req-kind">{req.kindLabel}</span>
+                    </div>
+                    <p class="req-reason">{req.reason}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="none">
+                No additional setup is required beyond provider access.
+              </p>
+            )}
+          </section>
+
+          {view.warnings.length > 0 && (
+            <section class="warnings" aria-labelledby="warnings-heading">
+              <h3 id="warnings-heading">Warnings</h3>
               <ul>
-                {validation.warnings.map((warning) => (
+                {view.warnings.map((warning) => (
                   <li>{warning}</li>
                 ))}
               </ul>
             </section>
           )}
+
+          <details class="provenance">
+            <summary>Source &amp; provenance</summary>
+            <div class="provenance-body">
+              <div class="prov-item">
+                <span class="prov-label">Canonical source</span>
+                <a
+                  href={view.provenance.sourceUrl}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {view.provenance.sourceUrl}
+                </a>
+                <p class="prov-explain">
+                  The public GitHub Gist OOMPF indexed. The canonical YAML always
+                  lives here — OOMPF stores metadata only.
+                </p>
+              </div>
+
+              <div class="prov-item">
+                <span class="prov-label">Source revision</span>
+                {view.provenance.revisionUrl !== null ? (
+                  <a
+                    href={view.provenance.revisionUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <code>{view.provenance.revision}</code> ↗
+                  </a>
+                ) : (
+                  <span class="none">Not pinned</span>
+                )}
+                <p class="prov-explain">
+                  GitHub's version identifier for the exact source snapshot OOMPF
+                  indexed.
+                </p>
+              </div>
+
+              <div class="prov-item">
+                <span class="prov-label">Content fingerprint</span>
+                <div class="copy-row">
+                  <code id="hash-value">{view.provenance.contentHash}</code>
+                  <button
+                    class="ghost copy-btn"
+                    type="button"
+                    data-copy={view.provenance.contentHash}
+                    aria-label="Copy SHA-256 content fingerprint"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p class="prov-explain">
+                  SHA-256 of the exact YAML bytes OOMPF indexed. Recompute it
+                  against the source to verify nothing changed.
+                </p>
+              </div>
+
+              {view.provenance.indexedAt !== null && (
+                <div class="prov-item">
+                  <span class="prov-label">Last indexed</span>
+                  <time datetime={view.provenance.indexedAt}>
+                    {view.provenance.indexedAt}
+                  </time>
+                </div>
+              )}
+            </div>
+          </details>
         </article>
       )}
   </div>
 </Base>
 
 <script>
-  const button = document.getElementById(
-    "copy-btn"
-  ) as HTMLButtonElement | null;
-  button?.addEventListener("click", async () => {
-    const command = button.dataset.command ?? "";
-    try {
-      await navigator.clipboard.writeText(command);
+  const buttons =
+    document.querySelectorAll<HTMLButtonElement>(".copy-btn");
+  for (const button of buttons) {
+    button.addEventListener("click", async () => {
+      const text = button.dataset.copy ?? "";
       const original = button.textContent;
-      button.textContent = "Copied";
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = "Copied";
+      } catch {
+        button.textContent = "Copy failed";
+      }
       setTimeout(() => {
         button.textContent = original;
       }, 1500);
-    } catch {
-      button.textContent = "Copy failed";
-    }
-  });
+    });
+  }
 </script>

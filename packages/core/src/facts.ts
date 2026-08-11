@@ -49,6 +49,12 @@ export interface Prerequisite {
 /** Reliable, source-derived facts about a native OMP profile artifact. */
 export interface ProfileFacts {
   readonly advisor: AdvisorFacts | null;
+  /**
+   * Named model aliases referenced by the profile (selectors beginning with
+   * `@`). Aliases are indirections resolved by the local runtime, so they are
+   * deliberately excluded from {@link models} and {@link providers}.
+   */
+  readonly aliases: readonly string[];
   readonly context: unknown;
   readonly disabledProviders: readonly string[];
   readonly extensions: readonly string[];
@@ -81,6 +87,7 @@ const RECOGNIZED_KEYS: Record<string, true> = {
   memory: true,
   mnemopi: true,
   modelRoles: true,
+  oompf: true,
   overlays: true,
   projectOverlays: true,
   retry: true,
@@ -170,6 +177,24 @@ function pushUnique(list: string[], value: string): void {
   }
 }
 
+/**
+ * Record a model selector as either a concrete model or a named alias. Alias
+ * selectors (leading `@`) are runtime indirections, not runnable models, so
+ * they are collected separately and kept out of the concrete model/provider
+ * facts.
+ */
+function recordModel(
+  selector: string,
+  models: string[],
+  aliases: string[]
+): void {
+  if (selector.startsWith("@")) {
+    pushUnique(aliases, selector);
+  } else {
+    pushUnique(models, selector);
+  }
+}
+
 /** Recursively collect environment-variable names from every string value. */
 function collectEnvRefs(node: unknown, into: string[]): void {
   if (typeof node === "string") {
@@ -198,6 +223,7 @@ function collectEnvRefs(node: unknown, into: string[]): void {
 function extractModelRoles(
   value: unknown,
   models: string[],
+  aliases: string[],
   fallbackChains: FallbackChain[]
 ): ModelRole[] {
   if (!isRecord(value)) {
@@ -207,13 +233,13 @@ function extractModelRoles(
   for (const [role, assigned] of Object.entries(value)) {
     if (typeof assigned === "string") {
       roles.push({ model: assigned, role });
-      pushUnique(models, assigned);
+      recordModel(assigned, models, aliases);
     } else if (Array.isArray(assigned)) {
       const chain = stringArray(assigned);
       if (chain.length > 0) {
         fallbackChains.push({ models: chain, role });
         for (const model of chain) {
-          pushUnique(models, model);
+          recordModel(model, models, aliases);
         }
       }
     }
@@ -224,7 +250,8 @@ function extractModelRoles(
 /** Extract `retry.fallbackChains` (map of lists or list of lists). */
 function extractFallbackChains(
   value: unknown,
-  models: string[]
+  models: string[],
+  aliases: string[]
 ): FallbackChain[] {
   const chains: FallbackChain[] = [];
   const add = (role: string, raw: unknown): void => {
@@ -234,7 +261,7 @@ function extractFallbackChains(
     }
     chains.push({ models: chain, role });
     for (const model of chain) {
-      pushUnique(models, model);
+      recordModel(model, models, aliases);
     }
   };
   if (isRecord(value)) {
@@ -290,22 +317,25 @@ export function extractFacts(document: Record<string, unknown>): ProfileFacts {
   }
 
   const models: string[] = [];
+  const aliases: string[] = [];
   const fallbackChains: FallbackChain[] = [];
 
   const modelRoles = extractModelRoles(
     document.modelRoles,
     models,
+    aliases,
     fallbackChains
   );
 
   for (const model of stringArray(document.enabledModels)) {
-    pushUnique(models, model);
+    recordModel(model, models, aliases);
   }
 
   if (isRecord(document.retry)) {
     for (const chain of extractFallbackChains(
       document.retry.fallbackChains,
-      models
+      models,
+      aliases
     )) {
       fallbackChains.push(chain);
     }
@@ -332,30 +362,42 @@ export function extractFacts(document: Record<string, unknown>): ProfileFacts {
     ...stringArray(document.overlays),
   ];
 
+  // Deduplicate by (kind, name): providers are already unique, but a name may
+  // legitimately appear in more than one source (e.g. as both a hook and an
+  // extension), and each prerequisite should be stated exactly once.
   const prerequisites: Prerequisite[] = [];
+  const seenPrereqs: Record<string, true> = {};
+  const addPrereq = (prereq: Prerequisite): void => {
+    const key = `${prereq.kind}:${prereq.name}`;
+    if (Object.hasOwn(seenPrereqs, key)) {
+      return;
+    }
+    seenPrereqs[key] = true;
+    prerequisites.push(prereq);
+  };
   for (const provider of providers) {
-    prerequisites.push({
+    addPrereq({
       kind: "provider",
       name: provider,
       reason: `Provider "${provider}" requires credentials or configuration in the local runtime.`,
     });
   }
   for (const name of envRefs) {
-    prerequisites.push({
+    addPrereq({
       kind: "environment",
       name,
       reason: `Environment variable "${name}" must be set in the local runtime.`,
     });
   }
   for (const name of [...hooks, ...extensions]) {
-    prerequisites.push({
+    addPrereq({
       kind: "extension",
       name,
       reason: `Extension "${name}" must be installed in the local runtime.`,
     });
   }
   for (const name of overlays) {
-    prerequisites.push({
+    addPrereq({
       kind: "project-overlay",
       name,
       reason: `Project overlay "${name}" applies only in the local project.`,
@@ -368,6 +410,7 @@ export function extractFacts(document: Record<string, unknown>): ProfileFacts {
 
   return {
     advisor,
+    aliases,
     context: document.context ?? null,
     disabledProviders,
     extensions,

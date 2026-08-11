@@ -1,0 +1,20 @@
+# OOMPF
+
+OOMPF is the public index for shareable, inspectable OMP profiles. OOMPF stores profile metadata; canonical OMP YAML remains on GitHub.
+
+## Machine-readable contracts
+- [OpenAPI 3.1](https://oompf.run/openapi.json): Canonical versioned HTTP API.
+- [Profile metadata schema](https://oompf.run/schemas/profile-metadata.json): Indexed profile metadata.
+- [Profile mappings schema](https://oompf.run/schemas/profile-mappings.json): Provider and model display mappings.
+- [Error schema](https://oompf.run/schemas/error.json): Stable API error envelope.
+
+## Documentation
+- [Documentation index](https://oompf.run/docs/llms.txt): Scoped Markdown documentation map.
+- [Docs](https://oompf.run/docs/): Human-facing OOMPF and OMP profile reference.
+- [Profile workflow](https://oompf.run/docs/profile-workflow.md): Publish, inspect, search, and install.
+- [CLI reference](https://oompf.run/docs/cli.md): `oompf publish`, `add`, `inspect`, and `search`.
+
+## API
+- [Profiles](https://oompf.run/api/v1/profiles): Register and retrieve indexed profile metadata.
+- [Search](https://oompf.run/api/v1/search): Search indexed profiles.
+- [Mappings](https://oompf.run/api/v1/mappings/providers): Curated provider and model presentation data.

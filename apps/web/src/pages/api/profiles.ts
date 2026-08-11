@@ -1,38 +1,9 @@
 /**
- * `POST /api/profiles` — register (index) a public Gist.
+ * `POST /api/profiles` — compatibility alias for `POST /api/v1/profiles`.
  *
- * Accepts `{ source: string, ompVersion?: string }` and returns
- * `{ id, url, source, validation }` on success. All failures return the stable
- * JSON error envelope with a status-specific HTTP code. This route persists and
- * returns metadata only — never canonical artifact content.
+ * The canonical, versioned handler lives at `/api/v1/profiles`. This route
+ * re-exports it unchanged so pre-v1 clients keep working during the v0
+ * transition; both paths share one implementation and one response contract.
  */
 
-import type { APIRoute } from "astro";
-
-import {
-  type AppLocals,
-  indexPublicGist,
-  jsonResponse,
-  parseRegisterBody,
-  resolveRepository,
-  toErrorEnvelope,
-  toRegisterResponse,
-} from "../../lib/services/index-profile.ts";
-
-export const prerender = false;
-
-export const POST: APIRoute = async ({ request, locals }) => {
-  const appLocals = locals as unknown as AppLocals;
-  try {
-    const repository = await resolveRepository(appLocals);
-    const input = await parseRegisterBody(request);
-    const record = await indexPublicGist(input, {
-      fetchGist: appLocals.fetchGist,
-      repository,
-    });
-    return jsonResponse(200, toRegisterResponse(record));
-  } catch (error) {
-    const { status, body } = toErrorEnvelope(error);
-    return jsonResponse(status, body);
-  }
-};
+export { POST, prerender } from "./v1/profiles.ts";

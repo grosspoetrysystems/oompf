@@ -50,10 +50,12 @@ async function freshRepo(): Promise<{
   db: ProfileDatabase;
 }> {
   const client = new PGlite();
-  const ddl = await Bun.file(
-    new URL("../migrations/0001_profiles.sql", import.meta.url)
-  ).text();
-  await client.exec(ddl);
+  for (const migration of ["0001_profiles.sql", "0002_profile_metadata.sql"]) {
+    const ddl = await Bun.file(
+      new URL(`../migrations/${migration}`, import.meta.url)
+    ).text();
+    await client.exec(ddl);
+  }
   const db = drizzle(client, { schema }) as unknown as ProfileDatabase;
   return { db, repo: createProfileRepository(db) };
 }
@@ -69,6 +71,7 @@ function registerInput(
     contentHash: validation.hash,
     facts: validation.facts!,
     gistId: "abc123def456",
+    metadata: validation.metadata,
     ompVersion: "1.4.0",
     owner: "octocat",
     profileName: "atlas",

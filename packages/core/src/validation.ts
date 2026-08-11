@@ -15,6 +15,11 @@
 import { extractFacts, type ProfileFacts } from "./facts.ts";
 import { isRecord } from "./guards.ts";
 import { sha256 } from "./hash.ts";
+import {
+  EMPTY_METADATA,
+  extractMetadata,
+  type ProfileMetadata,
+} from "./metadata.ts";
 import { assertProfileDocument, parseProfileYaml } from "./yaml-config.ts";
 
 /** A likely secret located in the artifact, described without its value. */
@@ -45,6 +50,8 @@ export interface ArtifactValidation {
   readonly findings: readonly SecretFinding[];
   /** SHA-256 of the canonical bytes. */
   readonly hash: string;
+  /** Publisher-curated `oompf` metadata; {@link EMPTY_METADATA} when absent. */
+  readonly metadata: ProfileMetadata;
   /** Structural verdict; `invalid` when size/parse/root checks fail. */
   readonly structural: "valid" | "invalid";
   /** Non-blocking advisories, including low-confidence secret findings. */
@@ -230,6 +237,7 @@ export function validateArtifact(input: {
       ],
       facts: null,
       findings: [],
+      metadata: EMPTY_METADATA,
       structural: "invalid",
       warnings: [],
     };
@@ -247,6 +255,7 @@ export function validateArtifact(input: {
       errors: [`Artifact is not valid YAML: ${message}`],
       facts: null,
       findings: [],
+      metadata: EMPTY_METADATA,
       structural: "invalid",
       warnings: [],
     };
@@ -264,16 +273,21 @@ export function validateArtifact(input: {
       errors: [message],
       facts: null,
       findings: [],
+      metadata: EMPTY_METADATA,
       structural: "invalid",
       warnings: [],
     };
   }
 
+  const { metadata, warnings: metadataWarnings } = extractMetadata(document);
   const findings = scanForSecrets(document);
   const blocking = findings.filter((finding) => finding.confidence === "high");
-  const warnings = findings
-    .filter((finding) => finding.confidence === "low")
-    .map((finding) => `${finding.path}: ${finding.reason}`);
+  const warnings = [
+    ...findings
+      .filter((finding) => finding.confidence === "low")
+      .map((finding) => `${finding.path}: ${finding.reason}`),
+    ...metadataWarnings,
+  ];
 
   return {
     ...base,
@@ -282,6 +296,7 @@ export function validateArtifact(input: {
     errors: [],
     facts: extractFacts(document),
     findings,
+    metadata,
     structural: "valid",
     warnings,
   };

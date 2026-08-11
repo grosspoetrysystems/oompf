@@ -124,11 +124,15 @@ export async function registerProfile(
   body: RegisterBody,
   fetchImpl: HttpFetch
 ): Promise<RegisterResponse> {
-  const response = await request(fetchImpl, joinUrl(baseUrl, "/api/profiles"), {
-    body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
-    method: "POST",
-  });
+  const response = await request(
+    fetchImpl,
+    joinUrl(baseUrl, "/api/v1/profiles"),
+    {
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    }
+  );
   if (!response.ok) {
     throw await envelopeError(response, "register_failed");
   }
@@ -143,7 +147,7 @@ export async function fetchProfileMetadata(
 ): Promise<ProfileRecord> {
   const response = await request(
     fetchImpl,
-    joinUrl(baseUrl, `/api/profiles/${encodeURIComponent(id)}`),
+    joinUrl(baseUrl, `/api/v1/profiles/${encodeURIComponent(id)}`),
     { method: "GET" }
   );
   if (!response.ok) {
@@ -158,7 +162,7 @@ export async function searchProfiles(
   query: string,
   fetchImpl: HttpFetch
 ): Promise<SearchResponse> {
-  const url = joinUrl(baseUrl, `/api/search?q=${encodeURIComponent(query)}`);
+  const url = joinUrl(baseUrl, `/api/v1/search?q=${encodeURIComponent(query)}`);
   const response = await request(fetchImpl, url, { method: "GET" });
   if (!response.ok) {
     throw await envelopeError(response, "search_failed");

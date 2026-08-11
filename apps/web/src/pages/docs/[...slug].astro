@@ -1,0 +1,33 @@
+---
+/**
+ * `/docs/<slug>` — render a single documentation page from the `docs` content
+ * collection. Each page declares its clean Markdown alternate (`/docs/<slug>.md`)
+ * and the applicable `llms.txt` via the {@link Docs} layout.
+ */
+import type { GetStaticPaths } from "astro";
+import { getCollection, render } from "astro:content";
+import Docs from "../../layouts/Docs.astro";
+
+export const prerender = true;
+
+export const getStaticPaths = (async () => {
+  const entries = await getCollection("docs");
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}) satisfies GetStaticPaths;
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const path = `/docs/${entry.id}`;
+---
+
+<Docs
+  activePath={path}
+  description={entry.data.summary}
+  markdownPath={`${path}.md`}
+  title={entry.data.title}
+>
+  <Content />
+</Docs>

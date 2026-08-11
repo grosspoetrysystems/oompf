@@ -1,0 +1,49 @@
+---
+/**
+ * `/docs` — the OOMPF documentation authority landing page. Lists every
+ * documentation page grouped by section, and points agents at the scoped
+ * `/docs/llms.txt` index.
+ */
+import Docs from "../../layouts/Docs.astro";
+import { loadDocSections } from "../../lib/docs/nav.ts";
+
+export const prerender = true;
+
+const sections = await loadDocSections();
+---
+
+<Docs
+  activePath="/docs"
+  description="OOMPF documentation: publishing, inspecting, installing, and understanding OMP profiles."
+  title="Documentation"
+>
+  <header class="docs-header">
+    <h1>OOMPF documentation</h1>
+    <p class="lede">
+      How to publish, inspect, search, and install OMP profiles with OOMPF — and
+      how OOMPF explains the profile concepts you need to share a configuration.
+      OMP remains the authority for the runtime.
+    </p>
+    <p class="docs-machine">
+      Machine-readable: <a href="/docs/llms.txt">/docs/llms.txt</a> ·
+      <a href="/openapi.json">/openapi.json</a> ·
+      <a href="/llms.txt">/llms.txt</a>
+    </p>
+  </header>
+
+  {
+    sections.map((section) => (
+      <section class="docs-index-section">
+        <h2>{section.title}</h2>
+        <ul class="docs-index-list">
+          {section.links.map((link) => (
+            <li>
+              <a href={link.path}>{link.title}</a>
+              <span class="docs-index-summary">{link.summary}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+</Docs>

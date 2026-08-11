@@ -1,0 +1,65 @@
+---
+/**
+ * Docs layout: the `/docs` authority chrome. Wraps {@link Base} with a
+ * section-grouped sidebar and an article column, and declares the agent-facing
+ * page metadata — a clean Markdown alternate (`rel="alternate"
+ * type="text/markdown"`) and the applicable `llms.txt` (`rel="describedby"`).
+ */
+import Base from "./Base.astro";
+import { type DocSection, loadDocSections } from "../lib/docs/nav.ts";
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Clean Markdown variant of this page, linked as an alternate. */
+  markdownPath?: string;
+  /** Path of the current page, used to mark the active sidebar link. */
+  activePath?: string;
+}
+
+const { title, description, markdownPath, activePath } = Astro.props;
+const sections: DocSection[] = await loadDocSections();
+const pageTitle = `${title} — OOMPF docs`;
+---
+
+<Base title={pageTitle} description={description}>
+  <Fragment slot="head">
+    {
+      markdownPath ? (
+        <link href={markdownPath} rel="alternate" type="text/markdown" />
+      ) : null
+    }
+    <link href="/docs/llms.txt" rel="describedby" type="text/plain" />
+  </Fragment>
+
+  <div class="wrap docs-layout">
+    <aside class="docs-sidebar">
+      <nav aria-label="Documentation">
+        {
+          sections.map((section) => (
+            <div class="docs-section">
+              <h2>{section.title}</h2>
+              <ul>
+                {section.links.map((link) => (
+                  <li>
+                    <a
+                      aria-current={activePath === link.path ? "page" : undefined}
+                      class={activePath === link.path ? "active" : undefined}
+                      href={link.path}
+                    >
+                      {link.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+    </aside>
+
+    <article class="docs-article">
+      <slot />
+    </article>
+  </div>
+</Base>

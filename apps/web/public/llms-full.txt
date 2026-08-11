@@ -1,0 +1,5 @@
+# OOMPF Full Documentation Export
+
+This is a convenience export. It is non-normative; agents should follow `/llms.txt`, `/docs/llms.txt`, and linked Markdown pages.
+
+See https://oompf.run/llms.txt and https://oompf.run/docs/llms.txt.

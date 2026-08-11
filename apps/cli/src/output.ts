@@ -18,12 +18,25 @@ export const cliEnv = z.object({
     .describe("Base URL of the OOMPF web API"),
 });
 
+/** Publisher-curated `oompf` metadata surfaced by publish/inspect. */
+export const profileMetadataOutput = z.object({
+  kind: z
+    .object({ controlled: z.boolean(), value: z.string() })
+    .nullable()
+    .describe("Profile kind; controlled=true when a known vocabulary term"),
+  links: z.array(z.object({ label: z.string().nullable(), url: z.string() })),
+  summary: z.string().nullable(),
+  tags: z.array(z.string()),
+});
+
 /** `publish` result: where the profile now lives and how to install it. */
 export const publishOutput = z.object({
   addCommand: z.string().describe("Copyable command to install this profile"),
+  aliases: z.array(z.string()).describe("Named model aliases (@-prefixed)"),
   gistId: z.string(),
   githubUrl: z.string().describe("Public Gist URL on GitHub"),
   hash: z.string().describe("SHA-256 of the published artifact"),
+  metadata: profileMetadataOutput,
   oompfUrl: z.string().describe("Canonical OOMPF profile URL"),
   profile: z.string().describe("Local OMP profile that was published"),
   revision: z.string().nullable().describe("Pinned Gist revision, when known"),
@@ -44,9 +57,11 @@ export const addOutput = z.object({
 
 /** `inspect` result: metadata only — never artifact content. */
 export const inspectOutput = z.object({
+  aliases: z.array(z.string()).describe("Named model aliases (@-prefixed)"),
   errors: z.array(z.string()),
   hash: z.string(),
   installCommand: z.string(),
+  metadata: profileMetadataOutput,
   models: z.array(z.string()),
   name: z.string(),
   ompVersion: z.string().nullable(),

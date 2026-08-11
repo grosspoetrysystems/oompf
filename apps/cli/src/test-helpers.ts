@@ -111,7 +111,10 @@ export function apiFetch(
 ): HttpFetch {
   return async (url, init) => {
     const method = init?.method ?? "GET";
-    if (url.endsWith("/api/profiles") && method === "POST") {
+    if (
+      (url.endsWith("/api/profiles") || url.endsWith("/api/v1/profiles")) &&
+      method === "POST"
+    ) {
       return (
         routes.register?.(init?.body ?? "") ??
         jsonResponse(200, {
@@ -127,10 +130,16 @@ export function apiFetch(
         })
       );
     }
-    if (url.includes("/api/profiles/") && method === "GET") {
+    if (
+      (url.includes("/api/profiles/") || url.includes("/api/v1/profiles/")) &&
+      method === "GET"
+    ) {
       return routes.metadata ?? jsonResponse(200, profileRecord());
     }
-    if (url.includes("/api/search") && method === "GET") {
+    if (
+      (url.includes("/api/search") || url.includes("/api/v1/search")) &&
+      method === "GET"
+    ) {
       return (
         routes.search ??
         jsonResponse(200, { query: "", results: [compactProfile()] })
@@ -145,9 +154,19 @@ export function profileRecord(): Record<string, unknown> {
   return {
     contentHash: "f".repeat(64),
     createdAt: "2026-08-08T00:00:00.000Z",
-    facts: { models: ["anthropic/claude-x"], providers: ["anthropic"] },
+    facts: {
+      aliases: ["@fast"],
+      models: ["anthropic/claude-x"],
+      providers: ["anthropic"],
+    },
     gistId: GIST_ID,
     id: PROFILE_ID,
+    metadata: {
+      kind: { controlled: false, value: "work" },
+      links: [],
+      summary: "Daily work profile",
+      tags: ["daily"],
+    },
     ompVersion: "7",
     owner: OWNER,
     profileName: STEM,
@@ -163,6 +182,7 @@ export function profileRecord(): Record<string, unknown> {
 export function compactProfile(): Record<string, unknown> {
   return {
     id: PROFILE_ID,
+    kind: { controlled: false, value: "work" },
     models: ["anthropic/claude-x"],
     name: STEM,
     ompVersion: "7",
@@ -171,6 +191,8 @@ export function compactProfile(): Record<string, unknown> {
     revision: REVISION,
     source: GIST_HTML,
     structural: "valid",
+    summary: "Daily work profile",
+    tags: ["daily"],
     updatedAt: "2026-08-08T00:00:00.000Z",
     url: `/p/${PROFILE_ID}`,
   };

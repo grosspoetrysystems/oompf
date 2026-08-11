@@ -16,6 +16,17 @@ export type {
 export { extractFacts } from "./facts.ts";
 export { sha256 } from "./hash.ts";
 export type {
+  MetadataExtraction,
+  ProfileKind,
+  ProfileLink,
+  ProfileMetadata,
+} from "./metadata.ts";
+export {
+  CONTROLLED_PROFILE_KINDS,
+  EMPTY_METADATA,
+  extractMetadata,
+} from "./metadata.ts";
+export type {
   DiscoveredProfile,
   OmpProfileOptions,
   ResolvedProfileConfig,
@@ -34,6 +45,13 @@ export {
   MAX_PROFILE_NAME_LENGTH,
   validateProfileName,
 } from "./profile-name.ts";
+export type { ModelDisplay, ProviderLink } from "./provider-links.ts";
+export {
+  listProviderLinks,
+  listProviderModels,
+  resolveModelDisplay,
+  resolveProviderLink,
+} from "./provider-links.ts";
 export type { ArtifactValidation, SecretFinding } from "./validation.ts";
 export {
   DEFAULT_MAX_BYTES,
