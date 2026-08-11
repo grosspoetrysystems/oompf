@@ -144,7 +144,17 @@ function displayValue(value: unknown): string {
   if (typeof value === "number") {
     return String(value);
   }
-  return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return value.map(displayValue).filter(Boolean).join(" · ");
+  }
+  // A one-level record (e.g. `theme: {dark, light}`) reads as labeled pairs;
+  // raw JSON in a settings table is machine output, not an answer.
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, inner]) => `${key}: ${displayValue(inner)}`)
+      .join(" · ");
+  }
+  return String(value);
 }
 
 /** Read curated OOMPF metadata defensively (records may predate the field). */
