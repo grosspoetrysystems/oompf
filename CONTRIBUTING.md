@@ -54,8 +54,9 @@ All scripts run from the repo root.
 | `bun run smoke:local` | In-process end-to-end smoke (`tests/e2e/oompf-flow.test.ts`) that runs the CLI against the web index service backed by PGlite: publish → index → search → inspect → install → collision → content-redaction. No network or real `gh`/`omp` needed. |
 | `bun run knip` | Dead-code and unused-dependency audit. Enforced in CI, so an unreferenced export fails the build. |
 | `bun run check:migrations` | Replays the journalled migration chain into an empty PGlite database and asserts the schema the repository queries. Catches a hand-written migration no runner would apply. |
-| `bun run check:package` | Asserts the published tarball's exact file list, an executable JavaScript `bin`, and no `workspace:` ranges in `dependencies`. |
+| `bun run check:package` | Asserts the published tarball's exact file list, an executable JavaScript `bin`, and no `workspace:` ranges in any dependency field. `0.1.0` shipped `workspace:*` devDependencies past a guard that only read `dependencies`. |
 | `bun run smoke:deployed [origin]` | HTTP smoke against a live origin (defaults to production): pages, `llms.txt`, `openapi.json`, and both `/api/v1/search` and its compatibility alias, asserting response shape rather than only status. |
+| `bun run smoke:published [version]` | Installs the *published* package from npm into a throwaway directory and runs the binary, asserting it reports the expected version. Defaults to the version in `apps/cli/package.json`. Uses a fresh npm cache per attempt and waits minutes, because a new version is not immediately readable and npm caches the packument it first saw. |
 | `bun run db:migrate` | Applies committed migrations to the database in `DATABASE_URL` via `drizzle-kit migrate`. |
 | `bun run dev` | Starts the Astro dev server (`apps/web`). |
 

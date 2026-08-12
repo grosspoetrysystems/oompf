@@ -118,29 +118,10 @@ jobs:
         run: npm publish
         working-directory: apps/cli
 
+      # The inline version of this failed on 0.1.1 while the publish itself
+      # succeeded: it retried for 50 seconds against a packument npm had cached
+      # on the first attempt, so it could not have observed the new version no
+      # matter how long it waited. The script waits minutes, discards the cache
+      # between attempts, and can be run by hand against any published version.
       - name: Smoke the published package
-        run: |
-          set -euo pipefail
-          NAME="$(node -p "require('./apps/cli/package.json').name")"
-          VERSION="$(node -p "require('./apps/cli/package.json').version")"
-          CLEAN="$(mktemp -d)"
-          cd "$CLEAN"
-          npm init -y > /dev/null
-          # The registry is eventually consistent; give it a moment.
-          installed=false
-          for attempt in 1 2 3 4 5; do
-            if npm install "${NAME}@${VERSION}" > /dev/null 2>&1; then
-              installed=true
-              break
-            fi
-            echo "install attempt ${attempt} failed, retrying"
-            sleep 10
-          done
-          if [ "$installed" != "true" ]; then
-            echo "::error::${NAME}@${VERSION} did not become installable"
-            exit 1
-          fi
-          # The binary keeps the short name even though the package is scoped.
-          ./node_modules/.bin/oompf --version
-          test "$(./node_modules/.bin/oompf --version)" = "${VERSION}"
-          echo "published ${NAME}@${VERSION} installs and runs"
+        run: bun scripts/smoke-published.ts
