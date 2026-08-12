@@ -137,9 +137,21 @@ function likeTerm(query: string): string {
  * rarely matches the key order it was written with. Comparing raw
  * `JSON.stringify` output would therefore report a change on every
  * registration, bumping `updatedAt` for rows nothing touched.
+ *
+ * The goal is to match what `jsonb` will hold, not to describe the input
+ * faithfully. That is why non-finite numbers are deliberately left to collapse
+ * to `null` exactly as `JSON.stringify` does on the way in: preserving them here
+ * would make the incoming value permanently disagree with the stored one, and
+ * the row would be rewritten on every registration forever without ever
+ * converging.
  */
 function canonical(value: unknown): string {
   if (value === null || typeof value !== "object") {
+    // `JSON.stringify(undefined)` returns the value `undefined`, not a string,
+    // so this fallback is what makes an `undefined` array member canonicalize to
+    // "null" - matching what JSON, and therefore `jsonb`, actually stores.
+    // Without it a hole in an array would never compare equal to the stored
+    // `null` and the row would be rewritten on every registration.
     return JSON.stringify(value) ?? "null";
   }
   if (Array.isArray(value)) {
@@ -152,8 +164,14 @@ function canonical(value: unknown): string {
   return `{${entries.join(",")}}`;
 }
 
-/** Whether a stored column already holds the value registration would write. */
-function sameValue(stored: unknown, incoming: unknown): boolean {
+/**
+ * Whether a stored column already holds the value registration would write.
+ *
+ * Exported so test doubles standing in for this repository can share the real
+ * comparison instead of approximating it. A fake that compares differently is a
+ * fake that hides the bug you are testing for.
+ */
+export function sameStoredValue(stored: unknown, incoming: unknown): boolean {
   if (stored === incoming) {
     return true;
   }
@@ -222,7 +240,7 @@ export function createProfileRepository(
 
     if (existing) {
       const changed = (Object.keys(desired) as (keyof typeof desired)[]).filter(
-        (key) => !sameValue(existing[key], desired[key])
+        (key) => !sameStoredValue(existing[key], desired[key])
       );
       if (changed.length === 0) {
         return existing;

@@ -36,6 +36,7 @@ export {
   type ProfileRecord,
   type ProfileRepository,
   type RegisterProfileInput,
+  sameStoredValue,
   toValidationMetadata,
   type ValidationInput,
 } from "./repository.ts";

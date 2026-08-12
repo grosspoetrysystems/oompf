@@ -185,6 +185,26 @@ describe("createOrUpdateProfile", () => {
     expect(again.updatedAt.getTime()).toBe(first.updatedAt.getTime());
     expect(third.updatedAt.getTime()).toBe(first.updatedAt.getTime());
   });
+
+  /**
+   * `undefined` inside an array is not dropped the way an object entry is - JSON
+   * writes it as `null`. Canonicalizing it any other way compares "[undefined]"
+   * against the stored "[null]" and rewrites the row on every registration
+   * without ever converging, which is the exact churn this comparison prevents.
+   */
+  test("an undefined array member does not cause perpetual rewrites", async () => {
+    const { repo } = await freshRepo();
+    const input = registerInput(PROFILE_YAML);
+    const withHole = {
+      ...input,
+      facts: { ...input.facts, hooks: ["lint-guard", undefined] },
+    } as RegisterProfileInput;
+
+    const first = await repo.createOrUpdateProfile(withHole);
+    const second = await repo.createOrUpdateProfile(withHole);
+
+    expect(second.updatedAt.getTime()).toBe(first.updatedAt.getTime());
+  });
   test("updates version metadata when the unchanged source is re-registered", async () => {
     const { repo } = await freshRepo();
     const input = registerInput(PROFILE_YAML);

@@ -6,6 +6,7 @@ import {
   type ProfileRecord,
   type ProfileRepository,
   type RegisterProfileInput,
+  sameStoredValue,
   toValidationMetadata,
 } from "@oompf/database";
 import type { GistSource } from "@oompf/github/gists";
@@ -140,9 +141,26 @@ function fakeRepository(): {
         // differs, not merely when the content hash does. A fake that keys off
         // the hash alone would hide stale derived facts, which is the exact bug
         // the repository tests now cover.
-        const unchanged =
-          JSON.stringify({ ...existing, updatedAt: null }) ===
-          JSON.stringify({ ...next, updatedAt: null });
+        //
+        // The comparison is imported rather than reimplemented. Hand-rolling it
+        // here happened to agree only because `next` spreads `existing` and so
+        // preserves its key order; a caller building facts in a different order
+        // would make this fake disagree with the real repository, which is how a
+        // double starts hiding the behaviour it stands in for.
+        const unchanged = (
+          [
+            "contentHash",
+            "facts",
+            "gistId",
+            "metadata",
+            "ompVersion",
+            "owner",
+            "profileName",
+            "revision",
+            "sourceType",
+            "validation",
+          ] as const
+        ).every((key) => sameStoredValue(existing[key], next[key]));
         if (unchanged) {
           return existing;
         }
