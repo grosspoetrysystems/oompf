@@ -132,6 +132,43 @@ function likeTerm(query: string): string {
 }
 
 /**
+ * Stable serialization for comparison: object keys sorted, arrays left in
+ * order. Postgres normalizes `jsonb` key order on write, so a value read back
+ * rarely matches the key order it was written with. Comparing raw
+ * `JSON.stringify` output would therefore report a change on every
+ * registration, bumping `updatedAt` for rows nothing touched.
+ */
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(canonical).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, v]) => `${JSON.stringify(key)}:${canonical(v)}`);
+  return `{${entries.join(",")}}`;
+}
+
+/** Whether a stored column already holds the value registration would write. */
+function sameValue(stored: unknown, incoming: unknown): boolean {
+  if (stored === incoming) {
+    return true;
+  }
+  if (
+    stored === null ||
+    incoming === null ||
+    typeof stored !== "object" ||
+    typeof incoming !== "object"
+  ) {
+    return false;
+  }
+  return canonical(stored) === canonical(incoming);
+}
+
+/**
  * Build a {@link ProfileRepository} backed by the injected Drizzle database.
  */
 export function createProfileRepository(
@@ -162,45 +199,37 @@ export function createProfileRepository(
   ): Promise<ProfileRecord> {
     const id = deriveProfileId(input.sourceUrl);
     const revision = input.revision ?? null;
-    const validation = toValidationMetadata(input.validation);
     const existing = await findBySource(input.sourceUrl);
 
+    // Everything registration is allowed to change, in one place. Comparing the
+    // whole set is what makes the no-op case honest: an earlier version only
+    // refreshed `ompVersion` when the content hash matched, which meant derived
+    // columns could never be corrected. The content hash identifies the *source*
+    // bytes, not the code that derived facts from them, so improving extraction
+    // left every existing row permanently stale.
+    const desired = {
+      contentHash: input.contentHash,
+      facts: input.facts,
+      gistId: input.gistId ?? null,
+      metadata: input.metadata,
+      ompVersion: input.ompVersion ?? null,
+      owner: input.owner ?? null,
+      profileName: input.profileName,
+      revision,
+      sourceType: input.sourceType,
+      validation: toValidationMetadata(input.validation),
+    } as const;
+
     if (existing) {
-      // Identical content is still allowed to refresh publisher metadata.
-      if (
-        existing.revision === revision &&
-        existing.contentHash === input.contentHash
-      ) {
-        const ompVersion = input.ompVersion ?? null;
-        if (existing.ompVersion === ompVersion) {
-          return existing;
-        }
-        const updated = await db
-          .update(profiles)
-          .set({ ompVersion, updatedAt: new Date() })
-          .where(eq(profiles.id, existing.id))
-          .returning();
-        const row = updated[0];
-        if (!row) {
-          throw new Error(`profile disappeared during update: ${existing.id}`);
-        }
-        return row;
+      const changed = (Object.keys(desired) as (keyof typeof desired)[]).filter(
+        (key) => !sameValue(existing[key], desired[key])
+      );
+      if (changed.length === 0) {
+        return existing;
       }
       const updated = await db
         .update(profiles)
-        .set({
-          contentHash: input.contentHash,
-          facts: input.facts,
-          gistId: input.gistId ?? null,
-          metadata: input.metadata,
-          ompVersion: input.ompVersion ?? null,
-          owner: input.owner ?? null,
-          profileName: input.profileName,
-          revision,
-          sourceType: input.sourceType,
-          updatedAt: new Date(),
-          validation,
-        })
+        .set({ ...desired, updatedAt: new Date() })
         .where(eq(profiles.id, existing.id))
         .returning();
       const row = updated[0];
@@ -210,22 +239,11 @@ export function createProfileRepository(
       return row;
     }
 
+    // Same field set as the update path, so the two cannot describe different
+    // rows for the same input.
     const inserted = await db
       .insert(profiles)
-      .values({
-        contentHash: input.contentHash,
-        facts: input.facts,
-        gistId: input.gistId ?? null,
-        id,
-        metadata: input.metadata,
-        ompVersion: input.ompVersion ?? null,
-        owner: input.owner ?? null,
-        profileName: input.profileName,
-        revision,
-        sourceType: input.sourceType,
-        sourceUrl: input.sourceUrl,
-        validation,
-      })
+      .values({ ...desired, id, sourceUrl: input.sourceUrl })
       .returning();
     const row = inserted[0];
     if (!row) {

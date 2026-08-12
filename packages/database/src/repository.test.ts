@@ -125,6 +125,66 @@ describe("createOrUpdateProfile", () => {
     const all = await db.select().from(profiles);
     expect(all).toHaveLength(1);
   });
+
+  /**
+   * The bug this guards: `facts` are derived by *our* code, not carried in the
+   * source. When extraction improves - as it did when model aliases stopped
+   * being reported as models - re-registering the identical source has to
+   * recompute them. Keying "unchanged" off the content hash alone meant every
+   * row indexed before the improvement kept its wrong facts forever, and the
+   * live profile page kept rendering them.
+   */
+  test("refreshes derived facts when extraction changes but the source does not", async () => {
+    const { repo } = await freshRepo();
+    const input = registerInput(PROFILE_YAML);
+
+    const stale = await repo.createOrUpdateProfile({
+      ...input,
+      facts: { ...input.facts, aliases: [], models: ["@tiny"] },
+    });
+    expect(stale.facts.models).toEqual(["@tiny"]);
+
+    // Identical bytes, identical revision - only the extractor got better.
+    const healed = await repo.createOrUpdateProfile(input);
+
+    expect(healed.contentHash).toBe(stale.contentHash);
+    expect(healed.facts).toEqual(input.facts);
+    expect(healed.facts.models).not.toEqual(["@tiny"]);
+    expect(healed.createdAt.getTime()).toBe(stale.createdAt.getTime());
+    expect(healed.updatedAt.getTime()).toBeGreaterThanOrEqual(
+      stale.updatedAt.getTime()
+    );
+  });
+
+  test("refreshes publisher metadata and validation results the same way", async () => {
+    const { repo } = await freshRepo();
+    const input = registerInput(PROFILE_YAML);
+
+    await repo.createOrUpdateProfile({
+      ...input,
+      metadata: { ...input.metadata, summary: "a stale summary" },
+    });
+    const healed = await repo.createOrUpdateProfile(input);
+
+    expect(healed.metadata.summary).toBe(input.metadata.summary);
+  });
+
+  /**
+   * Postgres normalizes `jsonb` key order on write, so a value read back does
+   * not match the key order it was written with. Comparing serialized JSON
+   * naively would call every row changed and churn `updatedAt` forever.
+   */
+  test("re-registering identical data does not churn updatedAt", async () => {
+    const { repo } = await freshRepo();
+    const input = registerInput(PROFILE_YAML);
+
+    const first = await repo.createOrUpdateProfile(input);
+    const again = await repo.createOrUpdateProfile(input);
+    const third = await repo.createOrUpdateProfile(input);
+
+    expect(again.updatedAt.getTime()).toBe(first.updatedAt.getTime());
+    expect(third.updatedAt.getTime()).toBe(first.updatedAt.getTime());
+  });
   test("updates version metadata when the unchanged source is re-registered", async () => {
     const { repo } = await freshRepo();
     const input = registerInput(PROFILE_YAML);

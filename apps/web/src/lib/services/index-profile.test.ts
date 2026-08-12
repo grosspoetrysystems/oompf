@@ -123,13 +123,7 @@ function fakeRepository(): {
       const validation = toValidationMetadata(input.validation);
       const existing = rows.get(id) ?? null;
       if (existing) {
-        if (
-          existing.revision === revision &&
-          existing.contentHash === input.contentHash
-        ) {
-          return existing;
-        }
-        const updated: ProfileRecord = {
+        const next: ProfileRecord = {
           ...existing,
           contentHash: input.contentHash,
           facts: input.facts,
@@ -140,8 +134,21 @@ function fakeRepository(): {
           profileName: input.profileName,
           revision,
           sourceType: input.sourceType,
-          updatedAt: new Date(existing.updatedAt.getTime() + 1000),
           validation,
+        };
+        // Mirror the real repository: a write happens when any persisted field
+        // differs, not merely when the content hash does. A fake that keys off
+        // the hash alone would hide stale derived facts, which is the exact bug
+        // the repository tests now cover.
+        const unchanged =
+          JSON.stringify({ ...existing, updatedAt: null }) ===
+          JSON.stringify({ ...next, updatedAt: null });
+        if (unchanged) {
+          return existing;
+        }
+        const updated: ProfileRecord = {
+          ...next,
+          updatedAt: new Date(existing.updatedAt.getTime() + 1000),
         };
         rows.set(id, updated);
         return updated;
