@@ -47,6 +47,26 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
+      # Trusted publishing is a hard version floor, not a preference: an older
+      # npm silently ignores the OIDC environment and fails with ENEEDAUTH,
+      # which reads like a credentials problem rather than a toolchain one.
+      - name: npm must support trusted publishing
+        run: |
+          set -euo pipefail
+          node -e '
+            const need = [11, 5, 1];
+            const have = process.argv[1].split(".").map(Number);
+            const delta =
+              have[0] - need[0] || have[1] - need[1] || have[2] - need[2];
+            if (delta < 0) {
+              console.error(
+                `::error::npm ${process.argv[1]} cannot use trusted publishing; needs >= ${need.join(".")}`
+              );
+              process.exit(1);
+            }
+            console.log(`npm ${process.argv[1]} supports trusted publishing`);
+          ' "$(npm --version)"
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
