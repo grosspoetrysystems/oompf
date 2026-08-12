@@ -151,10 +151,23 @@ async function main() {
     fail("main and origin/main disagree; push or pull first");
   }
 
-  const manifest = (await import(`../${MANIFEST}`, {
-    with: { type: "json" },
-  })) as { default: { name: string; version: string } };
-  const { name, version: current } = manifest.default;
+  // Read and parse from disk rather than `import`: this file gets rewritten
+  // below, and Bun caches a module per specifier, so a second import of the
+  // same path returns the pre-write value. Verifying the rewrite that way
+  // always reported failure, after the manifest had already been changed.
+  const readManifest = async () =>
+    JSON.parse(await Bun.file(MANIFEST).text()) as {
+      name: string;
+      version: string;
+    };
+
+  const { name, version: current } = await readManifest();
+
+  if (!/^\d+\.\d+\.\d+$/.test(current)) {
+    fail(
+      `${MANIFEST} holds "${current}", which is not a plain three-part version. The tag and the bump are both derived from it, so releasing would produce a tag that does not match the package.`
+    );
+  }
 
   const lastTag = await spawnCapture({
     args: ["describe", "--tags", "--abbrev=0", "--match", `${TAG_PREFIX}*`],
@@ -162,6 +175,21 @@ async function main() {
   });
   const previous = lastTag.exitCode === 0 ? lastTag.stdout.trim() : "";
   const range = previous === "" ? "HEAD" : `${previous}..HEAD`;
+
+  // In a settled repository the manifest version and the newest release tag
+  // agree. When they do not, a previous release stopped half-way - typically the
+  // commit landed and the tag never reached the remote. Deriving a new version
+  // from here would compute the bump from the *already bumped* manifest and
+  // silently skip the version that was never tagged, leaving an orphan release
+  // commit behind. Refuse, and say how to finish what was started.
+  if (previous !== "" && previous !== `${TAG_PREFIX}${current}`) {
+    const expected = `${TAG_PREFIX}${current}`;
+    fail(
+      `${MANIFEST} says ${current} but the newest tag is ${previous}. A release was left unfinished.\n` +
+        `  To complete it:  git tag -a ${expected} -m ${expected} && git push origin ${expected}\n` +
+        `  To abandon it:   reset the version in ${MANIFEST} back to ${previous.slice(TAG_PREFIX.length)}`
+    );
+  }
 
   const log = await git("log", range, "--format=%H%x1f%s%x1f%b%x1e");
   const commits = log
@@ -221,30 +249,80 @@ async function main() {
     process.exit(0);
   }
 
-  // The workflow re-runs the gate, but a tag that fails it leaves a pushed tag
-  // with nothing published, and re-tagging the same version is not possible.
-  process.stdout.write("running the gate before tagging\n");
-  await run("bun", ["run", "gate"]);
-
-  const source = await Bun.file(MANIFEST).text();
-  await Bun.write(
-    MANIFEST,
-    source.replace(`"version": "${current}"`, `"version": "${next}"`)
+  // Bump first, then gate: the tree that gets tagged is the tree that was
+  // verified. Gating before the bump validates a commit that is not the one
+  // shipped. On failure the manifest is put back, so a refused release leaves
+  // the working tree exactly as it was found.
+  const original = await Bun.file(MANIFEST).text();
+  const bumped = original.replace(
+    `"version": "${current}"`,
+    `"version": "${next}"`
   );
-  const rewritten = (await import(`../${MANIFEST}`, {
-    with: { type: "json" },
-  })) as { default: { version: string } };
-  if (rewritten.default.version !== next) {
-    fail(`could not rewrite the version in ${MANIFEST}`);
+  if (bumped === original) {
+    fail(`could not find "version": "${current}" to rewrite in ${MANIFEST}`);
+  }
+  await Bun.write(MANIFEST, bumped);
+
+  const restore = async () => {
+    await Bun.write(MANIFEST, original);
+  };
+
+  if ((await readManifest()).version !== next) {
+    await restore();
+    fail(`rewriting ${MANIFEST} did not produce ${next}`);
   }
 
-  await git("add", MANIFEST);
-  await git("commit", "--quiet", "-m", `chore(cli): release ${next}`);
+  process.stdout.write(`bumped ${MANIFEST} to ${next}; running the gate\n`);
+  try {
+    await run("bun", ["run", "gate"]);
+  } catch (error) {
+    await restore();
+    process.stderr.write(`${(error as Error).message}\n`);
+    fail("the gate failed; nothing was committed and the manifest is restored");
+  }
+
+  try {
+    await git("add", MANIFEST);
+    await git("commit", "--quiet", "-m", `chore(cli): release ${next}`);
+  } catch (error) {
+    await restore();
+    process.stderr.write(`${(error as Error).message}\n`);
+    fail(
+      "the release commit failed; the manifest is restored and nothing was tagged"
+    );
+  }
 
   const notes = commits.map((commit) => `- ${commit.subject}`).join("\n");
-  await git("tag", "--annotate", tag, "--message", `${tag}\n\n${notes}`);
-  await git("push", "--quiet", "origin", "main");
-  await git("push", "--quiet", "origin", tag);
+  try {
+    await git("tag", "--annotate", tag, "--message", `${tag}\n\n${notes}`);
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`);
+    fail(
+      `the release commit for ${next} exists but tagging failed, so nothing will publish. Run: git tag -a ${tag} -m ${tag} && git push origin main && git push origin ${tag}`
+    );
+  }
+
+  // Past this point the failure modes are recoverable but not automatically, so
+  // say exactly what state the repository is in rather than dying on a stack
+  // trace. The tag is pushed last: it is what triggers the publish, so it must
+  // never reach the remote ahead of the commit it names.
+  try {
+    await git("push", "--quiet", "origin", "main");
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`);
+    fail(
+      `the release commit and ${tag} exist locally but main did not push. Resolve the push, then: git push origin main && git push origin ${tag}`
+    );
+  }
+
+  try {
+    await git("push", "--quiet", "origin", tag);
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`);
+    fail(
+      `main is pushed but ${tag} is not, so nothing will publish. Run: git push origin ${tag}`
+    );
+  }
 
   process.stdout.write(
     `pushed ${tag}. The release workflow publishes ${name}@${next}.\n`
