@@ -112,7 +112,7 @@ jobs:
           npm init -y > /dev/null
           npm install "$TARPATH" > /dev/null
           echo "--- installed tree ---"
-          ls node_modules/oompf/dist
+          ls node_modules/@grosspoetrysystems/oompf/dist
           echo "--- no workspace packages should be present ---"
           if ls node_modules | grep -q '^@oompf$'; then
             echo "::error::@oompf/* leaked into a consumer install"

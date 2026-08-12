@@ -53,7 +53,7 @@ public Gist. Everything on the OOMPF side is derived.
 Monorepo (Bun workspaces, orchestrated by Turbo):
 
 ```text
-apps/cli          published CLI (npm package `oompf`, v0.1.0)
+apps/cli          published CLI (npm package `@grosspoetrysystems/oompf`, v0.1.0)
 apps/web          Astro site + Cloudflare Worker (API and docs)
 packages/core     OMP discovery, YAML parsing, validation, facts, metadata,
                   provider links, spawnCapture

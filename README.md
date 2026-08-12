@@ -28,7 +28,7 @@ https://oompf.run/p/<id>
 
 | Path | Contents |
 | --- | --- |
-| `apps/cli` | The `oompf` CLI — `publish`, `add`, `inspect`, `search`. Ships as the npm package `oompf`. |
+| `apps/cli` | The `oompf` CLI — `publish`, `add`, `inspect`, `search`. Ships as the npm package `@grosspoetrysystems/oompf`. |
 | `apps/web` | Astro web app deployed to Cloudflare Workers — profile pages, docs, and the `/api/v1` index. |
 | `packages/core` | Profile discovery, YAML parsing, validation, facts, metadata, provider links, and content hashing. |
 | `packages/github` | GitHub CLI (`gh`) integration and public Gist fetching. |

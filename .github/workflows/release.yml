@@ -78,15 +78,19 @@ jobs:
             exit 1
           fi
 
+      # Name and version both come from the manifest. Hardcoding the name here
+      # once meant this guard queried a package that does not exist, so it
+      # could never fire — a check that cannot fail is worse than no check.
       - name: Confirm the version is unpublished
         run: |
           set -euo pipefail
+          NAME="$(node -p "require('./apps/cli/package.json').name")"
           VERSION="$(node -p "require('./apps/cli/package.json').version")"
-          if npm view "oompf@${VERSION}" version > /dev/null 2>&1; then
-            echo "::error::oompf@${VERSION} is already published; bump the version"
+          if npm view "${NAME}@${VERSION}" version > /dev/null 2>&1; then
+            echo "::error::${NAME}@${VERSION} is already published; bump the version"
             exit 1
           fi
-          echo "oompf@${VERSION} is unpublished"
+          echo "${NAME}@${VERSION} is unpublished"
 
       # No --provenance flag: trusted publishing attaches provenance
       # automatically, and passing it explicitly is redundant.
@@ -97,18 +101,26 @@ jobs:
       - name: Smoke the published package
         run: |
           set -euo pipefail
+          NAME="$(node -p "require('./apps/cli/package.json').name")"
           VERSION="$(node -p "require('./apps/cli/package.json').version")"
           CLEAN="$(mktemp -d)"
           cd "$CLEAN"
           npm init -y > /dev/null
           # The registry is eventually consistent; give it a moment.
+          installed=false
           for attempt in 1 2 3 4 5; do
-            if npm install "oompf@${VERSION}" > /dev/null 2>&1; then
+            if npm install "${NAME}@${VERSION}" > /dev/null 2>&1; then
+              installed=true
               break
             fi
             echo "install attempt ${attempt} failed, retrying"
             sleep 10
           done
+          if [ "$installed" != "true" ]; then
+            echo "::error::${NAME}@${VERSION} did not become installable"
+            exit 1
+          fi
+          # The binary keeps the short name even though the package is scoped.
           ./node_modules/.bin/oompf --version
           test "$(./node_modules/.bin/oompf --version)" = "${VERSION}"
-          echo "published oompf@${VERSION} installs and runs"
+          echo "published ${NAME}@${VERSION} installs and runs"

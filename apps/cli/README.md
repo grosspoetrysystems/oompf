@@ -33,7 +33,7 @@ and serves **metadata only**.
 post-publish install is:
 
 ```bash
-bunx oompf@latest --help
+bunx @grosspoetrysystems/oompf@latest --help
 ```
 
 Until then, run it from source in the repository:

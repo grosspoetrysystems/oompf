@@ -146,7 +146,7 @@ its package as scope, e.g. `feat(core): ...`, `fix(database): ...`.
 
 ## Releasing the CLI
 
-The CLI publishes to npm as `oompf`. Releases are cut by pushing a tag; nothing
+The CLI publishes to npm as `@grosspoetrysystems/oompf`. Releases are cut by pushing a tag; nothing
 publishes from a laptop after the first time.
 
 ```bash
