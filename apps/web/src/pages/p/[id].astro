@@ -1,14 +1,12 @@
 ---
 /**
- * Profile detail: a human-facing overview of a single indexed OMP profile.
+ * Profile detail: compact, human-facing facts for one indexed OMP profile.
  *
- * It leads with author context — summary, kind, and tags — then presents the
- * profile the way a person reads it: friendly model names with their exact
- * selectors, linked providers, OMP aliases kept distinct from concrete models,
- * runtime behavior, and only the requirements a person must actually satisfy.
- * The canonical `oompf add https://oompf.run/p/<id>` command makes installation
- * one paste. Source and integrity provenance stay available and explained under
- * an expandable section — never bare header strings.
+ * Trust coordinates and providers sit next to the title, models preserve their
+ * exact selectors in a two-column grid, and behavior uses the same friendly
+ * names without repeating provider/model noise. Empty requirements and runtime
+ * alias inventories stay out of the way. The canonical install command remains
+ * one paste, while source, revision, and fingerprint are always one click away.
  */
 
 import { resolveModelDisplay, resolveProviderLink } from "@oompf/core";
@@ -133,6 +131,83 @@ const view =
             )}
           </header>
 
+          <section
+            aria-label="Profile source and providers"
+            class:list={[
+              "profile-context",
+              { "source-only": view.providers.length === 0 },
+            ]}
+          >
+            {view.providers.length > 0 && (
+              <div class="context-group">
+                <h2>Providers</h2>
+                <div class="chip-row">
+                  {view.providers.map((provider) =>
+                    provider.url !== null ? (
+                      <a
+                        class="tag linked"
+                        href={provider.url}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        {provider.displayName} ↗
+                      </a>
+                    ) : (
+                      <span class="tag">{provider.displayName}</span>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div class="context-group source-context">
+              <h2>Source</h2>
+              <div class="source-links">
+                <a
+                  href={view.provenance.sourceUrl}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  GitHub source ↗
+                </a>
+                {view.provenance.revisionUrl !== null &&
+                  view.provenance.revision !== null && (
+                    <a
+                      href={view.provenance.revisionUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Pinned{" "}
+                      <code>{view.provenance.revision.slice(0, 8)}</code> ↗
+                    </a>
+                  )}
+                {view.provenance.indexedAt !== null &&
+                  view.provenance.indexedLabel !== null && (
+                    <span>
+                      Indexed{" "}
+                      <time datetime={view.provenance.indexedAt}>
+                        {view.provenance.indexedLabel}
+                      </time>
+                    </span>
+                  )}
+                <span class="fingerprint">
+                  <code title={`SHA-256 ${view.provenance.contentHash}`}>
+                    sha256 {view.provenance.contentHash.slice(0, 8)}…
+                    {view.provenance.contentHash.slice(-4)}
+                  </code>
+                  <button
+                    aria-label="Copy SHA-256 content fingerprint"
+                    class="inline-copy-btn"
+                    data-copy={view.provenance.contentHash}
+                    type="button"
+                  >
+                    Copy hash
+                  </button>
+                </span>
+              </div>
+            </div>
+          </section>
+
           <section class="install" aria-labelledby="install-label">
             <span class="section-eyebrow" id="install-label">Install</span>
             <div class="copy-row">
@@ -156,25 +231,35 @@ const view =
           <section class="detail-section" aria-labelledby="models-heading">
             <h2 id="models-heading">Models</h2>
             <p class="section-note">
-              Friendly name first, exact OMP selector beneath.{" "}
-              <a href="/docs/models-and-providers">How models are resolved</a>
+              Friendly name first; exact selector beneath.{" "}
+              <a href="/docs/models-and-providers">Model resolution</a>
             </p>
             {view.models.length > 0 ? (
               <ul class="model-list">
                 {view.models.map((model) => (
                   <li class="model-item">
-                    <span class="model-name">{model.friendlyName}</span>
-                    <code class="model-selector">{model.selector}</code>
-                    {model.url !== null && (
-                      <a
-                        class="model-link"
-                        href={model.url}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        Open provider page ↗
-                      </a>
-                    )}
+                    <div class="model-head">
+                      {model.url !== null ? (
+                        <a
+                          class="model-name"
+                          href={model.url}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          {model.friendlyName} ↗
+                        </a>
+                      ) : (
+                        <span class="model-name">{model.friendlyName}</span>
+                      )}
+                      {model.thinkingLevel !== null && (
+                        <span class="thinking-badge">
+                          thinking {model.thinkingLevel}
+                        </span>
+                      )}
+                    </div>
+                    <code class="model-selector" title={model.selector}>
+                      {model.selector}
+                    </code>
                   </li>
                 ))}
               </ul>
@@ -185,45 +270,6 @@ const view =
             )}
           </section>
 
-          <section class="detail-section" aria-labelledby="providers-heading">
-            <h2 id="providers-heading">Providers</h2>
-            {view.providers.length > 0 ? (
-              <div class="chip-row">
-                {view.providers.map((provider) =>
-                  provider.url !== null ? (
-                    <a
-                      class="tag linked"
-                      href={provider.url}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      {provider.displayName} ↗
-                    </a>
-                  ) : (
-                    <span class="tag">{provider.displayName}</span>
-                  )
-                )}
-              </div>
-            ) : (
-              <p class="none">
-                No providers are inferred from this profile's models.
-              </p>
-            )}
-          </section>
-
-          {view.aliases.length > 0 && (
-            <section class="detail-section" aria-labelledby="aliases-heading">
-              <h2 id="aliases-heading">OMP aliases</h2>
-              <p class="section-note">
-                Shorthands OMP resolves at install time — not concrete models.
-              </p>
-              <div class="chip-row">
-                {view.aliases.map((alias) => (
-                  <code class="alias">{alias}</code>
-                ))}
-              </div>
-            </section>
-          )}
 
           {view.behavior.present && (
             <section class="detail-section" aria-labelledby="behavior-heading">
@@ -234,8 +280,20 @@ const view =
                     <h3>Model roles</h3>
                     <ul>
                       {view.behavior.modelRoles.map((entry) => (
-                        <li>
-                          <span class="role">{entry.role}</span> → {entry.model}
+                        <li class="behavior-line">
+                          <span class="role">{entry.role}</span>
+                          <span aria-hidden="true">→</span>
+                          <span
+                            class="behavior-model"
+                            title={entry.model.selector}
+                          >
+                            {entry.model.friendlyName}
+                          </span>
+                          {entry.model.thinkingLevel !== null && (
+                            <span class="thinking-badge">
+                              thinking {entry.model.thinkingLevel}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -246,9 +304,29 @@ const view =
                     <h3>Fallback chains</h3>
                     <ul>
                       {view.behavior.fallbackChains.map((chain) => (
-                        <li>
-                          <span class="role">{chain.role}</span> →{" "}
-                          {chain.models.join(" → ")}
+                        <li class="behavior-line">
+                          <span class="role">{chain.role}</span>
+                          <span aria-hidden="true">→</span>
+                          <span class="behavior-chain">
+                            {chain.models.map((model, index) => (
+                              <>
+                                {index > 0 && (
+                                  <span aria-hidden="true">→</span>
+                                )}
+                                <span
+                                  class="behavior-model"
+                                  title={model.selector}
+                                >
+                                  {model.friendlyName}
+                                </span>
+                                {model.thinkingLevel !== null && (
+                                  <span class="thinking-badge">
+                                    thinking {model.thinkingLevel}
+                                  </span>
+                                )}
+                              </>
+                            ))}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -259,10 +337,10 @@ const view =
                     <h3>Advisor</h3>
                     <dl class="setting-list">
                       {view.behavior.advisor.map((setting) => (
-                        <Fragment>
+                        <>
                           <dt>{setting.label}</dt>
                           <dd>{setting.value}</dd>
-                        </Fragment>
+                        </>
                       ))}
                     </dl>
                   </div>
@@ -272,10 +350,10 @@ const view =
                     <h3>Settings</h3>
                     <dl class="setting-list">
                       {view.behavior.settings.map((setting) => (
-                        <Fragment>
+                        <>
                           <dt>{setting.label}</dt>
                           <dd>{setting.value}</dd>
-                        </Fragment>
+                        </>
                       ))}
                     </dl>
                   </div>
@@ -314,9 +392,12 @@ const view =
             </section>
           )}
 
-          <section class="detail-section" aria-labelledby="requirements-heading">
-            <h2 id="requirements-heading">Requirements</h2>
-            {view.requirements.length > 0 ? (
+          {view.requirements.length > 0 && (
+            <section
+              class="detail-section"
+              aria-labelledby="requirements-heading"
+            >
+              <h2 id="requirements-heading">Requirements</h2>
               <ul class="requirement-list">
                 {view.requirements.map((req) => (
                   <li class="requirement">
@@ -328,12 +409,8 @@ const view =
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p class="none">
-                No additional setup is required beyond provider access.
-              </p>
-            )}
-          </section>
+            </section>
+          )}
 
           {view.warnings.length > 0 && (
             <section class="warnings" aria-labelledby="warnings-heading">
@@ -346,76 +423,6 @@ const view =
             </section>
           )}
 
-          <details class="provenance">
-            <summary>Source &amp; provenance</summary>
-            <div class="provenance-body">
-              <p class="prov-explain">
-                What each identifier means, and how to verify a download:{" "}
-                <a href="/docs/provenance-and-revisions">Provenance and revisions</a>
-              </p>
-              <div class="prov-item">
-                <span class="prov-label">Canonical source</span>
-                <a
-                  href={view.provenance.sourceUrl}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  {view.provenance.sourceUrl}
-                </a>
-                <p class="prov-explain">
-                  The public GitHub Gist OOMPF indexed. The canonical YAML always
-                  lives here — OOMPF stores metadata only.
-                </p>
-              </div>
-
-              <div class="prov-item">
-                <span class="prov-label">Source revision</span>
-                {view.provenance.revisionUrl !== null ? (
-                  <a
-                    href={view.provenance.revisionUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    <code>{view.provenance.revision}</code> ↗
-                  </a>
-                ) : (
-                  <span class="none">Not pinned</span>
-                )}
-                <p class="prov-explain">
-                  GitHub's version identifier for the exact source snapshot OOMPF
-                  indexed.
-                </p>
-              </div>
-
-              <div class="prov-item">
-                <span class="prov-label">Content fingerprint</span>
-                <div class="copy-row">
-                  <code id="hash-value">{view.provenance.contentHash}</code>
-                  <button
-                    class="ghost copy-btn"
-                    type="button"
-                    data-copy={view.provenance.contentHash}
-                    aria-label="Copy SHA-256 content fingerprint"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <p class="prov-explain">
-                  SHA-256 of the exact YAML bytes OOMPF indexed. Recompute it
-                  against the source to verify nothing changed.
-                </p>
-              </div>
-
-              {view.provenance.indexedAt !== null && (
-                <div class="prov-item">
-                  <span class="prov-label">Last indexed</span>
-                  <time datetime={view.provenance.indexedAt}>
-                    {view.provenance.indexedAt}
-                  </time>
-                </div>
-              )}
-            </div>
-          </details>
         </article>
       )}
   </div>
@@ -423,7 +430,7 @@ const view =
 
 <script>
   const buttons =
-    document.querySelectorAll<HTMLButtonElement>(".copy-btn");
+    document.querySelectorAll<HTMLButtonElement>("button[data-copy]");
   for (const button of buttons) {
     button.addEventListener("click", async () => {
       const text = button.dataset.copy ?? "";

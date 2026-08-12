@@ -15,11 +15,13 @@
  * landed still render cleanly.
  */
 
-import type {
-  ModelDisplay,
-  Prerequisite,
-  ProfileMetadata,
-  ProviderLink,
+import {
+  type ModelDisplay,
+  type ModelThinkingLevel,
+  type Prerequisite,
+  type ProfileMetadata,
+  type ProviderLink,
+  parseModelSelectorDisplay,
 } from "@oompf/core";
 import type { ProfileRecord } from "@oompf/database";
 
@@ -34,6 +36,13 @@ export interface ProfileViewDeps {
   readonly resolveProvider: (provider: string) => ProviderLink;
   /** Canonical site origin (e.g. `Astro.site?.origin`); falsy → {@link CANONICAL_ORIGIN}. */
   readonly siteOrigin?: string | null;
+}
+
+/** A model selector shaped once for compact Models and Behavior rendering. */
+export interface ModelReferenceView extends ModelDisplay {
+  /** The exact selector from the published profile, including any effort suffix. */
+  readonly selector: string;
+  readonly thinkingLevel: ModelThinkingLevel | null;
 }
 
 /** A curated, publisher-authored link with a guaranteed display label. */
@@ -68,15 +77,15 @@ interface BehaviorView {
   readonly disabledProviders: readonly string[];
   readonly extensions: readonly string[];
   readonly fallbackChains: readonly {
-    readonly models: readonly string[];
+    readonly models: readonly ModelReferenceView[];
     readonly role: string;
   }[];
   readonly hooks: readonly string[];
   readonly modelRoles: readonly {
-    readonly model: string;
+    readonly model: ModelReferenceView;
     readonly role: string;
   }[];
-  /** True when any behavior fact is present; drives the empty state. */
+  /** True when any behavior fact is present; drives section rendering. */
   readonly present: boolean;
   readonly settings: readonly BehaviorSetting[];
 }
@@ -85,6 +94,7 @@ interface BehaviorView {
 interface ProvenanceView {
   readonly contentHash: string;
   readonly indexedAt: string | null;
+  readonly indexedLabel: string | null;
   readonly owner: string | null;
   readonly revision: string | null;
   /** GitHub Gist revision URL when a revision is pinned, else `null`. */
@@ -94,13 +104,12 @@ interface ProvenanceView {
 
 /** The fully shaped, render-ready profile view. */
 export interface ProfileView {
-  readonly aliases: readonly string[];
   readonly behavior: BehaviorView;
   /** `oompf add https://oompf.run/p/<id>` — always the canonical OOMPF URL. */
   readonly installCommand: string;
   readonly kind: KindView | null;
   readonly links: readonly CuratedLinkView[];
-  readonly models: readonly ModelDisplay[];
+  readonly models: readonly ModelReferenceView[];
   readonly ompVersion: string | null;
   readonly owner: string | null;
   readonly profileName: string;
@@ -119,7 +128,6 @@ const REQUIREMENT_LABELS: Record<string, string> = {
   environment: "Environment variable",
   extension: "Extension",
   "project-overlay": "Project overlay",
-  provider: "Provider",
 };
 
 /** Friendly labels for the scalar OMP settings surfaced under Behavior. */
@@ -163,12 +171,6 @@ function readMetadata(record: ProfileRecord): ProfileMetadata {
   return raw ?? { kind: null, links: [], summary: null, tags: [] };
 }
 
-/** Read alias facts defensively (records may predate alias classification). */
-function readAliases(record: ProfileRecord): readonly string[] {
-  const facts = record.facts as { aliases?: readonly string[] };
-  return facts.aliases ?? [];
-}
-
 /** Trim a trailing slash so URL joins never double up. */
 function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
@@ -181,6 +183,40 @@ function toCuratedLink(link: {
 }): CuratedLinkView {
   const label = link.label?.trim();
   return { label: label && label.length > 0 ? label : link.url, url: link.url };
+}
+
+/** Shape an exact selector into one friendly, effort-aware model reference. */
+function toModelReference(
+  selector: string,
+  resolveModel: ProfileViewDeps["resolveModel"]
+): ModelReferenceView {
+  const parsed = parseModelSelectorDisplay(selector);
+  const display = resolveModel(parsed.modelSelector);
+  return {
+    ...display,
+    friendlyName: display.isAlias
+      ? `${parsed.modelSelector.replace(/^@/, "")} role`
+      : display.friendlyName,
+    selector,
+    thinkingLevel: parsed.thinkingLevel,
+  };
+}
+
+/** Format an ISO timestamp as a stable, compact English UTC date. */
+function formatIndexedLabel(indexedAt: string | null): string | null {
+  if (indexedAt === null) {
+    return null;
+  }
+  const date = new Date(indexedAt);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(date);
 }
 
 /** Collect advisor entries as labeled settings, skipping absent keys. */
@@ -242,7 +278,7 @@ export function buildProfileView(
   const facts = record.facts;
 
   const models = facts.models
-    .map((model) => deps.resolveModel(model))
+    .map((model) => toModelReference(model, deps.resolveModel))
     .filter((display) => !display.isAlias);
   const providers = facts.providers.map((provider) =>
     deps.resolveProvider(provider)
@@ -261,11 +297,13 @@ export function buildProfileView(
   const advisor = advisorSettings(facts.advisor);
   const settings = fieldSettings(facts.fields);
   const modelRoles = facts.modelRoles.map((entry) => ({
-    model: entry.model,
+    model: toModelReference(entry.model, deps.resolveModel),
     role: entry.role,
   }));
   const fallbackChains = facts.fallbackChains.map((chain) => ({
-    models: chain.models,
+    models: chain.models.map((model) =>
+      toModelReference(model, deps.resolveModel)
+    ),
     role: chain.role,
   }));
   const behavior: BehaviorView = {
@@ -287,12 +325,14 @@ export function buildProfileView(
   };
 
   const source = trimTrailingSlash(record.sourceUrl);
+  const indexedAt =
+    record.updatedAt instanceof Date
+      ? record.updatedAt.toISOString()
+      : (record.updatedAt ?? null);
   const provenance: ProvenanceView = {
     contentHash: record.contentHash,
-    indexedAt:
-      record.updatedAt instanceof Date
-        ? record.updatedAt.toISOString()
-        : (record.updatedAt ?? null),
+    indexedAt,
+    indexedLabel: formatIndexedLabel(indexedAt),
     owner: record.owner,
     revision: record.revision,
     revisionUrl: record.revision ? `${source}/${record.revision}` : null,
@@ -300,7 +340,6 @@ export function buildProfileView(
   };
 
   return {
-    aliases: readAliases(record),
     behavior,
     installCommand: `oompf add ${profileUrl}`,
     kind: metadata.kind,

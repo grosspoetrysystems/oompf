@@ -22,8 +22,12 @@ is hidden behind an abstraction.
 ## Aliases are not models
 
 Values beginning with `@` — such as `@tiny` — are OMP **aliases**: runtime
-shortcuts that resolve to a concrete model when `omp` runs. OOMPF classifies them
-separately and shows them as OMP shortcuts, never as concrete models or providers.
+role shortcuts that resolve to a concrete model when `omp` runs. OOMPF excludes
+them from the concrete Models list. When an alias appears in a behavior mapping,
+OOMPF labels it as a role (for example, `tiny role`) and preserves the exact
+`@tiny` selector as supporting detail. Aliases are never classified as models or
+providers, and OOMPF does not repeat a profile-wide alias inventory on every
+profile page.
 
 ## Curated links, never guessed
 

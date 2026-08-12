@@ -586,7 +586,7 @@ a.tag {
 /* ── profile page ───────────────────────────────────────────────────────── */
 
 .profile-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .profile-title {
@@ -603,7 +603,7 @@ a.tag {
 
 .profile-summary {
   max-width: 66ch;
-  margin: 0.8rem 0 0.6rem;
+  margin: 0.7rem 0 0.5rem;
   font-size: var(--step-1);
   color: var(--fg);
 }
@@ -619,6 +619,69 @@ a.tag {
 
 .profile-meta a {
   color: var(--link);
+}
+
+.profile-context {
+  display: grid;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  gap: 1rem;
+  padding-block: 0.75rem;
+  margin-bottom: 1rem;
+  border-block: 1px solid var(--line);
+}
+
+.profile-context.source-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.context-group {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+}
+
+.context-group h2 {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--fg-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--fg-mute);
+}
+
+.source-links a {
+  color: var(--link);
+}
+
+.fingerprint {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.inline-copy-btn {
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--fg-mute);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.inline-copy-btn:hover {
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 /* Install is the loudest thing on the page: it is why people are here. */
@@ -687,7 +750,15 @@ a.tag {
   background: var(--bg-raised);
 }
 
-.model-list,
+.model-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
 .requirement-list,
 .setting-list {
   display: grid;
@@ -698,17 +769,20 @@ a.tag {
 }
 
 .model-item {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  align-items: baseline;
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
-.model-item:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
+.model-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
 }
 
 .model-name {
@@ -717,19 +791,28 @@ a.tag {
 }
 
 .model-selector {
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--font-mono);
   font-size: var(--step--1);
   color: var(--fg-mute);
+  white-space: nowrap;
 }
 
-.model-link {
+.thinking-badge {
+  display: inline-flex;
+  padding: 0.08rem 0.35rem;
   font-family: var(--font-mono);
-  font-size: var(--step--1);
+  font-size: 0.65rem;
+  color: var(--alias);
+  white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--alias) 42%, transparent);
+  border-radius: 999px;
 }
 
 .facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -763,6 +846,24 @@ a.tag {
   list-style: none;
 }
 
+.behavior-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  align-items: baseline;
+}
+
+.behavior-model {
+  color: var(--model);
+}
+
+.behavior-chain {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  align-items: baseline;
+}
+
 .fact dl {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -782,7 +883,6 @@ a.tag {
 }
 
 .fact .role,
-.prov-label,
 .req-head {
   font-family: var(--font-mono);
   font-size: var(--step--1);
@@ -838,45 +938,8 @@ a.tag {
   color: var(--fg-mute);
 }
 
-/* Provenance stays available and explained, but never leads. */
-
-.provenance {
-  padding: 0.85rem 1.1rem;
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-.provenance > summary {
+.attribution {
   font-family: var(--font-mono);
-  font-size: var(--step--1);
-  color: var(--fg-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-}
-
-.provenance[open] > summary {
-  margin-bottom: 0.9rem;
-  color: var(--fg);
-}
-
-.provenance-body {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.prov-item {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.prov-item code {
-  color: var(--fg);
-  word-break: break-all;
-}
-
-.prov-explain {
   font-size: var(--step--1);
   color: var(--fg-mute);
 }
@@ -1217,6 +1280,14 @@ a.tag {
   }
 }
 
+@media (max-width: 760px) {
+  .profile-context,
+  .model-list,
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   .header-inner {
     flex-wrap: wrap;
@@ -1239,6 +1310,15 @@ a.tag {
 
   .copy-btn {
     padding-block: 0.5rem;
+  }
+
+  .source-links {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .fingerprint {
+    flex-wrap: wrap;
   }
 }
 
