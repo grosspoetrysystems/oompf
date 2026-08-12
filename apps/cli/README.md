@@ -29,18 +29,29 @@ and serves **metadata only**.
 
 ## Install
 
-**Not yet published.** The package is not on npm as of this writing. The intended
-post-publish install is:
+`oompf` is a terminal command, so install it globally:
+
+```bash
+npm install -g @grosspoetrysystems/oompf
+```
+
+Or run it without installing:
 
 ```bash
 bunx @grosspoetrysystems/oompf@latest --help
+npx @grosspoetrysystems/oompf@latest --help
 ```
 
-Until then, run it from source in the repository:
+The package name is scoped; the command is plain `oompf`, which is what the
+examples below use.
 
-```bash
-bun apps/cli/src/index.ts --help
-```
+A project-local `npm install` is the wrong shape here: the binary lands in
+`node_modules/.bin`, which is not on your `PATH`, and npm refuses the install
+entirely inside a repository that uses `workspace:` specifiers. Use `-g` or
+`bunx`.
+
+Working in a clone of the repository? Run it from source with
+`bun apps/cli/src/index.ts <command>`.
 
 ## Commands
 

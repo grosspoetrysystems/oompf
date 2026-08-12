@@ -7,10 +7,16 @@ order: 1
 
 # CLI reference
 
-The `oompf` CLI drives the full workflow. It targets `https://oompf.run` by
-default; set `OOMPF_BASE_URL` (for example `http://localhost:4321`) to point at a
-local instance. Every command prints a stable error envelope on failure — a
-machine-readable `code`, a human `message`, and optional value-free `details`.
+The `oompf` CLI drives the full workflow. Install it on your `PATH` with
+`npm install -g @grosspoetrysystems/oompf`, or run it per invocation with
+`bunx @grosspoetrysystems/oompf@latest`. The package name is scoped; the command
+is plain `oompf`. See [Getting started](/docs/getting-started) for prerequisites
+and why a project-local install is the wrong shape for a `PATH` command.
+
+It targets `https://oompf.run` by default; set `OOMPF_BASE_URL` (for example
+`http://localhost:4321`) to point at a local instance. Every command prints a
+stable error envelope on failure — a machine-readable `code`, a human
+`message`, and optional value-free `details`.
 
 The CLI is a thin client over the canonical `/api/v1` routes. Response shapes are
 described by [`/openapi.json`](/openapi.json) and the published JSON Schemas.

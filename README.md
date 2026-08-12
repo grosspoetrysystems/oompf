@@ -65,6 +65,18 @@ OOMPF_BASE_URL=http://localhost:4321
 loaded from `.env.local` for local commands and from the process environment in
 CI. `.env.local` is ignored and must never be committed.
 
+### Use the published CLI
+
+```bash
+npm install -g @grosspoetrysystems/oompf   # onto PATH
+bunx @grosspoetrysystems/oompf@latest      # per invocation
+```
+
+The package name is scoped; the command is plain `oompf`. Requires Node 22+ or
+Bun. Install it globally or via `bunx` — not as a project dependency, since a
+`PATH` command in `node_modules/.bin` is not on your `PATH`, and npm rejects the
+install inside this repository's `workspace:` specifiers.
+
 ### Run the CLI from source
 
 ```bash

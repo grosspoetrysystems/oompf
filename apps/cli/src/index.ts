@@ -23,7 +23,7 @@ import { type CliDeps, resolveDeps } from "./deps.ts";
  * Must match `package.json`; `index.test.ts` asserts it, because a published
  * binary reporting the wrong version makes every bug report ambiguous.
  */
-export const CLI_VERSION = "0.1.0";
+export const CLI_VERSION = "0.1.1";
 
 /** Build the OOMPF CLI with the given (optional) injectable seams. */
 export function createCli(deps: CliDeps = {}) {

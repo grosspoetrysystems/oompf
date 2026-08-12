@@ -8,6 +8,26 @@
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
+    // The CLI bundle inlines @oompf/core, @oompf/database, and @oompf/github,
+    // but it must not declare them as dependencies: a published manifest cannot
+    // carry workspace: specifiers. `^build` derives ordering from the dependency
+    // graph, so without that manifest edge these have to be named explicitly, or
+    // the CLI's dts generation races the packages it reads from.
+    "@grosspoetrysystems/oompf#build": {
+      "dependsOn": [
+        "@oompf/core#build",
+        "@oompf/database#build",
+        "@oompf/github#build"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@grosspoetrysystems/oompf#typecheck": {
+      "dependsOn": [
+        "@oompf/core#typecheck",
+        "@oompf/database#typecheck",
+        "@oompf/github#typecheck"
+      ]
+    },
     "test": {},
     "lint": {},
     "gate": {

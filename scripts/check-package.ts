@@ -71,12 +71,26 @@ const pkg = manifest.default;
 // message than "the file list changed".
 assert.equal(pkg.private, undefined, "package must not be private to publish");
 
-const dependencies = (pkg.dependencies ?? {}) as Record<string, string>;
-for (const [name, range] of Object.entries(dependencies)) {
-  assert.ok(
-    !range.startsWith("workspace:"),
-    `dependency "${name}" uses the workspace protocol, which will not resolve for consumers; bundle it or publish it`
-  );
+// Every dependency field, not just `dependencies`. 0.1.0 shipped
+// `devDependencies: { "@oompf/core": "workspace:*" }`: consumers never install
+// a dependency's devDependencies, so the usual install paths worked, but the
+// specifier is unresolvable and clients that read the whole manifest reject it.
+// Build-time workspace inputs belong in the private root manifest.
+const DEPENDENCY_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+] as const;
+
+for (const field of DEPENDENCY_FIELDS) {
+  const ranges = (pkg[field] ?? {}) as Record<string, string>;
+  for (const [name, range] of Object.entries(ranges)) {
+    assert.ok(
+      !range.startsWith("workspace:"),
+      `${field}."${name}" uses the workspace protocol, which will not resolve for consumers; inline it into the bundle and declare it in the root manifest instead`
+    );
+  }
 }
 
 const bin = pkg.bin as Record<string, string> | undefined;

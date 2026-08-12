@@ -11,6 +11,8 @@
         "@commitlint/config-conventional": "21.2.0",
         "@electric-sql/pglite": "0.5.4",
         "@oompf/core": "workspace:*",
+        "@oompf/database": "workspace:*",
+        "@oompf/github": "workspace:*",
         "@types/bun": "1.3.14",
         "@vitest/coverage-v8": "4.1.10",
         "drizzle-orm": "0.45.2",
@@ -26,17 +28,12 @@
     },
     "apps/cli": {
       "name": "@grosspoetrysystems/oompf",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "bin": {
         "oompf": "./dist/index.mjs",
       },
       "dependencies": {
         "incur": "0.4.26",
-      },
-      "devDependencies": {
-        "@oompf/core": "workspace:*",
-        "@oompf/database": "workspace:*",
-        "@oompf/github": "workspace:*",
       },
     },
     "apps/web": {

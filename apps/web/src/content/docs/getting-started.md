@@ -12,10 +12,36 @@ the index, and install it on another machine.
 
 ## Prerequisites
 
-- A working OMP install (`omp`) for producing and consuming profiles.
-- The `oompf` CLI (run from source with `bun apps/cli/src/index.ts <command>` in
-  this repository).
-- A GitHub account for publishing a public Gist.
+- A working OMP install (`omp`) for producing and consuming profiles. `publish`
+  and `add` ask OMP where profiles live rather than assuming a path.
+- A GitHub account with the GitHub CLI (`gh`) authenticated, for publishing.
+- Node 22 or newer, or Bun.
+
+## Install the CLI
+
+`oompf` is a command you run in a terminal, so install it globally:
+
+```bash
+npm install -g @grosspoetrysystems/oompf
+```
+
+Or run it without installing anything, which fetches it per invocation:
+
+```bash
+bunx @grosspoetrysystems/oompf@latest --help
+npx @grosspoetrysystems/oompf@latest --help
+```
+
+The package name is scoped; the command is plain `oompf`. Every example below
+uses the command name.
+
+Do not install it as a project dependency. A plain `npm install
+@grosspoetrysystems/oompf` puts the binary in `node_modules/.bin`, which is not
+on your `PATH`, so `oompf` will not be found — and inside a repository that uses
+the `workspace:` protocol, npm fails outright. Use `-g` or `bunx`.
+
+Working in a clone of this repository instead? Run it from source with
+`bun apps/cli/src/index.ts <command>`.
 
 The CLI targets `https://oompf.run` by default. Override it with `OOMPF_BASE_URL`
 for local development (usually `http://localhost:4321`).
