@@ -148,7 +148,7 @@ p {
 .brand {
   display: inline-flex;
   gap: 0.5rem;
-  align-items: baseline;
+  align-items: center;
   color: var(--fg);
   white-space: nowrap;
 }
@@ -157,9 +157,11 @@ p {
   text-decoration: none;
 }
 
-.brand-mark {
-  font-size: 0.85rem;
-  color: var(--brand);
+.brand-logo {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
 }
 
 .brand-name {
@@ -1158,6 +1160,11 @@ a.tag {
   font-size: var(--step--1);
   color: var(--fg-mute);
   border-top: 1px solid var(--line);
+}
+
+.site-footer .brand-logo {
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .footer-grid {
