@@ -10,7 +10,7 @@
  */
 
 import { Cli } from "incur";
-
+import manifest from "../package.json" with { type: "json" };
 import { registerAdd } from "./commands/add.ts";
 import { registerInspect } from "./commands/inspect.ts";
 import { registerPublish } from "./commands/publish.ts";
@@ -20,10 +20,12 @@ import { type CliDeps, resolveDeps } from "./deps.ts";
 /**
  * OOMPF CLI version, surfaced by `oompf --version`.
  *
- * Must match `package.json`; `index.test.ts` asserts it, because a published
- * binary reporting the wrong version makes every bug report ambiguous.
+ * Read from `package.json` rather than restated, because npm publishes the
+ * manifest's version regardless of what the binary claims: a hand-maintained
+ * copy can only ever drift, and a binary reporting the wrong version makes
+ * every bug report ambiguous. The bundler inlines this at build time.
  */
-export const CLI_VERSION = "0.1.1";
+export const CLI_VERSION: string = manifest.version;
 
 /** Build the OOMPF CLI with the given (optional) injectable seams. */
 export function createCli(deps: CliDeps = {}) {

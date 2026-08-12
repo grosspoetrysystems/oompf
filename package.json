@@ -20,6 +20,7 @@
     "lint": "ultracite check",
     "lint:fix": "ultracite fix",
     "prepare": "bun scripts/prepare-lefthook.ts",
+    "release": "bun scripts/release.ts",
     "smoke:deployed": "bun scripts/smoke-deployed.ts",
     "smoke:local": "bun test tests/e2e/oompf-flow.test.ts",
     "smoke:published": "bun scripts/smoke-published.ts",

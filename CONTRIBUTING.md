@@ -147,20 +147,37 @@ its package as scope, e.g. `feat(core): ...`, `fix(database): ...`.
 
 ## Releasing the CLI
 
-The CLI publishes to npm as `@grosspoetrysystems/oompf`. Releases are cut by pushing a tag; nothing
-publishes from a laptop after the first time.
+The CLI publishes to npm as `@grosspoetrysystems/oompf`. Releases are cut by
+pushing a tag; nothing publishes from a laptop after the first time.
 
 ```bash
-# 1. bump apps/cli/package.json, and CLI_VERSION alongside it
-#    (apps/cli/src/index.test.ts fails if they drift)
-# 2. commit, then tag with the matching version
-git tag cli-v0.1.1
-git push origin cli-v0.1.1
+bun run release              # preview: the commits, the derived bump, the tag
+bun run release --yes        # bump, commit, tag, push
+bun run release minor --yes  # override the derived bump
 ```
 
-`release.yml` re-runs the full gate, asserts the tag matches the manifest,
-refuses a version that is already on the registry, publishes, then installs the
-published package in a clean directory and runs it.
+The version is **derived from the commits**, not typed. `feat` is a minor, `fix`
+and `perf` are patches, and housekeeping (`chore`, `docs`, `ci`, `test`,
+`refactor`) is not a release at all - the script refuses rather than shipping a
+version with nothing in it. A breaking change (`feat!:` or a `BREAKING CHANGE:`
+footer) is a major once past 1.0; below 1.0 it is a minor, because there is no
+stability contract yet to break and jumping to 1.0.0 would claim one. Pass an
+explicit level to override any of this.
+
+There is one version in the repository: `apps/cli/package.json`. `CLI_VERSION`
+reads it, the tag is computed from it, and the workflow re-checks that the tag
+it was triggered by matches it. Preview is the default because a publish cannot
+be undone after 72 hours.
+
+Before pushing anything the script refuses to proceed unless it is on `main`,
+the tree is clean, `main` and `origin/main` agree, the tag does not exist, the
+version is not already on the registry, and the full gate passes. A tag that
+fails the gate would otherwise leave a pushed tag with nothing published, and
+the same version cannot be tagged twice.
+
+`release.yml` then re-runs the full gate, asserts the tag matches the manifest,
+refuses a version already on the registry, publishes, and finally installs the
+published package from npm in a clean directory and runs it.
 
 Authentication is npm **trusted publishing** (OIDC), so there is no `NPM_TOKEN`
 in this repository — the workflow's `id-token: write` permission is what lets
