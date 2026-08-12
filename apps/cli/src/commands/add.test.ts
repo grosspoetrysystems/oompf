@@ -9,6 +9,7 @@ import {
   jsonResponse,
   memoryFs,
   OOMPF_URL,
+  profileRecord,
   REVISION,
   runCli,
 } from "../test-helpers.ts";
@@ -66,6 +67,56 @@ describe("add", () => {
     const result = JSON.parse(out);
     expect(result.name).toBe("octocat-work");
     expect(result.source).toBe(GIST_HTML);
+  });
+
+  test("fetches the revision indexed by an OOMPF reference", async () => {
+    const urls: string[] = [];
+    const fetchGist = gistFetch();
+    const { deps } = addDeps({
+      gistFetch: async (url) => {
+        urls.push(url);
+        return fetchGist(url);
+      },
+    });
+
+    const { code } = await runCli(deps, ["add", OOMPF_URL, "--json"]);
+
+    expect(code).toBeUndefined();
+    expect(urls[0]).toBe(`https://api.github.com/gists/${GIST_ID}/${REVISION}`);
+  });
+
+  test("rejects an OOMPF reference whose bytes do not match the index", async () => {
+    const { deps, store } = addDeps({
+      httpFetch: apiFetch({
+        metadata: jsonResponse(200, {
+          ...profileRecord(),
+          contentHash: "0".repeat(64),
+        }),
+      }),
+    });
+
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
+
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("fingerprint_mismatch");
+    expect(store.writes).toHaveLength(0);
+  });
+
+  test("rejects an OOMPF reference without a pinned revision", async () => {
+    const { deps, store } = addDeps({
+      httpFetch: apiFetch({
+        metadata: jsonResponse(200, {
+          ...profileRecord(),
+          revision: null,
+        }),
+      }),
+    });
+
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
+
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("unverifiable_artifact");
+    expect(store.writes).toHaveLength(0);
   });
 
   test("accepts a bare Gist id", async () => {

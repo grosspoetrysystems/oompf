@@ -79,8 +79,10 @@ verdict, and provenance without installing anything.
 oompf add https://oompf.run/p/<id>
 ```
 
-`add` fetches the canonical Gist, re-validates it, and installs it as a native OMP
-profile. The install reference is always the canonical OOMPF URL — never the raw
-Gist URL.
+For an OOMPF URL or id, `add` fetches the exact Gist revision that OOMPF indexed,
+re-validates it, and refuses to write the profile unless its SHA-256 fingerprint
+matches the index. The installed source cannot silently follow later Gist edits.
+Direct Gist references are supported separately, but have no indexed fingerprint
+to verify.
 
 Next: read [OMP profiles](/docs/omp-profiles) and the [Profile format](/docs/profile-format).

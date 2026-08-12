@@ -27,11 +27,16 @@ contents.
 
 ## Why it matters
 
-- **Reproducibility.** The revision plus fingerprint pin exactly what was indexed.
-- **Verification.** `oompf add` re-fetches, re-validates, and checks the
-  fingerprint before installing.
+- **Reproducibility.** For an OOMPF URL or id, `oompf add` fetches the exact
+  indexed Gist revision rather than the Gist's latest state.
+- **Verification.** Before writing locally, `oompf add` re-validates that pinned
+  snapshot and rejects it unless its SHA-256 matches the indexed fingerprint.
 - **Idempotence.** Re-registering an unchanged source resolves to the same id and
   leaves the record untouched.
+
+Direct Gist URLs and ids remain supported, but they have no OOMPF index record to
+verify against. They are fetched and structurally validated without claiming
+indexed provenance.
 
 The full values are available in the expanded provenance section of each profile
 page and in the [profile metadata API](/docs/cli-reference).

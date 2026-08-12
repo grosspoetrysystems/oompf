@@ -6,6 +6,7 @@
  * write to the real filesystem.
  */
 
+import { sha256 } from "@oompf/core";
 import type { CommandRunner } from "@oompf/github";
 import type { CliDeps, FsSeam, HttpFetch, HttpResponse } from "./deps.ts";
 import { createCli } from "./index.ts";
@@ -152,7 +153,7 @@ export function apiFetch(
 /** A full-enough persisted profile record for metadata responses. */
 export function profileRecord(): Record<string, unknown> {
   return {
-    contentHash: "f".repeat(64),
+    contentHash: sha256(CONTENT),
     createdAt: "2026-08-08T00:00:00.000Z",
     facts: {
       aliases: ["@fast"],

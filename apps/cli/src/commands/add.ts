@@ -59,17 +59,33 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
         // 1. Resolve the canonical Gist source (directly or via an OOMPF id).
         const oompfId = parseOompfRef(c.args.ref);
         let sourceUrl = c.args.ref;
+        let fetchUrl = sourceUrl;
+        let expectedHash: string | null = null;
         if (oompfId !== null) {
           const record = await fetchProfileMetadata(
             c.env.OOMPF_BASE_URL,
             oompfId,
             deps.httpFetch
           );
+          if (record.revision === null) {
+            throw new CommandError(
+              "unverifiable_artifact",
+              "The indexed profile has no pinned revision and cannot be installed reproducibly."
+            );
+          }
           sourceUrl = record.sourceUrl;
+          fetchUrl = `https://api.github.com/gists/${record.gistId}/${record.revision}`;
+          expectedHash = record.contentHash;
         }
-        const gist = await fetchPublicGist(sourceUrl, {
+        const gist = await fetchPublicGist(fetchUrl, {
           fetch: deps.gistFetch,
         });
+        if (expectedHash !== null && gist.contentHash !== expectedHash) {
+          throw new CommandError(
+            "fingerprint_mismatch",
+            "The pinned profile bytes do not match the indexed fingerprint. Refusing to install."
+          );
+        }
 
         // 2. Validate before writing anything to disk.
         const validation = validateArtifact({ yaml: gist.content });
