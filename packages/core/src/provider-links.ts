@@ -36,6 +36,58 @@ export interface ModelDisplay {
   readonly url: string | null;
 }
 
+/** Thinking levels OMP accepts as explicit model-selector suffixes. */
+export type ModelThinkingLevel =
+  | "inherit"
+  | "off"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max"
+  | "auto";
+
+/** A model selector split into its base model and optional thinking effort. */
+export interface ModelSelectorDisplay {
+  readonly modelSelector: string;
+  readonly thinkingLevel: ModelThinkingLevel | null;
+}
+
+/** Parse a model selector for profile-page display. */
+export function parseModelSelectorDisplay(
+  selector: string
+): ModelSelectorDisplay {
+  const colon = selector.lastIndexOf(":");
+  if (colon <= 0) {
+    return { modelSelector: selector, thinkingLevel: null };
+  }
+
+  const suffix = selector.slice(colon + 1);
+  const strictLevel = normalizeThinkingLevel(suffix, STRICT_THINKING_LEVELS);
+  if (strictLevel !== null) {
+    return {
+      modelSelector: selector.slice(0, colon),
+      thinkingLevel: strictLevel,
+    };
+  }
+
+  const guardedLevel =
+    suffix === "auto"
+      ? "auto"
+      : normalizeThinkingLevel(suffix, GUARDED_THINKING_LEVELS);
+  const modelSelector = selector.slice(0, colon);
+  if (
+    guardedLevel !== null &&
+    isCuratedModelSelector(modelSelector) &&
+    !isCuratedModelSelector(selector)
+  ) {
+    return { modelSelector, thinkingLevel: guardedLevel };
+  }
+
+  return { modelSelector: selector, thinkingLevel: null };
+}
+
 /** A curated model entry within a provider. */
 interface ModelEntry {
   readonly label: string;
@@ -158,6 +210,43 @@ const REGISTRY: Record<string, ProviderEntry> = {
     url: "https://x.ai",
   },
 };
+
+const STRICT_THINKING_LEVELS = [
+  "inherit",
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+] as const satisfies readonly ModelThinkingLevel[];
+
+const GUARDED_THINKING_LEVELS = [
+  "max",
+] as const satisfies readonly ModelThinkingLevel[];
+
+/** Match exact values and OMP's unambiguous abbreviations of two characters. */
+function normalizeThinkingLevel(
+  value: string,
+  levels: readonly ModelThinkingLevel[]
+): ModelThinkingLevel | null {
+  if (value.length < 2) {
+    return null;
+  }
+  const matches = levels.filter((level) => level.startsWith(value));
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+/** True only for exact entries in OOMPF's curated provider/model registry. */
+function isCuratedModelSelector(selector: string): boolean {
+  const slash = selector.indexOf("/");
+  if (slash <= 0) {
+    return false;
+  }
+  const providerId = selector.slice(0, slash);
+  const modelId = selector.slice(slash + 1);
+  return Object.hasOwn(REGISTRY[providerId]?.models ?? {}, modelId);
+}
 
 /**
  * Resolve display info and a curated link for a provider id. Never fails: an

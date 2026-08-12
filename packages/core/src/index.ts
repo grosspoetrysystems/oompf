@@ -45,10 +45,16 @@ export {
   MAX_PROFILE_NAME_LENGTH,
   validateProfileName,
 } from "./profile-name.ts";
-export type { ModelDisplay, ProviderLink } from "./provider-links.ts";
+export type {
+  ModelDisplay,
+  ModelSelectorDisplay,
+  ModelThinkingLevel,
+  ProviderLink,
+} from "./provider-links.ts";
 export {
   listProviderLinks,
   listProviderModels,
+  parseModelSelectorDisplay,
   resolveModelDisplay,
   resolveProviderLink,
 } from "./provider-links.ts";
