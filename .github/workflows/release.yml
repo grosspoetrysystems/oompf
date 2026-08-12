@@ -1,0 +1,114 @@
+name: Release CLI
+
+# Cutting a release is pushing a tag:
+#
+#   npm version patch --workspace apps/cli   # or edit the manifest
+#   git tag cli-v0.1.1 && git push origin cli-v0.1.1
+#
+# Authentication is npm trusted publishing (OIDC) — there is no NPM_TOKEN in
+# this repository. Configure the trusted publisher once, in the package's
+# settings on npmjs.com, pointing at this workflow filename. Because trusted
+# publishing is configured per package, the very first version must be
+# published by hand; every release after that goes through here.
+on:
+  push:
+    tags: ["cli-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Required for OIDC. Without it npm cannot mint a publish token and the
+  # publish fails with ENEEDAUTH.
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish oompf to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # npm >= 11.5.1 and Node >= 22.14 are required for trusted publishing.
+      # Caching is deliberately disabled: a release must build from a clean
+      # dependency tree.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # The same gate as CI. A release is not a special case that gets to skip
+      # verification; it is the one that most needs it.
+      - name: Verify
+        run: |
+          bun run lint
+          bun run knip
+          bun run test
+          bun run typecheck
+          bun run --filter='@oompf/web' typecheck
+          bun run build
+          bun scripts/check-migrations.ts
+
+      - name: Package contents and manifest
+        run: bun scripts/check-package.ts
+
+      # A mistagged release publishes the wrong bytes under the right name,
+      # which cannot be undone after 72 hours. Refuse instead.
+      - name: Tag must match the manifest version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#cli-v}"
+          MANIFEST="$(node -p "require('./apps/cli/package.json').version")"
+          echo "tag=$TAG manifest=$MANIFEST"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match apps/cli/package.json version ${MANIFEST}"
+            exit 1
+          fi
+
+      - name: Confirm the version is unpublished
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./apps/cli/package.json').version")"
+          if npm view "oompf@${VERSION}" version > /dev/null 2>&1; then
+            echo "::error::oompf@${VERSION} is already published; bump the version"
+            exit 1
+          fi
+          echo "oompf@${VERSION} is unpublished"
+
+      # No --provenance flag: trusted publishing attaches provenance
+      # automatically, and passing it explicitly is redundant.
+      - name: Publish
+        run: npm publish
+        working-directory: apps/cli
+
+      - name: Smoke the published package
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./apps/cli/package.json').version")"
+          CLEAN="$(mktemp -d)"
+          cd "$CLEAN"
+          npm init -y > /dev/null
+          # The registry is eventually consistent; give it a moment.
+          for attempt in 1 2 3 4 5; do
+            if npm install "oompf@${VERSION}" > /dev/null 2>&1; then
+              break
+            fi
+            echo "install attempt ${attempt} failed, retrying"
+            sleep 10
+          done
+          ./node_modules/.bin/oompf --version
+          test "$(./node_modules/.bin/oompf --version)" = "${VERSION}"
+          echo "published oompf@${VERSION} installs and runs"

@@ -16,7 +16,7 @@ import { profileMappingsSchema } from "./profile-mappings-schema.ts";
 import { profileMetadataSchema } from "./profile-metadata-schema.ts";
 
 /** OpenAPI document version, tracked independently of the workspace version. */
-export const OPENAPI_VERSION = "1.0.0";
+const OPENAPI_VERSION = "1.0.0";
 
 const errorResponse = (description: string) => ({
   content: {

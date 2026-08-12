@@ -10,7 +10,7 @@
  */
 
 /** Stable error codes surfaced in `error.code`. Mirror of `IndexErrorCode`. */
-export const ERROR_CODES = [
+const ERROR_CODES = [
   "invalid_source",
   "source_not_found",
   "ambiguous_source",

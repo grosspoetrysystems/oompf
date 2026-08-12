@@ -47,15 +47,21 @@ jobs:
             echo "Cloudflare/Neon deployment secrets are not configured; skipping deploy."
           fi
 
-
       - name: Run deployment checks
         if: steps.deploy_secrets.outputs.available == 'true'
         run: |
+          bun run lint
           bun run test
           bun run typecheck
           bun run --filter='@oompf/web' typecheck
           bun run build
           bun run smoke:local
+
+      # Before touching production: a migration the runner cannot see is what
+      # left the deployed Worker querying columns the database did not have.
+      - name: Migration chain integrity
+        if: steps.deploy_secrets.outputs.available == 'true'
+        run: bun scripts/check-migrations.ts
 
       - name: Apply database migrations
         if: steps.deploy_secrets.outputs.available == 'true'
@@ -76,3 +82,11 @@ jobs:
             DATABASE_URL
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+
+      # A deploy is not done when the upload succeeds; it is done when the
+      # deployed thing answers correctly. Without this, a release that 500s on
+      # every database-backed route still reports green.
+      - name: Post-deploy smoke
+        if: steps.deploy_secrets.outputs.available == 'true'
+        run: bun scripts/smoke-deployed.ts "${{ vars.OOMPF_BASE_URL || 'https://oompf.run' }}"

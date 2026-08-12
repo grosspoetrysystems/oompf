@@ -24,7 +24,7 @@ import type {
 import type { ProfileRecord } from "@oompf/database";
 
 /** The canonical public origin used when no site origin is configured. */
-export const CANONICAL_ORIGIN = "https://oompf.run";
+const CANONICAL_ORIGIN = "https://oompf.run";
 
 /** Injected dependencies; resolvers are required so callers stay explicit. */
 export interface ProfileViewDeps {
@@ -37,19 +37,19 @@ export interface ProfileViewDeps {
 }
 
 /** A curated, publisher-authored link with a guaranteed display label. */
-export interface CuratedLinkView {
+interface CuratedLinkView {
   readonly label: string;
   readonly url: string;
 }
 
 /** The profile kind chip: a value plus whether it is a controlled/standard kind. */
-export interface KindView {
+interface KindView {
   readonly controlled: boolean;
   readonly value: string;
 }
 
 /** An actionable, non-provider requirement rendered under Requirements. */
-export interface RequirementView {
+interface RequirementView {
   readonly kind: Prerequisite["kind"];
   readonly kindLabel: string;
   readonly name: string;
@@ -57,13 +57,13 @@ export interface RequirementView {
 }
 
 /** A single labeled behavior setting (advisor entry or scalar OMP field). */
-export interface BehaviorSetting {
+interface BehaviorSetting {
   readonly label: string;
   readonly value: string;
 }
 
 /** Consolidated runtime behavior facts. */
-export interface BehaviorView {
+interface BehaviorView {
   readonly advisor: readonly BehaviorSetting[];
   readonly disabledProviders: readonly string[];
   readonly extensions: readonly string[];
@@ -82,7 +82,7 @@ export interface BehaviorView {
 }
 
 /** Explained source and integrity provenance. */
-export interface ProvenanceView {
+interface ProvenanceView {
   readonly contentHash: string;
   readonly indexedAt: string | null;
   readonly owner: string | null;

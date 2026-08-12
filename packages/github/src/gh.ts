@@ -65,7 +65,7 @@ const DEFAULT_GH_COMMAND = "gh";
  * timeout). Every `gh` helper test injects a fake runner, so real spawning
  * behaviour is covered by core's `spawn.test.ts`.
  */
-export const nodeCommandRunner: CommandRunner = ({ command, args, stdin }) =>
+const nodeCommandRunner: CommandRunner = ({ command, args, stdin }) =>
   spawnCapture({ args, command, stdin });
 
 /** True when a thrown spawn error indicates the executable was not found. */

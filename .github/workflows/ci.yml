@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# A superseded run proves nothing about the tip of the branch.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     name: Verify workspace
@@ -25,7 +30,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run focused tests
+      # Formatting and dead-code checks ran only in a pre-commit hook, which is
+      # skippable with --no-verify. Anything load-bearing belongs here too.
+      - name: Lint and format
+        run: bun run lint
+
+      - name: Unused files, exports, and dependencies
+        run: bun run knip
+
+      - name: Run tests
         run: bun run test
 
       - name: Typecheck packages
@@ -37,8 +50,74 @@ jobs:
       - name: Build workspace
         run: bun run build
 
-      - name: CLI help smoke
-        run: bun apps/cli/src/index.ts --help
+      # The metadata release shipped a hand-written migration that no runner
+      # applied, so production 500'd behind a green deploy. This replays the
+      # journalled chain and asserts the schema the code queries.
+      - name: Migration chain integrity
+        run: bun scripts/check-migrations.ts
 
       - name: End-to-end local smoke
         run: bun run smoke:local
+
+  distribution:
+    name: Distribution (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The published CLI targets Node >=22. 22 is the floor, 24 is current;
+        # both run because the floor is what `engines` promises.
+        node: ["22", "24"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build workspace
+        run: bun run build
+
+      # The CLI shipped with a `bun` shebang and two `Bun.spawn` call sites,
+      # so `oompf add` threw "Cannot read properties of undefined" for every
+      # Node user. Nothing caught it because CI only ever ran under Bun.
+      - name: Package contents and manifest
+        run: bun scripts/check-package.ts
+
+      - name: CLI runs under Node
+        run: |
+          node apps/cli/dist/index.mjs --version
+          node apps/cli/dist/index.mjs --help
+
+      # Install the real tarball into an empty directory with no workspace
+      # around it: the only way to catch an unresolvable dependency or a bin
+      # that points at TypeScript source.
+      - name: Install from tarball and run
+        run: |
+          set -euo pipefail
+          TARBALL="$(cd apps/cli && npm pack --silent | tail -1)"
+          TARPATH="$PWD/apps/cli/$TARBALL"
+          CLEAN="$(mktemp -d)"
+          cd "$CLEAN"
+          npm init -y > /dev/null
+          npm install "$TARPATH" > /dev/null
+          echo "--- installed tree ---"
+          ls node_modules/oompf/dist
+          echo "--- no workspace packages should be present ---"
+          if ls node_modules | grep -q '^@oompf$'; then
+            echo "::error::@oompf/* leaked into a consumer install"
+            exit 1
+          fi
+          echo "--- run the installed binary ---"
+          ./node_modules/.bin/oompf --version
+          ./node_modules/.bin/oompf --help > /dev/null

@@ -9,7 +9,7 @@
 import { getCollection } from "astro:content";
 
 /** A single documentation page as a navigable entry. */
-export interface DocLink {
+interface DocLink {
   /** Collection entry id / slug (also the `/docs/<id>` path segment). */
   id: string;
   /** Clean Markdown variant, `/docs/<id>.md`. */
@@ -34,7 +34,7 @@ export interface DocSection {
 const SECTION_ORDER = ["Introduction", "Profiles", "Workflow", "Reference"];
 
 /** Load every docs entry as flat {@link DocLink}s, sorted by section then order. */
-export async function loadDocLinks(): Promise<DocLink[]> {
+async function loadDocLinks(): Promise<DocLink[]> {
   const entries = await getCollection("docs");
   return entries
     .map((entry) => ({
