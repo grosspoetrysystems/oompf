@@ -1,27 +1,58 @@
 {
-  "name": "@oompf/cli",
-  "version": "0.0.0",
-  "private": true,
+  "name": "oompf",
+  "version": "0.1.0",
+  "description": "Publish, inspect, search, and install OMP (Oh My Pi) profiles from the OOMPF index.",
+  "keywords": [
+    "omp",
+    "oh-my-pi",
+    "oompf",
+    "profile",
+    "cli"
+  ],
+  "homepage": "https://oompf.run",
+  "bugs": "https://github.com/grosspoetrysystems/oompf/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/grosspoetrysystems/oompf.git",
+    "directory": "apps/cli"
+  },
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
     }
   },
   "bin": {
-    "oompf": "./src/index.ts"
+    "oompf": "./dist/index.mjs"
   },
+  "files": [
+    "dist/index.mjs",
+    "dist/index.mjs.map",
+    "dist/index.d.mts",
+    "dist/index.d.mts.map"
+  ],
   "scripts": {
     "build": "tsdown && tsc -b --force",
     "test": "bun test src",
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "incur": "0.4.26"
+  },
+  "devDependencies": {
     "@oompf/core": "workspace:*",
     "@oompf/database": "workspace:*",
-    "@oompf/github": "workspace:*",
-    "incur": "0.4.26",
-    "zod": "4.4.3"
-  }
+    "@oompf/github": "workspace:*"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "//devDependencies": "Workspace packages are inlined into the bundle by tsdown (noExternal), so they are build-time inputs, not runtime dependencies a consumer must resolve.",
+  "//engines": "Promise.withResolvers, used by the bundled gh runner, requires Node 22.",
+  "//files": "tsc -b also emits per-file .d.ts (including tests) into dist for the composite build, so ship an explicit list rather than the whole directory."
 }

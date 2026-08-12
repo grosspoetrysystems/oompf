@@ -18,6 +18,7 @@ import { dirname, isAbsolute, join } from "node:path";
 import { env } from "node:process";
 
 import { validateProfileName } from "./profile-name.ts";
+import { spawnCapture } from "./spawn.ts";
 import { assertProfileDocument, parseProfileYaml } from "./yaml-config.ts";
 
 /** A profile found on disk under OMP's resolved profiles directory. */
@@ -56,25 +57,8 @@ const DEFAULT_OMP_COMMAND = "omp";
  */
 const CONFIG_FILENAMES = ["config.yml", "config.yaml"] as const;
 
-// The runtime is Bun; `Bun` is a well-known global the ES2023 lib does not
-// type, so we name the cast once (a runtime check would be meaningless here).
-const bunRuntime = globalThis as unknown as {
-  Bun: {
-    spawn: (options: {
-      cmd: string[];
-      env?: Record<string, string | undefined>;
-      stdout?: "pipe" | "inherit" | "ignore";
-      stderr?: "pipe" | "inherit" | "ignore";
-      stdin?: "pipe" | "inherit" | "ignore";
-    }) => {
-      readonly stdout: unknown;
-      readonly stderr: unknown;
-      readonly exited: Promise<number>;
-    };
-    readableStreamToText: (stream: unknown) => Promise<string>;
-  };
-};
-const bun = bunRuntime.Bun;
+// Process spawning lives in one place for the whole workspace; see spawn.ts for
+// why it is `node:child_process` rather than the Bun global.
 
 type PathKind = "directory" | "file" | "other" | "missing";
 
@@ -122,18 +106,11 @@ async function resolveConfigPath(
   }
   cmd.push("config", "path");
 
-  const child = bun.spawn({
-    cmd,
+  const { exitCode, stderr, stdout } = await spawnCapture({
+    args: cmd.slice(1),
+    command: ompCommand,
     env,
-    stderr: "pipe",
-    stdin: "ignore",
-    stdout: "pipe",
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    bun.readableStreamToText(child.stdout),
-    bun.readableStreamToText(child.stderr),
-    child.exited,
-  ]);
 
   const label = profile === null ? "default profile" : `profile "${profile}"`;
   if (exitCode !== 0) {

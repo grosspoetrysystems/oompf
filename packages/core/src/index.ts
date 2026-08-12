@@ -52,6 +52,8 @@ export {
   resolveModelDisplay,
   resolveProviderLink,
 } from "./provider-links.ts";
+export type { SpawnInput, SpawnResult } from "./spawn.ts";
+export { spawnCapture } from "./spawn.ts";
 export type { ArtifactValidation, SecretFinding } from "./validation.ts";
 export {
   DEFAULT_MAX_BYTES,

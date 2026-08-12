@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { CLI_VERSION } from "../index.ts";
 import { apiFetch, runCli } from "../test-helpers.ts";
 
 describe("cli registration", () => {
@@ -12,7 +13,9 @@ describe("cli registration", () => {
 
   test("reports the CLI version", async () => {
     const { out } = await runCli({}, ["--version"]);
-    expect(out).toContain("0.0.0");
+    // Bound to the constant, not a literal: `index.test.ts` separately pins the
+    // constant to package.json, so a version bump needs no edit here.
+    expect(out).toContain(CLI_VERSION);
   });
 
   test("rejects an unknown command with a nonzero exit", async () => {

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * OOMPF CLI entrypoint (binary name: `oompf`).
  *
@@ -17,8 +17,13 @@ import { registerPublish } from "./commands/publish.ts";
 import { registerSearch } from "./commands/search.ts";
 import { type CliDeps, resolveDeps } from "./deps.ts";
 
-/** OOMPF CLI version, surfaced by `oompf --version`. */
-export const CLI_VERSION = "0.0.0";
+/**
+ * OOMPF CLI version, surfaced by `oompf --version`.
+ *
+ * Must match `package.json`; `index.test.ts` asserts it, because a published
+ * binary reporting the wrong version makes every bug report ambiguous.
+ */
+export const CLI_VERSION = "0.1.0";
 
 /** Build the OOMPF CLI with the given (optional) injectable seams. */
 export function createCli(deps: CliDeps = {}) {

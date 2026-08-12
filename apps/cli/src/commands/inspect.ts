@@ -45,22 +45,25 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
             oompfId,
             deps.httpFetch
           );
+          // Rows indexed before a facts field existed simply omit it, so every
+          // list read from a fetched record is treated as optional. The web
+          // view already does this; the CLI crashed on `aliases` without it.
           return c.ok(
             {
-              aliases: [...record.facts.aliases],
+              aliases: [...(record.facts.aliases ?? [])],
               errors: [...record.validation.errors],
               hash: record.contentHash,
               installCommand: `oompf add ${c.args.ref}`,
               metadata: {
                 ...record.metadata,
-                links: [...record.metadata.links],
-                tags: [...record.metadata.tags],
+                links: [...(record.metadata.links ?? [])],
+                tags: [...(record.metadata.tags ?? [])],
               },
-              models: [...record.facts.models],
+              models: [...(record.facts.models ?? [])],
               name: record.profileName,
               ompVersion: record.ompVersion,
               owner: record.owner,
-              providers: [...record.facts.providers],
+              providers: [...(record.facts.providers ?? [])],
               revision: record.revision,
               source: record.sourceUrl,
               sourceType: "oompf",

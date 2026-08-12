@@ -13,6 +13,8 @@
  * hermetically, without a real `gh` binary and without creating real Gists.
  */
 
+import { spawnCapture } from "@oompf/core";
+
 import { parseGistLocation } from "./gists.ts";
 
 /** Outcome of running a single command. */
@@ -47,56 +49,24 @@ export type CommandRunner = (input: CommandInput) => Promise<CommandResult>;
 export interface GhOptions {
   /** Executable used to invoke the GitHub CLI. Defaults to `"gh"` on `PATH`. */
   readonly ghCommand?: string;
-  /** Command seam override; defaults to a Bun `spawn` runner. */
+  /** Command seam override; defaults to a `node:child_process` runner. */
   readonly runner?: CommandRunner;
 }
 
 const DEFAULT_GH_COMMAND = "gh";
 
-// The runtime is Bun; `Bun` is a well-known global the ES2023 lib does not
-// type, so we name the cast once. A runtime check here would be meaningless.
-const bunRuntime = globalThis as unknown as {
-  Bun?: {
-    spawn: (options: {
-      cmd: string[];
-      stdin?: Uint8Array | "pipe" | "inherit" | "ignore";
-      stdout?: "pipe" | "inherit" | "ignore";
-      stderr?: "pipe" | "inherit" | "ignore";
-    }) => {
-      readonly stdout: unknown;
-      readonly stderr: unknown;
-      readonly exited: Promise<number>;
-    };
-    readableStreamToText: (stream: unknown) => Promise<string>;
-  };
-};
-
 /**
- * Default {@link CommandRunner} backed by `Bun.spawn`.
+ * The default {@link CommandRunner}: `@oompf/core`'s `spawnCapture`.
  *
- * Rejects with the underlying spawn error when the executable is missing, so
- * higher layers can turn `ENOENT` into an actionable "install `gh`" message.
+ * A thin adapter, not a second implementation — the workspace has exactly one
+ * place that spawns processes, so runtime-compatibility decisions live there.
+ *
+ * Exported so callers can wrap rather than reimplement it (for logging, or a
+ * timeout). Every `gh` helper test injects a fake runner, so real spawning
+ * behaviour is covered by core's `spawn.test.ts`.
  */
-const defaultRunner: CommandRunner = async ({ command, args, stdin }) => {
-  const bun = bunRuntime.Bun;
-  if (bun === undefined) {
-    throw new Error(
-      "The default command runner requires the Bun runtime; inject a CommandRunner to run elsewhere."
-    );
-  }
-  const child = bun.spawn({
-    cmd: [command, ...args],
-    stderr: "pipe",
-    stdin: stdin === undefined ? "ignore" : new TextEncoder().encode(stdin),
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    bun.readableStreamToText(child.stdout),
-    bun.readableStreamToText(child.stderr),
-    child.exited,
-  ]);
-  return { exitCode, stderr, stdout };
-};
+export const nodeCommandRunner: CommandRunner = ({ command, args, stdin }) =>
+  spawnCapture({ args, command, stdin });
 
 /** True when a thrown spawn error indicates the executable was not found. */
 function isMissingExecutable(error: unknown): boolean {
@@ -127,7 +97,7 @@ export async function getGithubIdentity(
   options?: GhOptions
 ): Promise<GithubIdentity> {
   const ghCommand = options?.ghCommand ?? DEFAULT_GH_COMMAND;
-  const runner = options?.runner ?? defaultRunner;
+  const runner = options?.runner ?? nodeCommandRunner;
 
   let result: CommandResult;
   try {
@@ -207,7 +177,7 @@ export async function createPublicProfileGist(
   options?: GhOptions
 ): Promise<CreatedGist> {
   const ghCommand = options?.ghCommand ?? DEFAULT_GH_COMMAND;
-  const runner = options?.runner ?? defaultRunner;
+  const runner = options?.runner ?? nodeCommandRunner;
 
   const args = [
     "gist",
