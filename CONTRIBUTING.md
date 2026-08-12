@@ -141,9 +141,20 @@ Conventional commits, enforced by commitlint via lefthook:
 - `pre-commit` hook runs `bunx ultracite fix` on staged files and stages fixes
   (`stage_fixed: true`).
 
-Prefixes follow `@commitlint/config-conventional` (e.g. `feat`, `fix`, `refactor`,
-`chore`, `test`, `docs`). The workspace is organized so a change usually names
-its package as scope, e.g. `feat(core): ...`, `fix(database): ...`.
+Prefixes follow `@commitlint/config-conventional`: `build`, `chore`, `ci`,
+`docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. The
+workspace is organized so a change usually names its package as scope, e.g.
+`feat(core): ...`, `fix(database): ...`.
+
+**The type is the release input**, not decoration. `bun run release` derives the
+next version from the commits since the last tag: `feat` is a minor, `fix` and
+`perf` are patches, a `!` marker is a major (a minor below 1.0), and anything
+else releases nothing. A bug fix committed as `chore` will not ship; run
+`bun run release` to preview what the current history would produce.
+
+A breaking change is marked `feat(api)!: ...` in the header. The `BREAKING
+CHANGE:` footer from the specification is unavailable here, because the config
+enforces `footer-empty`.
 
 ## Releasing the CLI
 

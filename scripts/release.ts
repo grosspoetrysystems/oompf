@@ -32,7 +32,15 @@ export type Bump = "major" | "minor" | "none" | "patch";
 
 const CONVENTIONAL = /^(?<type>[a-z]+)(?:\((?<scope>[^)]*)\))?(?<bang>!)?:\s/;
 
-/** Parse one commit into the fields that decide a version bump. */
+/**
+ * Parse one commit into the fields that decide a version bump.
+ *
+ * A `BREAKING CHANGE:` footer is honoured even though commitlint enforces
+ * `footer-empty` here, so new commits cannot carry one: history predating that
+ * rule, a merge or revert commit, and anything committed with `--no-verify` can
+ * still contain a footer, and silently under-releasing a breaking change is
+ * worse than accepting a form the hook would have rejected.
+ */
 export function parseCommit(
   hash: string,
   subject: string,

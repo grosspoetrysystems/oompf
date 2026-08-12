@@ -66,9 +66,56 @@ Do not request, print, or include secret values in reports, tests, fixtures, URL
 
 The deploy workflow runs only for tested `main` revisions, applies migrations, and deploys `apps/web`. Do not claim production deployment until the workflow and the live `oompf.run` endpoints have been exercised.
 
-## Git and documentation
+## Commits
 
-- `main` is the integration branch.
-- Use focused conventional commits; do not rewrite published history or force-push.
-- Preserve unrelated working-tree changes, especially `docs/research.md` unless explicitly asked to edit it.
-- Keep the root README and this file concise, operational, and synchronized with actual commands/configuration. Do not create documentation files unless requested.
+`main` is the integration branch. Do not rewrite published history or
+force-push.
+
+A commit message is **one line**. commitlint runs on the `commit-msg` hook and
+rejects a body or a footer outright, so reasoning belongs in the code, the PR, or
+the ticket — never the message. This is the rule agents break most often.
+
+```text
+<type>(<scope>): <subject>
+```
+
+| Rule | Value |
+| --- | --- |
+| Allowed types | `build` `chore` `ci` `docs` `feat` `fix` `perf` `refactor` `revert` `style` `test` |
+| Type case | lower-case (`Feat:` is rejected) |
+| Subject | lower-case start, no trailing period |
+| Header length | 100 characters maximum, including type and scope |
+| Body / footer | must be empty |
+| Scope | optional; use the package a change belongs to (`core`, `database`, `github`, `cli`, `web`) |
+| Breaking change | `feat(api)!: ...` — the `!` marker, since a `BREAKING CHANGE:` footer is not allowed here |
+
+### Types decide the released version
+
+`bun run release` derives the next version from the commits since the last
+`cli-v*` tag, so the type is not cosmetic — it is the release input.
+
+| Type | Effect on the next CLI release |
+| --- | --- |
+| `feat` | minor |
+| `fix`, `perf` | patch |
+| `feat!` and other `!` markers | major, or minor while the version is below 1.0 |
+| everything else | nothing — a release containing only these is refused |
+
+Labelling a bug fix `chore` therefore keeps it out of a release, and labelling
+housekeeping `feat` ships a minor bump for nothing. Pick the type that describes
+the change honestly; run `bun run release` (preview, no side effects) to see what
+the current history would produce.
+
+The `pre-commit` hook runs `bunx ultracite fix` on staged files and stages the
+result, so files may legitimately differ after committing. Do not fight it by
+hand-formatting.
+
+## Documentation
+
+- Preserve unrelated working-tree changes, especially `docs/research.md` unless
+  explicitly asked to edit it.
+- Keep the root README and this file concise, operational, and synchronized with
+  actual commands and configuration. Do not create documentation files unless
+  requested.
+- `CONTRIBUTING.md` is the human-facing version of this material, and
+  `docs/architecture.md` explains how the pieces fit together.
