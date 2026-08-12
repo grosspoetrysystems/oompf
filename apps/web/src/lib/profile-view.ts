@@ -39,7 +39,7 @@ export interface ProfileViewDeps {
 }
 
 /** A model selector shaped once for compact Models and Behavior rendering. */
-export interface ModelReferenceView extends ModelDisplay {
+interface ModelReferenceView extends ModelDisplay {
   /** The exact selector from the published profile, including any effort suffix. */
   readonly selector: string;
   readonly thinkingLevel: ModelThinkingLevel | null;
