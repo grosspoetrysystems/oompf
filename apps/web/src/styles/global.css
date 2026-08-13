@@ -390,31 +390,19 @@ p {
 
 .pi-mark {
   position: relative;
+  display: block;
   margin: 0;
-  font-size: clamp(0.72rem, 1.05vw, 0.95rem);
-  line-height: 0.9;
-  color: transparent;
-  letter-spacing: -0.08em;
-  white-space: pre;
-  background: linear-gradient(
-    110deg,
-    #555 0%,
-    #8a8a8a 28%,
-    #f2f2f2 46%,
-    #aaa 60%,
-    #626262 100%
-  );
-  background-position: 100% 50%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  background-size: 220% 100%;
+  overflow: visible;
   filter: drop-shadow(0 0 12px rgb(255 255 255 / 10%));
+}
+
+.pi-mark-sheen {
   animation: pi-luminance-scan 7s ease-in-out infinite alternate;
 }
 
 @keyframes pi-luminance-scan {
   to {
-    background-position: 0 50%;
+    transform: translateX(112px);
   }
 }
 
@@ -1454,7 +1442,7 @@ a.tag {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pi-mark,
+  .pi-mark-sheen,
   .pi-field::before {
     animation: none;
   }

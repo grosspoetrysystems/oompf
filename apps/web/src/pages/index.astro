@@ -105,15 +105,57 @@ const docsRail = [
               >built for OMP (oh my pi) -- learn more ↗</a
             >
           </div>
-          <div aria-hidden="true" class="pi-field">
-            <pre class="pi-mark">██████████████
-   ███   ███
-   ███   ███
-   ███   ███
-   ███   ███
-   ███   ███
-         ███
-         ███</pre>
+          <div class="pi-field">
+            <svg
+              aria-hidden="true"
+              class="pi-mark"
+              height="min(60%, 22rem)"
+              viewBox="0 0 64 64"
+              width="min(60%, 22rem)"
+            >
+              <defs>
+                <linearGradient
+                  id="pi-mark-base-gradient"
+                  x1="0"
+                  x2="1"
+                  y1="0"
+                  y2="1"
+                >
+                  <stop offset="0" stop-color="#555"></stop>
+                  <stop offset=".28" stop-color="#8a8a8a"></stop>
+                  <stop offset=".46" stop-color="#f2f2f2"></stop>
+                  <stop offset=".6" stop-color="#aaa"></stop>
+                  <stop offset="1" stop-color="#626262"></stop>
+                </linearGradient>
+                <linearGradient
+                  id="pi-mark-sheen-gradient"
+                  x1="0"
+                  x2="1"
+                  y1="0"
+                  y2="0"
+                >
+                  <stop offset="0" stop-color="#fff" stop-opacity="0"></stop>
+                  <stop offset=".5" stop-color="#fff" stop-opacity=".24"></stop>
+                  <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>
+                </linearGradient>
+                <clipPath id="pi-mark-clip">
+                  <path d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"></path>
+                </clipPath>
+              </defs>
+              <path
+                d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"
+                fill="url(#pi-mark-base-gradient)"
+              ></path>
+              <rect
+                class="pi-mark-sheen"
+                clip-path="url(#pi-mark-clip)"
+                fill="url(#pi-mark-sheen-gradient)"
+                height="64"
+                width="28"
+                x="-40"
+                y="0"
+              ></rect>
+            </svg>
           </div>
         </aside>
       </div>
