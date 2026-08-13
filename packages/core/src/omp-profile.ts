@@ -49,6 +49,19 @@ export interface OmpProfileOptions {
   readonly ompCommand?: string;
 }
 
+/** A named OMP profile whose resolved agent directory is absent. */
+export class OmpProfileNotFoundError extends Error {
+  constructor(
+    readonly profile: string,
+    readonly resolvedPath: string
+  ) {
+    super(
+      `Resolved agent directory for profile "${profile}" is not a directory (missing): "${resolvedPath}".`
+    );
+    this.name = "OmpProfileNotFoundError";
+  }
+}
+
 const DEFAULT_OMP_COMMAND = "omp";
 
 /**
@@ -131,6 +144,9 @@ async function resolveConfigPath(
   }
   if (requireDirectory) {
     const kind = await statKind(resolved);
+    if (kind === "missing" && profile !== null) {
+      throw new OmpProfileNotFoundError(profile, resolved);
+    }
     if (kind !== "directory") {
       throw new Error(
         `Resolved agent directory for the ${label} is not a directory (${kind}): "${resolved}".`

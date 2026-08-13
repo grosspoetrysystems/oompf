@@ -23,17 +23,23 @@ described by [`/openapi.json`](/openapi.json) and the published JSON Schemas.
 
 ## `oompf publish`
 
-Publish a local profile to a public Gist and register its metadata.
+Publish a native OMP profile to a public Gist and register its metadata.
 
 ```bash
-oompf publish ./my-profile.yaml
+oompf publish work
 ```
 
-- **Syntax:** `oompf publish <path>`
+- **Syntax:** `oompf publish [profile]`, where `profile` is a native OMP profile name.
 - **Output:** the canonical profile URL, `https://oompf.run/p/<id>`.
-- **Failure modes:** local validation failure (structural or blocking secret),
-  GitHub authentication/creation failure, or registration failure. Nothing is
-  registered if local validation fails.
+- **Omitted input:** When the name is omitted, OOMPF automatically uses the sole
+  publishable profile. With multiple profiles it opens a selector only in an
+  interactive terminal; `--json`, CI, and piped execution return
+  `ambiguous_profile` instead of prompting.
+- **Local failure modes:** `invalid_profile`, `profile_not_found`,
+  `missing_config`, `no_profile`, `ambiguous_profile`, and
+  `selection_cancelled`, plus structural validation and blocking-secret errors.
+- **Remote failure modes:** GitHub authentication/creation failure, or
+  registration failure. Nothing is registered if local validation fails.
 
 ## `oompf inspect`
 

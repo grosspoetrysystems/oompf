@@ -11,13 +11,25 @@
  * abort the publish before anything leaves the machine.
  */
 
-import { validateArtifact } from "@oompf/core";
+import {
+  type DiscoveredProfile,
+  OmpProfileNotFoundError,
+  validateArtifact,
+  validateProfileName,
+} from "@oompf/core";
 import { createPublicProfileGist, getGithubIdentity } from "@oompf/github";
 import { type Cli, z } from "incur";
 
 import { registerProfile } from "../api.ts";
 import { CommandError, type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, publishOutput } from "../output.ts";
+
+/** Narrow a discovered profile to one that carries a publishable config. */
+function hasConfig(
+  profile: DiscoveredProfile
+): profile is DiscoveredProfile & { readonly configPath: string } {
+  return profile.configPath !== null;
+}
 
 /** Concatenate the base URL and a site-relative path from the register call. */
 function toOompfUrl(baseUrl: string, path: string): string {
@@ -31,7 +43,9 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
       profile: z
         .string()
         .optional()
-        .describe("Local OMP profile name; omitted picks the sole profile"),
+        .describe(
+          "Native OMP profile name; omitted selects a publishable profile"
+        ),
     }),
     description: "Publish a local OMP profile as a public Gist and index it",
     env: cliEnv,
@@ -43,34 +57,71 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
       try {
         const ompOptions = { ompCommand: deps.ompCommand };
 
-        // 1. Resolve the named profile (or derive it when unambiguous).
+        // 1. Validate the named profile, or derive it when unambiguous.
         let name: string;
         let configPath: string | null;
         if (c.args.profile === undefined) {
           const discovered = await deps.discoverProfiles(ompOptions);
-          if (discovered.length === 0) {
+          const publishable = discovered.filter(hasConfig);
+
+          if (publishable.length === 0) {
             throw new CommandError(
               "no_profile",
-              "No OMP profiles found. Pass a profile name: oompf publish <profile>."
+              "No publishable OMP profiles found. Create a profile with config.yml/config.yaml or pass an existing profile name."
             );
           }
-          if (discovered.length > 1) {
-            const names = discovered.map((p) => p.name).join(", ");
-            throw new CommandError(
-              "ambiguous_profile",
-              `Multiple profiles found (${names}). Specify one: oompf publish <profile>.`
+
+          let selected = publishable[0]!;
+          if (publishable.length > 1) {
+            const names = publishable.map((profile) => profile.name);
+            if (c.formatExplicit || !deps.profileSelector.isInteractive()) {
+              throw new CommandError(
+                "ambiguous_profile",
+                `Multiple publishable profiles found (${names.join(", ")}). Specify one: oompf publish <profile>.`
+              );
+            }
+            const selectedName =
+              await deps.profileSelector.selectProfile(names);
+            if (selectedName === null) {
+              throw new CommandError(
+                "selection_cancelled",
+                "Profile selection was cancelled. Nothing was published."
+              );
+            }
+            const picked = publishable.find(
+              (profile) => profile.name === selectedName
             );
+            if (picked === undefined) {
+              throw new CommandError(
+                "selection_invariant",
+                "The profile selector returned a name that was not offered."
+              );
+            }
+            selected = picked;
           }
-          const only = discovered[0]!;
-          name = only.name;
-          configPath = only.configPath;
+          name = selected.name;
+          configPath = selected.configPath;
         } else {
-          const resolved = await deps.resolveProfileConfig(
-            c.args.profile,
-            ompOptions
-          );
-          name = resolved.profile;
-          configPath = resolved.configPath;
+          const validation = validateProfileName(c.args.profile);
+          if (!validation.ok) {
+            throw new CommandError("invalid_profile", validation.reason);
+          }
+          try {
+            const resolved = await deps.resolveProfileConfig(
+              validation.value,
+              ompOptions
+            );
+            name = resolved.profile;
+            configPath = resolved.configPath;
+          } catch (error) {
+            if (error instanceof OmpProfileNotFoundError) {
+              throw new CommandError(
+                "profile_not_found",
+                `OMP profile "${validation.value}" was not found.`
+              );
+            }
+            throw error;
+          }
         }
 
         if (configPath === null) {

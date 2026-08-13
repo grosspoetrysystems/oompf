@@ -39,6 +39,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@clack/prompts": "1.7.0",
     "incur": "0.4.26"
   },
   "engines": {
