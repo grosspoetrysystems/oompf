@@ -7,12 +7,23 @@ order: 1
 
 # Publishing a profile
 
-Publishing makes a local profile discoverable through OOMPF while keeping the
-canonical YAML on GitHub.
+Publishing makes a native OMP profile discoverable through OOMPF while keeping
+the canonical YAML on GitHub.
 
 ```bash
-oompf publish ./my-profile.yaml
+oompf publish work
 ```
+
+`work` is the profile's native name, the same name you use with
+`omp --profile work`. OOMPF asks OMP where the profile lives rather than taking
+a file path.
+
+## Omitted input
+
+If you run `oompf publish` without a name, OOMPF automatically uses the sole
+publishable profile. With multiple profiles it opens a selector only in an
+interactive terminal; `--json`, CI, and piped execution return
+`ambiguous_profile` instead of prompting.
 
 ## What happens
 
@@ -32,8 +43,8 @@ The command prints the canonical profile URL, `https://oompf.run/p/<id>`.
 - OOMPF does not invent an OMP runtime version. If your profile carries a config
   marker such as `setupVersion`, it stays a config marker and is not reported as
   the OMP version.
-- Re-publishing an unchanged source is idempotent: the same canonical URL always
-  resolves to the same profile id.
+- Each successful invocation creates a new public Gist. OOMPF does not remember
+  a previous publication for the local profile.
 - The canonical artifact always lives at its Gist. OOMPF stores no YAML bytes.
 
 See [Installing a profile](/docs/installing-a-profile) and

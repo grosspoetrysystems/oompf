@@ -49,11 +49,13 @@ for local development (usually `http://localhost:4321`).
 ## 1. Publish a profile
 
 ```bash
-oompf publish ./my-profile.yaml
+oompf publish work
 ```
 
-`publish` validates the artifact locally, creates a public Gist, and registers its
-metadata with OOMPF. It prints the canonical profile URL.
+`work` is a native OMP profile name, the same name you use with `omp --profile
+work`. OOMPF validates the artifact locally, creates a public Gist, and registers
+its metadata. It prints the canonical profile URL. The argument may be omitted;
+OOMPF then auto-selects a single profile or opens an interactive selector.
 
 ## 2. Search the index
 
