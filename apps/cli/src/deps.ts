@@ -16,6 +16,11 @@ import {
 } from "@oompf/core";
 import type { CommandRunner, GistFetch } from "@oompf/github";
 
+import {
+  defaultProfileSelector,
+  type ProfileSelector,
+} from "./profile-selector.ts";
+
 /** Default OOMPF web endpoint; overridable through `OOMPF_BASE_URL`. */
 export const DEFAULT_BASE_URL = "https://oompf.run";
 
@@ -94,6 +99,8 @@ export interface CliDeps {
   readonly httpFetch?: HttpFetch;
   /** `omp` executable name; defaults to `"omp"`. */
   readonly ompCommand?: string;
+  /** Interactive native-profile selection seam (publish). */
+  readonly profileSelector?: ProfileSelector;
   /** Install-target resolver seam (add). */
   readonly resolveInstallTarget?: typeof resolveInstallTarget;
   /** Existing-profile resolver seam (publish). */
@@ -142,6 +149,7 @@ export function resolveDeps(deps: CliDeps = {}) {
     gistFetch: deps.gistFetch,
     httpFetch: deps.httpFetch ?? defaultHttpFetch,
     ompCommand: deps.ompCommand,
+    profileSelector: deps.profileSelector ?? defaultProfileSelector,
     resolveInstallTarget: deps.resolveInstallTarget ?? resolveInstallTarget,
     resolveProfileConfig: deps.resolveProfileConfig ?? resolveProfileConfig,
     runner: deps.runner,
