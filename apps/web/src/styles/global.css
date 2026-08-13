@@ -311,6 +311,8 @@ p {
 }
 
 .pi-panel {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   overflow: hidden;
   font-family: var(--font-mono);
@@ -335,17 +337,10 @@ p {
 }
 
 .pi-panel-bar a {
-  color: inherit;
   white-space: nowrap;
-  text-decoration: none;
-}
-
-.pi-panel-bar a:hover {
-  color: var(--fg);
 }
 
 .pi-panel-bar a:focus-visible {
-  color: var(--fg);
   outline: 1px solid var(--brand);
   outline-offset: 3px;
 }
@@ -353,6 +348,7 @@ p {
 .pi-field {
   position: relative;
   display: grid;
+  flex: 1;
   place-items: center;
   min-height: 10rem;
   overflow: hidden;
@@ -413,7 +409,6 @@ p {
   background-clip: text;
   background-size: 220% 100%;
   filter: drop-shadow(0 0 12px rgb(255 255 255 / 10%));
-  transform: scaleX(-1);
   animation: pi-luminance-scan 7s ease-in-out infinite alternate;
 }
 

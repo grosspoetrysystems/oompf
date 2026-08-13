@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -24,6 +24,9 @@ if [ "$1" = "--profile" ]; then
     printf 'stub failure\\n' >&2
     exit 3
   fi
+  if [ "$OOMPF_STUB_CREATE_PROFILE" = "1" ]; then
+    mkdir -p "$OOMPF_STUB_PROFILE_DIR"
+  fi
   printf '%s\\n' "$OOMPF_STUB_PROFILE_DIR"
 else
   printf '%s\\n' "$OOMPF_STUB_DEFAULT_DIR"
@@ -35,10 +38,22 @@ const stubEnvKeys = [
   "OOMPF_STUB_PROFILE_DIR",
   "OOMPF_STUB_DEFAULT_DIR",
   "OOMPF_STUB_EXIT",
+  "OOMPF_STUB_CREATE_PROFILE",
 ] as const;
 
 async function makeTempDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "oompf-omp-profile-"));
+}
+
+async function makeExistingProfile(profile = "work"): Promise<string> {
+  const root = await makeTempDir();
+  const defaultAgent = join(root, "agent");
+  const agentDir = join(root, "profiles", profile, "agent");
+  await mkdir(defaultAgent, { recursive: true });
+  await mkdir(agentDir, { recursive: true });
+  process.env.OOMPF_STUB_DEFAULT_DIR = defaultAgent;
+  process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
+  return agentDir;
 }
 
 beforeAll(async () => {
@@ -96,10 +111,9 @@ describe("resolveInstallTarget", () => {
 
 describe("resolveProfileConfig", () => {
   test("prefers config.yml over config.yaml when both exist", async () => {
-    const agentDir = await makeTempDir();
+    const agentDir = await makeExistingProfile();
     await writeFile(join(agentDir, "config.yml"), "which: yml\n");
     await writeFile(join(agentDir, "config.yaml"), "which: yaml\n");
-    process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
 
     const result = await resolveProfileConfig("work", {
       ompCommand: stubCommand,
@@ -109,9 +123,8 @@ describe("resolveProfileConfig", () => {
   });
 
   test("falls back to config.yaml when config.yml is absent", async () => {
-    const agentDir = await makeTempDir();
+    const agentDir = await makeExistingProfile();
     await writeFile(join(agentDir, "config.yaml"), "which: yaml\n");
-    process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
 
     const result = await resolveProfileConfig("work", {
       ompCommand: stubCommand,
@@ -121,8 +134,7 @@ describe("resolveProfileConfig", () => {
   });
 
   test("returns a null document when no config file exists", async () => {
-    const agentDir = await makeTempDir();
-    process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
+    await makeExistingProfile();
 
     const result = await resolveProfileConfig("work", {
       ompCommand: stubCommand,
@@ -132,12 +144,11 @@ describe("resolveProfileConfig", () => {
   });
 
   test("preserves unknown keys from the config document", async () => {
-    const agentDir = await makeTempDir();
+    const agentDir = await makeExistingProfile();
     await writeFile(
       join(agentDir, "config.yml"),
       "model: opus\nnested:\n  future_flag: true\nunknown_key: 42\n"
     );
-    process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
 
     const result = await resolveProfileConfig("work", {
       ompCommand: stubCommand,
@@ -150,7 +161,11 @@ describe("resolveProfileConfig", () => {
   });
 
   test("rejects a missing profile (agent directory does not exist)", async () => {
-    const missingPath = join(tmpdir(), "oompf-missing-profile-987654", "agent");
+    const root = await makeTempDir();
+    const defaultAgent = join(root, "agent");
+    const missingPath = join(root, "profiles", "ghost", "agent");
+    await mkdir(defaultAgent, { recursive: true });
+    process.env.OOMPF_STUB_DEFAULT_DIR = defaultAgent;
     process.env.OOMPF_STUB_PROFILE_DIR = missingPath;
 
     try {
@@ -168,10 +183,24 @@ describe("resolveProfileConfig", () => {
     }
   });
 
+  test("rejects before OMP can create a missing profile directory", async () => {
+    const root = await makeTempDir();
+    const defaultAgent = join(root, "agent");
+    const missingPath = join(root, "profiles", "ghost", "agent");
+    await mkdir(defaultAgent, { recursive: true });
+    process.env.OOMPF_STUB_DEFAULT_DIR = defaultAgent;
+    process.env.OOMPF_STUB_PROFILE_DIR = missingPath;
+    process.env.OOMPF_STUB_CREATE_PROFILE = "1";
+
+    await expect(
+      resolveProfileConfig("ghost", { ompCommand: stubCommand })
+    ).rejects.toBeInstanceOf(OmpProfileNotFoundError);
+    await expect(stat(missingPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   test("rejects a config whose YAML root is not a mapping", async () => {
-    const agentDir = await makeTempDir();
+    const agentDir = await makeExistingProfile();
     await writeFile(join(agentDir, "config.yml"), "- one\n- two\n");
-    process.env.OOMPF_STUB_PROFILE_DIR = agentDir;
 
     await expect(
       resolveProfileConfig("work", { ompCommand: stubCommand })

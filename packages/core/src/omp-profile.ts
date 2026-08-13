@@ -156,6 +156,31 @@ async function resolveConfigPath(
   return resolved;
 }
 
+/**
+ * Verify a named profile exists before invoking its OMP path resolver.
+ *
+ * OMP may create the named agent directory as a side effect of `config path`,
+ * so checking only after that command turns an absent profile into a
+ * config-less one. The default path is side-effect-free for named profiles and
+ * gives us the same profiles root used by discovery.
+ */
+async function requireExistingProfile(
+  profile: string,
+  ompCommand: string
+): Promise<void> {
+  const defaultAgentDir = await resolveConfigPath(null, ompCommand, false);
+  const agentDir = join(dirname(defaultAgentDir), "profiles", profile, "agent");
+  const kind = await statKind(agentDir);
+  if (kind === "missing") {
+    throw new OmpProfileNotFoundError(profile, agentDir);
+  }
+  if (kind !== "directory") {
+    throw new Error(
+      `Resolved agent directory for profile "${profile}" is not a directory (${kind}): "${agentDir}".`
+    );
+  }
+}
+
 async function findConfigFile(agentDir: string): Promise<string | null> {
   for (const filename of CONFIG_FILENAMES) {
     const candidate = join(agentDir, filename);
@@ -214,11 +239,9 @@ export async function resolveProfileConfig(
     throw new Error(validation.reason);
   }
 
-  const agentDir = await resolveConfigPath(
-    validation.value,
-    options?.ompCommand ?? DEFAULT_OMP_COMMAND,
-    true
-  );
+  const ompCommand = options?.ompCommand ?? DEFAULT_OMP_COMMAND;
+  await requireExistingProfile(validation.value, ompCommand);
+  const agentDir = await resolveConfigPath(validation.value, ompCommand, true);
   const configPath = await findConfigFile(agentDir);
   const document = await loadConfigDocument(configPath);
   return { agentDir, configPath, document, profile: validation.value };
