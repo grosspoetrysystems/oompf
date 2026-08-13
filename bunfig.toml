@@ -4,3 +4,5 @@
 [install]
 # Pin exact versions when adding dependencies for reproducible installs.
 exact = true
+# Reject newly resolved package versions published less than seven days ago.
+minimumReleaseAge = 604800
