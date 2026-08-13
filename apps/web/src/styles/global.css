@@ -324,6 +324,7 @@ p {
   gap: 0.5rem;
   align-items: center;
   padding: 0.45rem 0.75rem;
+  font-size: clamp(0.64rem, 1.15vw, var(--step--1));
   color: var(--fg-mute);
   background: var(--bg-raised);
   border-bottom: 1px solid var(--line);
@@ -331,6 +332,22 @@ p {
 
 .pi-panel-bar span:first-child {
   color: #b8b8b8;
+}
+
+.pi-panel-bar a {
+  color: inherit;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.pi-panel-bar a:hover {
+  color: var(--fg);
+}
+
+.pi-panel-bar a:focus-visible {
+  color: var(--fg);
+  outline: 1px solid var(--brand);
+  outline-offset: 3px;
 }
 
 .pi-field {
@@ -396,6 +413,7 @@ p {
   background-clip: text;
   background-size: 220% 100%;
   filter: drop-shadow(0 0 12px rgb(255 255 255 / 10%));
+  transform: scaleX(-1);
   animation: pi-luminance-scan 7s ease-in-out infinite alternate;
 }
 
