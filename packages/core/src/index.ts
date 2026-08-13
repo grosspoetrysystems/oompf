@@ -33,6 +33,7 @@ export type {
 } from "./omp-profile.ts";
 export {
   discoverProfiles,
+  OmpProfileNotFoundError,
   resolveInstallTarget,
   resolveProfileConfig,
 } from "./omp-profile.ts";

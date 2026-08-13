@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import {
   discoverProfiles,
+  OmpProfileNotFoundError,
   resolveInstallTarget,
   resolveProfileConfig,
 } from "./omp-profile.ts";
@@ -149,14 +150,22 @@ describe("resolveProfileConfig", () => {
   });
 
   test("rejects a missing profile (agent directory does not exist)", async () => {
-    process.env.OOMPF_STUB_PROFILE_DIR = join(
-      tmpdir(),
-      "oompf-missing-profile-987654",
-      "agent"
-    );
-    await expect(
-      resolveProfileConfig("ghost", { ompCommand: stubCommand })
-    ).rejects.toThrow(/is not a directory/);
+    const missingPath = join(tmpdir(), "oompf-missing-profile-987654", "agent");
+    process.env.OOMPF_STUB_PROFILE_DIR = missingPath;
+
+    try {
+      await resolveProfileConfig("ghost", { ompCommand: stubCommand });
+      throw new Error("Expected resolveProfileConfig to reject");
+    } catch (error) {
+      expect(error).toBeInstanceOf(OmpProfileNotFoundError);
+      expect(error).toMatchObject({
+        profile: "ghost",
+        resolvedPath: missingPath,
+      });
+      expect((error as Error).message).toMatch(
+        /is not a directory \(missing\)/
+      );
+    }
   });
 
   test("rejects a config whose YAML root is not a mapping", async () => {
