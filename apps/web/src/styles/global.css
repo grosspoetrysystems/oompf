@@ -402,7 +402,7 @@ p {
 
 @keyframes pi-luminance-scan {
   to {
-    transform: translateX(112px);
+    transform: translateX(72px);
   }
 }
 
