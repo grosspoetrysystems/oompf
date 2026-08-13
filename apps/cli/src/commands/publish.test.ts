@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { OmpProfileNotFoundError } from "@oompf/core";
 import type { CliDeps } from "../deps.ts";
 import {
   apiFetch,
@@ -14,9 +15,14 @@ import {
 
 const CONFIG_PATH = "/omp/profiles/work/agent/config.yml";
 const AGENT_DIR = "/omp/profiles/work/agent";
+const PLAY_CONFIG_PATH = "/omp/profiles/play/agent/config.yml";
+const PLAY_AGENT_DIR = "/omp/profiles/play/agent";
 
 function publishDeps(overrides: Partial<CliDeps> = {}): CliDeps {
-  const { fs } = memoryFs({ [CONFIG_PATH]: CONTENT });
+  const { fs } = memoryFs({
+    [CONFIG_PATH]: CONTENT,
+    [PLAY_CONFIG_PATH]: CONTENT,
+  });
   return {
     discoverProfiles: async () => [
       { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
@@ -31,6 +37,24 @@ function publishDeps(overrides: Partial<CliDeps> = {}): CliDeps {
     }),
     runner: ghRunner(),
     ...overrides,
+  };
+}
+
+/** Count and defer to the default fakes for every remote (HTTP/runner) call. */
+function remoteCounters() {
+  const calls = { http: 0, runner: 0 };
+  return {
+    calls,
+    httpFetch: async (
+      ...args: Parameters<NonNullable<CliDeps["httpFetch"]>>
+    ) => {
+      calls.http += 1;
+      return apiFetch()(...args);
+    },
+    runner: async (...args: Parameters<NonNullable<CliDeps["runner"]>>) => {
+      calls.runner += 1;
+      return ghRunner()(...args);
+    },
   };
 }
 
@@ -84,22 +108,215 @@ describe("publish", () => {
     expect(out).toContain(`oompf add ${OOMPF_URL}`);
   });
 
-  test("derives the sole profile when none is named", async () => {
-    const { out, code } = await runCli(publishDeps(), ["publish", "--json"]);
+  test("derives the sole publishable profile when none is named", async () => {
+    const deps = publishDeps({
+      discoverProfiles: async () => [
+        { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
+        { agentDir: "/x", configPath: null, name: "empty" },
+      ],
+    });
+    const { out, code } = await runCli(deps, ["publish", "--json"]);
     expect(code).toBeUndefined();
     expect(JSON.parse(out).profile).toBe("work");
   });
 
   test("refuses when the profile is ambiguous", async () => {
+    let selectedCalls = 0;
     const deps = publishDeps({
       discoverProfiles: async () => [
         { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
-        { agentDir: "/x", configPath: "/x/config.yml", name: "play" },
+        {
+          agentDir: PLAY_AGENT_DIR,
+          configPath: PLAY_CONFIG_PATH,
+          name: "play",
+        },
       ],
+      profileSelector: {
+        isInteractive: () => false,
+        selectProfile: async () => {
+          selectedCalls += 1;
+          return "work";
+        },
+      },
     });
     const { out, code } = await runCli(deps, ["publish"]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("ambiguous_profile");
+    expect(selectedCalls).toBe(0);
+  });
+
+  test("selects among multiple publishable profiles interactively", async () => {
+    const selected: string[][] = [];
+    const deps = publishDeps({
+      discoverProfiles: async () => [
+        {
+          agentDir: PLAY_AGENT_DIR,
+          configPath: PLAY_CONFIG_PATH,
+          name: "play",
+        },
+        { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
+        { agentDir: "/x", configPath: null, name: "empty" },
+      ],
+      profileSelector: {
+        isInteractive: () => true,
+        selectProfile: async (names) => {
+          selected.push([...names]);
+          return "play";
+        },
+      },
+    });
+
+    const { out, code } = await runCli(deps, ["publish"]);
+    expect(code).toBeUndefined();
+    expect(out).toContain("play");
+    // Only profiles with a config are offered, in discovery (sorted) order.
+    expect(selected).toEqual([["play", "work"]]);
+  });
+
+  test("maps selector cancellation before remote side effects", async () => {
+    const remote = remoteCounters();
+    const deps = publishDeps({
+      discoverProfiles: async () => [
+        {
+          agentDir: PLAY_AGENT_DIR,
+          configPath: PLAY_CONFIG_PATH,
+          name: "play",
+        },
+        { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
+      ],
+      httpFetch: remote.httpFetch,
+      profileSelector: {
+        isInteractive: () => true,
+        selectProfile: async () => null,
+      },
+      runner: remote.runner,
+    });
+
+    const { out, code } = await runCli(deps, ["publish"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("selection_cancelled");
+    expect(remote.calls).toEqual({ http: 0, runner: 0 });
+  });
+
+  test("rejects a selector-selected name that was not offered", async () => {
+    const remote = remoteCounters();
+    const deps = publishDeps({
+      discoverProfiles: async () => [
+        {
+          agentDir: PLAY_AGENT_DIR,
+          configPath: PLAY_CONFIG_PATH,
+          name: "play",
+        },
+        { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
+      ],
+      httpFetch: remote.httpFetch,
+      profileSelector: {
+        isInteractive: () => true,
+        selectProfile: async () => "ghost",
+      },
+      runner: remote.runner,
+    });
+
+    const { out, code } = await runCli(deps, ["publish"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("selection_invariant");
+    expect(remote.calls).toEqual({ http: 0, runner: 0 });
+  });
+
+  test("explicit --json refuses ambiguity without invoking the selector", async () => {
+    let selectedCalls = 0;
+    const deps = publishDeps({
+      discoverProfiles: async () => [
+        { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
+        {
+          agentDir: PLAY_AGENT_DIR,
+          configPath: PLAY_CONFIG_PATH,
+          name: "play",
+        },
+      ],
+      profileSelector: {
+        isInteractive: () => true,
+        selectProfile: async () => {
+          selectedCalls += 1;
+          return "work";
+        },
+      },
+    });
+    const { out, code } = await runCli(deps, ["publish", "--json"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("ambiguous_profile");
+    expect(selectedCalls).toBe(0);
+  });
+
+  test("reports no_profile when no publishable profiles exist", async () => {
+    const deps = publishDeps({
+      discoverProfiles: async () => [
+        { agentDir: "/x", configPath: null, name: "empty" },
+      ],
+    });
+    const { out, code } = await runCli(deps, ["publish"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("no_profile");
+  });
+
+  test("maps an invalid path-like input to invalid_profile", async () => {
+    const remote = remoteCounters();
+    let resolved = false;
+    const deps = publishDeps({
+      httpFetch: remote.httpFetch,
+      resolveProfileConfig: async (profile) => {
+        resolved = true;
+        return {
+          agentDir: AGENT_DIR,
+          configPath: CONFIG_PATH,
+          document: {},
+          profile,
+        };
+      },
+      runner: remote.runner,
+    });
+
+    const { out, code } = await runCli(deps, ["publish", "./work.yml"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("invalid_profile");
+    expect(resolved).toBe(false);
+    expect(remote.calls).toEqual({ http: 0, runner: 0 });
+  });
+
+  test("maps an absent named profile to profile_not_found", async () => {
+    const remote = remoteCounters();
+    const missingPath = "/omp/profiles/ghost/agent";
+    const deps = publishDeps({
+      httpFetch: remote.httpFetch,
+      resolveProfileConfig: async () => {
+        throw new OmpProfileNotFoundError("ghost", missingPath);
+      },
+      runner: remote.runner,
+    });
+
+    const { out, code } = await runCli(deps, ["publish", "ghost"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("profile_not_found");
+    expect(remote.calls).toEqual({ http: 0, runner: 0 });
+  });
+
+  test("maps an existing profile without config to missing_config", async () => {
+    const remote = remoteCounters();
+    const deps = publishDeps({
+      httpFetch: remote.httpFetch,
+      resolveProfileConfig: async (profile) => ({
+        agentDir: AGENT_DIR,
+        configPath: null,
+        document: null,
+        profile,
+      }),
+      runner: remote.runner,
+    });
+
+    const { out, code } = await runCli(deps, ["publish", "work"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("missing_config");
+    expect(remote.calls).toEqual({ http: 0, runner: 0 });
   });
 
   test("refuses to publish high-confidence secrets", async () => {
