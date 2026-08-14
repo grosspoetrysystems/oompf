@@ -15,7 +15,7 @@
 
 import type { ProfileFacts, ProfileMetadata } from "@oompf/core";
 import { sha256 } from "@oompf/core";
-import { eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import {
@@ -76,6 +76,27 @@ export interface RegisterProfileInput {
   readonly validation: ValidationInput;
 }
 
+/** Default cap applied to search results and recency listings. */
+export const DEFAULT_SEARCH_LIMIT = 50;
+/** Absolute ceiling any requested limit is clamped to. */
+export const MAX_SEARCH_LIMIT = 100;
+
+/**
+ * Normalize a requested limit to a safe bound: non-finite/missing values fall
+ * back to {@link DEFAULT_SEARCH_LIMIT}, and anything above
+ * {@link MAX_SEARCH_LIMIT} (or below 1) is clamped.
+ */
+export function clampLimit(
+  limit: number | undefined,
+  fallback = DEFAULT_SEARCH_LIMIT,
+  max = MAX_SEARCH_LIMIT
+): number {
+  if (limit === undefined || !Number.isFinite(limit)) {
+    return fallback;
+  }
+  return Math.min(Math.max(1, Math.floor(limit)), max);
+}
+
 /** Persistence surface for indexed profile metadata. */
 export interface ProfileRepository {
   /** Register a source or refresh its metadata; idempotent per source URL. */
@@ -84,8 +105,15 @@ export interface ProfileRepository {
   findBySource(sourceUrl: string): Promise<ProfileRecord | null>;
   /** Look up a record by its stable opaque id. */
   getProfile(id: string): Promise<ProfileRecord | null>;
+  /** Most recently updated records, newest first, capped at `limit`. */
+  listRecent(limit?: number): Promise<ProfileRecord[]>;
   /** Free-text search across name, owner, and normalized facts. */
-  searchProfiles(query: string): Promise<ProfileRecord[]>;
+  searchProfiles(query: string, limit?: number): Promise<ProfileRecord[]>;
+  /**
+   * Soft-delete a profile so it leaves read lookups but its row survives for
+   * provenance. Idempotent: marking an already-deleted row again returns it.
+   */
+  softDeleteProfile(id: string): Promise<ProfileRecord | null>;
 }
 
 /**
@@ -198,7 +226,7 @@ export function createProfileRepository(
     const rows = await db
       .select()
       .from(profiles)
-      .where(eq(profiles.sourceUrl, sourceUrl))
+      .where(and(eq(profiles.sourceUrl, sourceUrl), isNull(profiles.deletedAt)))
       .limit(1);
     return rows[0] ?? null;
   }
@@ -207,7 +235,7 @@ export function createProfileRepository(
     const rows = await db
       .select()
       .from(profiles)
-      .where(eq(profiles.id, id))
+      .where(and(eq(profiles.id, id), isNull(profiles.deletedAt)))
       .limit(1);
     return rows[0] ?? null;
   }
@@ -270,10 +298,29 @@ export function createProfileRepository(
     return row;
   }
 
-  async function searchProfiles(query: string): Promise<ProfileRecord[]> {
+  /** Most recently updated records, newest first, capped at `limit`. */
+  async function listRecent(
+    limit = DEFAULT_SEARCH_LIMIT
+  ): Promise<ProfileRecord[]> {
+    return db
+      .select()
+      .from(profiles)
+      .where(isNull(profiles.deletedAt))
+      .orderBy(desc(profiles.updatedAt))
+      .limit(clampLimit(limit));
+  }
+
+  async function searchProfiles(
+    query: string,
+    limit = DEFAULT_SEARCH_LIMIT
+  ): Promise<ProfileRecord[]> {
     const trimmed = query.trim();
+    const id = clampLimit(limit);
     if (trimmed === "") {
-      return [];
+      // A blank query lists the most recently updated profiles — "empty lists
+      // all", newest first — so first-run discovery works before any term is
+      // typed. This is what turns the CLI's documented behaviour into truth.
+      return listRecent(id);
     }
     const term = likeTerm(trimmed);
     // Parameterized ILIKE across displayable columns plus the normalized facts
@@ -283,15 +330,37 @@ export function createProfileRepository(
       .select()
       .from(profiles)
       .where(
-        or(
-          ilike(profiles.profileName, term),
-          ilike(profiles.owner, term),
-          ilike(profiles.sourceUrl, term),
-          sql`${profiles.facts}::text ILIKE ${term}`
+        and(
+          isNull(profiles.deletedAt),
+          or(
+            ilike(profiles.profileName, term),
+            ilike(profiles.owner, term),
+            ilike(profiles.sourceUrl, term),
+            sql`${profiles.facts}::text ILIKE ${term}`
+          )
         )
       )
-      .orderBy(profiles.profileName);
+      .orderBy(profiles.profileName)
+      .limit(id);
   }
 
-  return { createOrUpdateProfile, findBySource, getProfile, searchProfiles };
+  async function softDeleteProfile(id: string): Promise<ProfileRecord | null> {
+    // A raw update by id, not the deleted-filtered lookups, so marking an
+    // already-deleted row again is still a no-op success that returns the row.
+    const rows = await db
+      .update(profiles)
+      .set({ deletedAt: new Date() })
+      .where(eq(profiles.id, id))
+      .returning();
+    return rows[0] ?? null;
+  }
+
+  return {
+    createOrUpdateProfile,
+    findBySource,
+    getProfile,
+    listRecent,
+    searchProfiles,
+    softDeleteProfile,
+  };
 }

@@ -190,10 +190,8 @@ the boundaries:
   extractor until their source content actually changes. A backfill migration
   is a deliberate, separate step.
 
-- **`listFeaturedProfiles` is a substring-search stand-in.** The home page's
-  "featured" listing is implemented as
-  `repository.searchProfiles("gist.github.com")` (the `FEATURED_QUERY` constant
-  in `index-profile.ts`) over a `LIKE` search, sliced to a cap. It is not a
-  real recency/curation listing and is documented in code as a v0 stand-in; a
-  dedicated `listRecent` is the intended follow-up once the schema grows one.
-  If the source host ever changes, featured profiles would silently go empty.
+- **`listFeaturedProfiles` lists recent profiles.** The home page's "featured"
+  listing is now `repository.listRecent(limit)` — newest by `updatedAt`, capped
+  at the SQL layer — instead of the former `FEATURED_QUERY` substring search
+  over `source_url`. A blank search query routes to the same recent listing, so
+  an empty query surfaces the index instead of returning nothing.

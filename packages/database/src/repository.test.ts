@@ -1,12 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { PGlite } from "@electric-sql/pglite";
 import { type ArtifactValidation, validateArtifact } from "@oompf/core";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 
 import {
+  clampLimit,
   createProfileRepository,
+  DEFAULT_SEARCH_LIMIT,
   deriveProfileId,
+  MAX_SEARCH_LIMIT,
   type ProfileDatabase,
+  type ProfileRecord,
   type ProfileRepository,
   type RegisterProfileInput,
   toValidationMetadata,
@@ -53,6 +58,7 @@ async function freshRepo(): Promise<{
   for (const migration of [
     "0000_nosy_liz_osborn.sql",
     "0001_marvelous_emma_frost.sql",
+    "0002_soft_delete_profiles.sql",
   ]) {
     const ddl = await Bun.file(
       new URL(`../migrations/${migration}`, import.meta.url)
@@ -84,6 +90,38 @@ function registerInput(
     validation,
     ...overrides,
   };
+}
+
+/**
+ * Register `count` profiles with distinct, deterministic update times (oldest
+ * first), so recency ordering is stable across test runs where `defaultNow()`
+ * inserts in the same statement could otherwise collide.
+ */
+async function seedRecent(
+  db: ProfileDatabase,
+  repo: ProfileRepository,
+  count: number
+): Promise<ProfileRecord[]> {
+  const records: ProfileRecord[] = [];
+  for (let i = 0; i < count; i++) {
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML, {
+        gistId: `pr-${i}`,
+        owner: `owner-${i}`,
+        profileName: `pr-${i}`,
+        sourceUrl: `https://gist.github.com/octocat/pr-${i}`,
+      })
+    );
+    records.push(record);
+  }
+  const base = Date.UTC(2026, 0, 1);
+  for (let i = 0; i < count; i++) {
+    await db
+      .update(profiles)
+      .set({ updatedAt: new Date(base + i * 60_000) })
+      .where(eq(profiles.id, records[i]!.id));
+  }
+  return records;
 }
 
 describe("createOrUpdateProfile", () => {
@@ -271,6 +309,48 @@ describe("getProfile / findBySource", () => {
   });
 });
 
+describe("softDeleteProfile", () => {
+  test("marks deletedAt so lookups exclude the row but it survives for provenance", async () => {
+    const { repo, db } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    expect(record.deletedAt).toBeNull();
+
+    const deleted = await repo.softDeleteProfile(record.id);
+
+    expect(deleted).not.toBeNull();
+    expect(deleted!.id).toBe(record.id);
+    expect(deleted!.deletedAt).toBeInstanceOf(Date);
+    // Removed from read lookups...
+    expect(await repo.getProfile(record.id)).toBeNull();
+    expect(await repo.findBySource(record.sourceUrl)).toBeNull();
+    // ...but the row still exists for provenance, marked deleted.
+    const [stored] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, record.id));
+    expect(stored?.deletedAt).toBeInstanceOf(Date);
+  });
+
+  test("is idempotent and returns null for an unknown id", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+
+    const first = await repo.softDeleteProfile(record.id);
+    const again = await repo.softDeleteProfile(record.id);
+
+    expect(again).not.toBeNull();
+    expect(again!.id).toBe(record.id);
+    expect(again!.deletedAt).toBeInstanceOf(Date);
+    expect(first!.deletedAt).toBeInstanceOf(Date);
+
+    expect(await repo.softDeleteProfile("prof_does_not_exist")).toBeNull();
+  });
+});
+
 describe("searchProfiles", () => {
   async function seeded(): Promise<ProfileRepository> {
     const { repo } = await freshRepo();
@@ -315,15 +395,51 @@ describe("searchProfiles", () => {
     return name === "atlas" ? "beacon" : "atlas";
   }
 
-  test("returns nothing for a blank query", async () => {
-    const repo = await seeded();
-    expect(await repo.searchProfiles("   ")).toEqual([]);
+  test("a blank query lists the most recently updated profiles, newest first", async () => {
+    const { repo, db } = await freshRepo();
+    const records = await seedRecent(db, repo, 3);
+    const results = await repo.searchProfiles("   ");
+    expect(results.map((r) => r.id)).toEqual([
+      records[2]!.id,
+      records[1]!.id,
+      records[0]!.id,
+    ]);
+  });
+
+  test("a non-blank query never exceeds the requested limit", async () => {
+    const { repo, db } = await freshRepo();
+    // Register four profiles whose names all match the "pr-" term.
+    await seedRecent(db, repo, 4);
+    const results = await repo.searchProfiles("pr-", 2);
+    expect(results).toHaveLength(2);
   });
 
   test("treats LIKE wildcards as literals", async () => {
     const repo = await seeded();
     // '%' would match everything if unescaped; escaped, it matches nothing.
     expect(await repo.searchProfiles("%")).toEqual([]);
+  });
+});
+
+describe("listRecent", () => {
+  test("returns the newest profiles first, capped at the limit", async () => {
+    const { repo, db } = await freshRepo();
+    const records = await seedRecent(db, repo, 4);
+    const results = await repo.listRecent(2);
+    expect(results.map((r) => r.id)).toEqual([records[3]!.id, records[2]!.id]);
+  });
+});
+
+describe("clampLimit", () => {
+  test("clamps or defaults a requested size", () => {
+    expect(DEFAULT_SEARCH_LIMIT).toBe(50);
+    expect(MAX_SEARCH_LIMIT).toBe(100);
+    expect(clampLimit(undefined)).toBe(DEFAULT_SEARCH_LIMIT);
+    expect(clampLimit(10)).toBe(10);
+    expect(clampLimit(0)).toBe(1);
+    expect(clampLimit(-5)).toBe(1);
+    expect(clampLimit(1_000_000)).toBe(MAX_SEARCH_LIMIT);
+    expect(clampLimit(Number.NaN)).toBe(DEFAULT_SEARCH_LIMIT);
   });
 });
 
