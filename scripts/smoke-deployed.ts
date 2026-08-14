@@ -85,9 +85,37 @@ const CHECKS: readonly Check[] = [
   },
 ];
 
+/**
+ * Every `.md` link in both agent-facing llms.txt maps must resolve against
+ * the live origin, so a documentation slug rename or typo surfaces here
+ * instead of as a 404 for agents. Read the links from the files themselves;
+ * this stays in sync as the docs change.
+ */
+const MAPS = [
+  "apps/web/public/llms.txt",
+  "apps/web/public/docs/llms.txt",
+] as const;
+const LINK_RE = /https?:\/\/[^/]+(\/[^\s)]+\.md)/g;
+
+const mdChecks: Check[] = [];
+const seen = new Set<string>();
+for (const map of MAPS) {
+  const text = await Bun.file(new URL(`../${map}`, import.meta.url)).text();
+  for (const match of text.matchAll(LINK_RE)) {
+    const path = match[1];
+    if (seen.has(path)) {
+      continue;
+    }
+    seen.add(path);
+    mdChecks.push({ name: `llms link ${path}`, path });
+  }
+}
+
+const checks = [...CHECKS, ...mdChecks];
+
 let failed = 0;
 
-for (const check of CHECKS) {
+for (const check of checks) {
   const url = `${origin}${check.path}`;
   try {
     const response = await fetch(url, {
@@ -125,5 +153,5 @@ if (failed > 0) {
 }
 
 process.stdout.write(
-  `\nall ${CHECKS.length} checks passed against ${origin}\n`
+  `\nall ${checks.length} checks passed against ${origin}\n`
 );

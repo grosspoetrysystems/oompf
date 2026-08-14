@@ -11,8 +11,8 @@ OOMPF is the public index for shareable, inspectable OMP profiles. OOMPF stores 
 ## Documentation
 - [Documentation index](https://oompf.run/docs/llms.txt): Scoped Markdown documentation map.
 - [Docs](https://oompf.run/docs/): Human-facing OOMPF and OMP profile reference.
-- [Profile workflow](https://oompf.run/docs/profile-workflow.md): Publish, inspect, search, and install.
-- [CLI reference](https://oompf.run/docs/cli.md): `oompf publish`, `add`, `inspect`, and `search`.
+- [Publishing a profile](https://oompf.run/docs/publishing-a-profile.md): Publish, inspect, search, and install.
+- [CLI reference](https://oompf.run/docs/cli-reference.md): `oompf publish`, `add`, `inspect`, and `search`.
 
 ## API
 - [Profiles](https://oompf.run/api/v1/profiles): Register and retrieve indexed profile metadata.

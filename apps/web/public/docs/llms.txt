@@ -8,10 +8,9 @@ Reference pages for sharing, inspecting, and installing native OMP profiles thro
 - [Models and providers](https://oompf.run/docs/models-and-providers.md): Friendly names, exact selectors, aliases, and verified links.
 
 ## Workflow
-- [Profile workflow](https://oompf.run/docs/profile-workflow.md): Publish, register, inspect, search, and install.
-- [CLI reference](https://oompf.run/docs/cli.md): Commands and machine-readable output.
-- [Provenance](https://oompf.run/docs/provenance.md): Revisions, hashes, canonical sources, and reproducibility.
+- [Publishing a profile](https://oompf.run/docs/publishing-a-profile.md): Publish, register, inspect, search, and install.
+- [CLI reference](https://oompf.run/docs/cli-reference.md): Commands and machine-readable output.
+- [Provenance and revisions](https://oompf.run/docs/provenance-and-revisions.md): Revisions, hashes, canonical sources, and reproducibility.
 
 ## Contracts
-- [API reference](https://oompf.run/docs/api.md): Versioned routes, response envelopes, and errors.
 - [OpenAPI](https://oompf.run/openapi.json): Machine-readable API contract.
