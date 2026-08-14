@@ -176,6 +176,17 @@ function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
+/** True when a URL is a safe `http(s)` target (rows may predate the guard). */
+function isHttpUrl(url: string): boolean {
+  let protocol: string;
+  try {
+    protocol = new URL(url).protocol;
+  } catch {
+    protocol = "";
+  }
+  return protocol === "http:" || protocol === "https:";
+}
+
 /** Normalize a curated link to a guaranteed-labeled view. */
 function toCuratedLink(link: {
   readonly label: string | null;
@@ -343,7 +354,9 @@ export function buildProfileView(
     behavior,
     installCommand: `oompf add ${profileUrl}`,
     kind: metadata.kind,
-    links: metadata.links.map(toCuratedLink),
+    links: metadata.links
+      .filter((link) => isHttpUrl(link.url))
+      .map(toCuratedLink),
     models,
     ompVersion: record.ompVersion,
     owner: record.owner,

@@ -134,6 +134,25 @@ function extractTags(value: unknown, warnings: string[]): string[] {
   return tags;
 }
 
+/** Keep a link only when its URL is a safe `http(s)` target. */
+function httpLink(
+  url: string,
+  label: string | null,
+  warnings: string[]
+): ProfileLink | null {
+  let protocol: string;
+  try {
+    protocol = new URL(url).protocol;
+  } catch {
+    protocol = "";
+  }
+  if (protocol !== "http:" && protocol !== "https:") {
+    warnings.push("oompf.links dropped an entry with a non-http(s) URL.");
+    return null;
+  }
+  return { label, url };
+}
+
 /** Coerce a single link entry (string URL or `{ url, label? }`) into a link. */
 function extractLink(entry: unknown, warnings: string[]): ProfileLink | null {
   if (typeof entry === "string") {
@@ -142,7 +161,7 @@ function extractLink(entry: unknown, warnings: string[]): ProfileLink | null {
       warnings.push("oompf.links dropped an entry with an empty URL.");
       return null;
     }
-    return { label: null, url };
+    return httpLink(url, null, warnings);
   }
   if (isRecord(entry)) {
     const rawUrl = entry.url;
@@ -154,7 +173,7 @@ function extractLink(entry: unknown, warnings: string[]): ProfileLink | null {
       typeof entry.label === "string" && entry.label.trim() !== ""
         ? entry.label.trim()
         : null;
-    return { label, url: rawUrl.trim() };
+    return httpLink(rawUrl.trim(), label, warnings);
   }
   warnings.push(
     "oompf.links dropped an entry that was not a string or object."

@@ -126,4 +126,27 @@ describe("profile detail presentation", () => {
       },
     ]);
   });
+
+  test("filters stored non-http(s) curated links at render", () => {
+    const record = profileRecord();
+    record.metadata = {
+      kind: null,
+      links: [
+        { label: null, url: "javascript:alert(1)" },
+        { label: null, url: "https://example.com" },
+      ],
+      summary: null,
+      tags: [],
+    };
+
+    const view = buildProfileView(record, {
+      resolveModel: resolveModelDisplay,
+      resolveProvider: resolveProviderLink,
+      siteOrigin: "https://oompf.run",
+    });
+
+    expect(view.links).toEqual([
+      { label: "https://example.com", url: "https://example.com" },
+    ]);
+  });
 });
