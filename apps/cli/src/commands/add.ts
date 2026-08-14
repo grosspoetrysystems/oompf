@@ -95,6 +95,13 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
             `Refusing to install an invalid artifact: ${validation.errors.join("; ")}`
           );
         }
+        if (validation.blocking.length > 0) {
+          const where = validation.blocking.map((f) => f.path).join(", ");
+          throw new CommandError(
+            "blocking_secrets",
+            `Refusing to install: high-confidence secrets detected at ${where}. Remove them and retry.`
+          );
+        }
 
         // 3. Derive and validate the local profile name.
         const stem = filenameStem(gist.filename);
