@@ -25,7 +25,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const repository = await resolveRepository(appLocals);
     const query = url.searchParams.get("q") ?? "";
-    const results = await searchIndexedProfiles(repository, query);
+    // A non-numeric/absent limit passes through as `undefined`, and the
+    // repository applies its own default-and-clamp (50 default, 100 max).
+    const rawLimit = url.searchParams.get("limit");
+    const limit =
+      rawLimit !== null && /^\d+$/.test(rawLimit)
+        ? Number(rawLimit)
+        : undefined;
+    const results = await searchIndexedProfiles(repository, query, limit);
     return jsonResponse(200, { query, results });
   } catch (error) {
     const { status, body } = toErrorEnvelope(error);

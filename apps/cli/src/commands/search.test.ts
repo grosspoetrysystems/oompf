@@ -48,15 +48,21 @@ describe("search", () => {
     expect(out).toContain(STEM);
   });
 
-  test("handles an empty query as list-all", async () => {
+  test("an empty query lists the indexed profiles", async () => {
     const deps = searchDeps({
       httpFetch: apiFetch({
-        search: jsonResponse(200, { query: "", results: [] }),
+        search: jsonResponse(200, {
+          query: "",
+          results: [compactProfile()],
+        }),
       }),
     });
     const { out, code } = await runCli(deps, ["search", "--json"]);
     expect(code).toBeUndefined();
-    expect(JSON.parse(out).count).toBe(0);
+    const result = JSON.parse(out);
+    expect(result.query).toBe("");
+    expect(result.count).toBe(1);
+    expect(result.results[0].name).toBe(STEM);
   });
 
   test("maps a search API error to a nonzero exit", async () => {
