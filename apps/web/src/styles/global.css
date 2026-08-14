@@ -402,124 +402,101 @@ p {
   stroke-width: 0.45;
 }
 
-.pi-code-track {
+.pi-code-plane {
   font-family: var(--font-mono);
-  opacity: 0.92;
   text-rendering: optimizeSpeed;
-  animation: pi-code-flow 12s linear infinite;
+  animation-name: pi-code-coriolis;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
   will-change: transform;
 }
 
-.pi-code-track text {
-  fill: inherit;
-}
+.pi-code-plane-s {
+  --pi-flow-distance: -140px;
+  --pi-half-distance: -70px;
+  --pi-depth-drift: 0.45px;
 
-.pi-code-size-s {
   font-size: 3.15px;
   font-weight: 500;
   letter-spacing: 0.01px;
+  opacity: 0.64;
+  animation-duration: 24s;
+  animation-delay: -8.4s;
 }
 
-.pi-code-size-m {
-  font-size: 4.5px;
+.pi-code-plane-m {
+  --pi-flow-distance: -74px;
+  --pi-half-distance: -37px;
+  --pi-depth-drift: -0.8px;
+
+  font-size: 4.95px;
   font-weight: 600;
-  letter-spacing: -0.04px;
+  letter-spacing: -0.05px;
+  opacity: 0.82;
+  animation-duration: 10.8s;
+  animation-delay: -3.7s;
 }
 
-.pi-code-size-l {
-  font-size: 5.325px;
+.pi-code-plane-l {
+  --pi-flow-distance: -60px;
+  --pi-half-distance: -30px;
+  --pi-depth-drift: 1.15px;
+
+  font-size: 5.85px;
   font-weight: 700;
-  letter-spacing: -0.06px;
+  letter-spacing: -0.07px;
+  opacity: 0.96;
+  animation-duration: 6.8s;
+  animation-delay: -5.2s;
 }
 
-.pi-code-track:nth-child(1) {
-  animation-duration: 16.4s;
-  animation-delay: -9.1s;
-}
-
-.pi-code-track:nth-child(2) {
-  animation-duration: 12s;
-  animation-delay: -2.7s;
-}
-
-.pi-code-track:nth-child(3) {
-  animation-duration: 13.6s;
-  animation-delay: -7.3s;
-}
-
-.pi-code-track:nth-child(4) {
-  animation-duration: 14.8s;
-  animation-delay: -4.1s;
-}
-
-.pi-code-track:nth-child(5) {
-  animation-duration: 14.8s;
-  animation-delay: -9.4s;
-}
-
-.pi-code-track:nth-child(6) {
-  animation-duration: 12.7s;
-  animation-delay: -6.2s;
-}
-
-.pi-code-track:nth-child(7) {
-  animation-duration: 17.2s;
-  animation-delay: -12.5s;
-}
-
-.pi-code-track-command {
-  --pi-flow-distance: -76px;
-
-  fill: #de965a;
-}
-
-.pi-code-track-resolve {
-  --pi-flow-distance: -108px;
-
+.pi-code-stack-a {
   fill: #ab96ce;
 }
 
-.pi-code-track-validate {
-  --pi-flow-distance: -68px;
-
-  fill: #83b89c;
-}
-
-.pi-code-track-gist {
-  --pi-flow-distance: -133px;
-
+.pi-code-stack-b {
   fill: #76aebf;
 }
 
-.pi-code-track-register {
-  --pi-flow-distance: -72px;
-
-  fill: #a493c1;
-}
-
-.pi-code-track-url {
-  --pi-flow-distance: -112px;
-
+.pi-code-stack-c {
   fill: #72acb5;
 }
 
-.pi-code-track-indexed {
-  --pi-flow-distance: -80px;
+.pi-code-brand-oompf {
+  fill: #83b89c;
+}
 
+.pi-code-brand-omp {
+  fill: #a493c1;
+}
+
+.pi-code-brand-pi {
+  fill: #de965a;
+}
+
+.pi-code-sigil-warm {
+  fill: #de965a;
+}
+
+.pi-code-sigil-green {
   fill: #8bb883;
 }
 
-.pi-code-prompt,
-.pi-code-meta,
-.pi-code-add,
-.pi-code-ok,
-.pi-code-output {
-  fill: inherit;
+.pi-code-sigil-violet {
+  fill: #ab96ce;
 }
 
-@keyframes pi-code-flow {
-  to {
-    transform: translateX(var(--pi-flow-distance));
+@keyframes pi-code-coriolis {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(var(--pi-half-distance), var(--pi-depth-drift));
+  }
+
+  100% {
+    transform: translate(var(--pi-flow-distance), 0);
   }
 }
 
@@ -1562,7 +1539,7 @@ a.tag {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pi-code-track,
+  .pi-code-plane,
   .pi-field::before {
     animation: none;
   }
