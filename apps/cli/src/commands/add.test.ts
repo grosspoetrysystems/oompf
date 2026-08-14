@@ -151,6 +151,35 @@ describe("add", () => {
     expect(store.writes).toHaveLength(0);
   });
 
+  test("refuses to install an artifact with high-confidence secrets", async () => {
+    const secret = "a-real-looking-token-value";
+    const { deps, store } = addDeps({
+      gistFetch: gistFetch(`${CONTENT}apiKey: ${secret}\n`),
+    });
+    const { out, code } = await runCli(deps, ["add", GIST_HTML]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("blocking_secrets");
+    expect(store.writes).toHaveLength(0);
+    // Message stays value-free: it never echoes the secret.
+    expect(out).not.toContain(secret);
+  });
+
+  test("installs an artifact with a low-confidence finding, surfacing a warning", async () => {
+    const { deps, store } = addDeps({
+      gistFetch: gistFetch(`${CONTENT}password: "${"${DB_PASSWORD}"}"\n`),
+    });
+    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    expect(code).toBeUndefined();
+    expect(store.writes).toHaveLength(1);
+    const result = JSON.parse(out);
+    const warning = result.warnings.find((w: string) =>
+      w.startsWith("password:")
+    );
+    expect(warning).toBeDefined();
+    // The warning names only the key path — never the referenced value.
+    expect(out).not.toContain("DB_PASSWORD");
+  });
+
   test("maps a metadata API 404 to a nonzero exit", async () => {
     const { deps } = addDeps({
       httpFetch: apiFetch({
