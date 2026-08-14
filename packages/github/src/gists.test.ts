@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { sha256 } from "@oompf/core";
+import { DEFAULT_MAX_BYTES, sha256 } from "@oompf/core";
 
 import {
   type CommandInput,
@@ -393,5 +393,88 @@ describe("fetchPublicGist", () => {
     await expect(fetchPublicGist(id, { fetch })).rejects.toThrow(
       /not a supported profile filename/
     );
+  });
+
+  const rawUrl = `https://gist.githubusercontent.com/octocat/${id}/raw/profile.yml`;
+
+  /** Build a metadata response pointing the raw URL at `rawResponse`. */
+  function metadata(_rawResponse: GistFetchResponse): GistFetchResponse {
+    return jsonResponse(200, {
+      files: { "profile.yml": { filename: "profile.yml", raw_url: rawUrl } },
+      id,
+      owner: { login: "octocat" },
+    });
+  }
+
+  test("rejects an oversized payload via content-length without reading it", async () => {
+    const rawResponse: GistFetchResponse = {
+      headers: { "content-length": String(DEFAULT_MAX_BYTES + 1) },
+      ok: true,
+      status: 200,
+      // Reading would materialize the oversized body: fail loudly if reached.
+      text: () => Promise.reject(new Error("body was materialized")),
+    };
+    const { fetch } = stubFetch({
+      [`https://api.github.com/gists/${id}`]: metadata(rawResponse),
+      [rawUrl]: rawResponse,
+    });
+
+    await expect(
+      fetchPublicGist(`https://gist.github.com/${id}`, { fetch })
+    ).rejects.toThrow(/maximum supported artifact size/);
+  });
+
+  test("returns the same content and hash for an in-cap payload", async () => {
+    const bytes = new TextEncoder().encode(yaml);
+    const rawResponse: GistFetchResponse = {
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      }),
+      headers: { "content-length": String(bytes.byteLength) },
+      ok: true,
+      status: 200,
+      text: async () => yaml,
+    };
+    const { fetch } = stubFetch({
+      [`https://api.github.com/gists/${id}`]: metadata(rawResponse),
+      [rawUrl]: rawResponse,
+    });
+
+    const result = await fetchPublicGist(`https://gist.github.com/${id}`, {
+      fetch,
+    });
+    expect(result.content).toBe(yaml);
+    expect(result.contentHash).toBe(sha256(yaml));
+  });
+
+  test("aborts the stream once bytes exceed the cap without a content-length", async () => {
+    let cancelled = false;
+    const rawResponse: GistFetchResponse = {
+      body: new ReadableStream<Uint8Array>({
+        cancel() {
+          cancelled = true;
+        },
+        start(controller) {
+          // Stay open so a reader.cancel() clears the stream and the
+          // underlying cancel() is invoked.
+          controller.enqueue(new Uint8Array(DEFAULT_MAX_BYTES + 1));
+        },
+      }),
+      ok: true,
+      status: 200,
+      text: () => Promise.reject(new Error("body was materialized")),
+    };
+    const { fetch } = stubFetch({
+      [`https://api.github.com/gists/${id}`]: metadata(rawResponse),
+      [rawUrl]: rawResponse,
+    });
+
+    await expect(
+      fetchPublicGist(`https://gist.github.com/${id}`, { fetch })
+    ).rejects.toThrow(/maximum supported artifact size/);
+    expect(cancelled).toBe(true);
   });
 });
