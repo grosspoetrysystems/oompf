@@ -13,7 +13,7 @@
  * not-found error at fetch time.
  */
 
-import { sha256, validateProfileName } from "@oompf/core";
+import { DEFAULT_MAX_BYTES, sha256, validateProfileName } from "@oompf/core";
 
 /**
  * A Gist identifier is an opaque hex string. Real Gist IDs are 20–40 lowercase
@@ -59,6 +59,10 @@ export interface GistSource {
 
 /** Minimal structural view of a `fetch` response used by this module. */
 export interface GistFetchResponse {
+  /** Raw response body stream, used to cap oversized payloads pre-read. */
+  readonly body?: ReadableStream<Uint8Array> | null;
+  /** Response headers; only `content-length` is consulted. */
+  readonly headers?: Readonly<Record<string, string>>;
   readonly ok: boolean;
   readonly status: number;
   text(): Promise<string>;
@@ -217,6 +221,62 @@ interface GistFileEntry {
 }
 
 /**
+ * Read a raw profile body under the size cap, refusing oversized payloads
+ * before the full body is materialized. Prefers the `content-length` header;
+ * when absent, streams the body and aborts once accumulated bytes exceed the
+ * cap. In-cap content is decoded byte-exactly, so hashing is unchanged.
+ */
+async function readRawYaml(
+  rawResponse: GistFetchResponse,
+  gistId: string,
+  filename: string
+): Promise<string> {
+  const contentLength = Number(rawResponse.headers?.["content-length"]);
+  if (Number.isFinite(contentLength) && contentLength > DEFAULT_MAX_BYTES) {
+    throw oversizedError(gistId, filename);
+  }
+
+  const body = rawResponse.body;
+  if (body === undefined || body === null) {
+    // No stream available; safe because an out-of-cap content-length above
+    // already rejected and an absent content-length is unchecked anyway.
+    return rawResponse.text();
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    total += value.byteLength;
+    if (total > DEFAULT_MAX_BYTES) {
+      await reader.cancel().catch(() => {
+        /* best-effort release */
+      });
+      throw oversizedError(gistId, filename);
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/** Value-free refusal shared by all oversized-payload rejection paths. */
+function oversizedError(gistId: string, filename: string): Error {
+  return new Error(
+    `Gist "${gistId}" file "${filename}" exceeds the maximum supported artifact size.`
+  );
+}
+
+/**
  * Fetch a public Gist and return its single canonical profile YAML source.
  *
  * The Gist metadata is read from `https://api.github.com/gists/<id>` (pinned
@@ -270,7 +330,11 @@ export async function fetchPublicGist(
         `Failed to fetch raw content for "${yamlFile.filename}" in Gist "${location.gistId}": HTTP ${rawResponse.status}.`
       );
     }
-    content = await rawResponse.text();
+    content = await readRawYaml(
+      rawResponse,
+      location.gistId,
+      yamlFile.filename
+    );
   } else if (yamlFile.content === null) {
     throw new Error(
       `Gist "${location.gistId}" file "${yamlFile.filename}" exposed no raw URL or content.`
