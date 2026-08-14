@@ -403,75 +403,109 @@ p {
 }
 
 .pi-code-track {
+  font-family: var(--font-mono);
   opacity: 0.92;
-  animation: pi-code-flow 10.4s linear infinite;
+  text-rendering: optimizeSpeed;
+  animation: pi-code-flow 12s linear infinite;
   will-change: transform;
 }
 
 .pi-code-track text {
-  font-family: var(--font-mono);
-  font-size: 4.2px;
-  font-weight: 700;
-  letter-spacing: -0.08px;
   fill: inherit;
-  text-rendering: optimizeSpeed;
+}
+
+.pi-code-size-s {
+  font-size: 2.1px;
+  font-weight: 500;
+  letter-spacing: 0.01px;
+}
+
+.pi-code-size-m {
+  font-size: 3px;
+  font-weight: 600;
+  letter-spacing: -0.04px;
+}
+
+.pi-code-size-l {
+  font-size: 3.55px;
+  font-weight: 700;
+  letter-spacing: -0.06px;
+}
+
+.pi-code-track:nth-child(1) {
+  animation-duration: 16.4s;
+  animation-delay: -9.1s;
 }
 
 .pi-code-track:nth-child(2) {
-  animation-duration: 12.2s;
-  animation-delay: -1.8s;
+  animation-duration: 8s;
+  animation-delay: -2.7s;
 }
 
 .pi-code-track:nth-child(3) {
-  animation-duration: 9.6s;
-  animation-delay: -5.2s;
+  animation-duration: 13.6s;
+  animation-delay: -7.3s;
 }
 
 .pi-code-track:nth-child(4) {
-  animation-duration: 13.1s;
-  animation-delay: -8.4s;
+  animation-duration: 9.8s;
+  animation-delay: -4.1s;
 }
 
 .pi-code-track:nth-child(5) {
-  animation-duration: 11.3s;
-  animation-delay: -3.6s;
+  animation-duration: 14.8s;
+  animation-delay: -9.4s;
 }
 
 .pi-code-track:nth-child(6) {
-  animation-duration: 14.2s;
-  animation-delay: -10.1s;
+  animation-duration: 8.4s;
+  animation-delay: -6.2s;
 }
 
 .pi-code-track:nth-child(7) {
-  animation-duration: 8.9s;
-  animation-delay: -4.7s;
+  animation-duration: 17.2s;
+  animation-delay: -12.5s;
 }
 
 .pi-code-track-command {
+  --pi-flow-distance: -76px;
+
   fill: #de965a;
 }
 
 .pi-code-track-resolve {
+  --pi-flow-distance: -72px;
+
   fill: #ab96ce;
 }
 
 .pi-code-track-validate {
+  --pi-flow-distance: -68px;
+
   fill: #83b89c;
 }
 
 .pi-code-track-gist {
+  --pi-flow-distance: -88px;
+
   fill: #76aebf;
 }
 
 .pi-code-track-register {
+  --pi-flow-distance: -72px;
+
   fill: #a493c1;
 }
 
 .pi-code-track-url {
+  --pi-flow-distance: -74px;
+
   fill: #72acb5;
 }
 
 .pi-code-track-indexed {
+  --pi-flow-distance: -80px;
+
   fill: #8bb883;
 }
 
@@ -485,7 +519,7 @@ p {
 
 @keyframes pi-code-flow {
   to {
-    transform: translateX(-68px);
+    transform: translateX(var(--pi-flow-distance));
   }
 }
 

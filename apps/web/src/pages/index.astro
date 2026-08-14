@@ -123,61 +123,68 @@ const docsRail = [
                 d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"
               ></path>
               <g clip-path="url(#pi-mark-clip)">
-                <g class="pi-code-track pi-code-track-command">
+                <g class="pi-code-track pi-code-track-command pi-code-size-l">
                   <text id="pi-code-command" x="0" y="20">
                     <tspan class="pi-code-prompt">$</tspan>
-                    <tspan>oompf publish daily-driver</tspan>
                   </text>
-                  <use href="#pi-code-command" x="68"></use>
+                  <use href="#pi-code-command" x="-76"></use>
+                  <use href="#pi-code-command" x="76"></use>
+                  <use href="#pi-code-command" x="152"></use>
                 </g>
-                <g class="pi-code-track pi-code-track-resolve">
+                <g class="pi-code-track pi-code-track-resolve pi-code-size-s">
                   <text id="pi-code-resolve" x="0" y="26">
-                    <tspan class="pi-code-meta">@@</tspan>
-                    <tspan>resolveProfile()</tspan>
-                    <tspan class="pi-code-meta">@@</tspan>
+                    <tspan>
+                      oompf publish → resolveProfile() → validateArtifact()
+                    </tspan>
                   </text>
-                  <use href="#pi-code-resolve" x="68"></use>
+                  <use href="#pi-code-resolve" x="-72"></use>
+                  <use href="#pi-code-resolve" x="72"></use>
+                  <use href="#pi-code-resolve" x="144"></use>
                 </g>
-                <g class="pi-code-track pi-code-track-validate">
+                <g class="pi-code-track pi-code-track-validate pi-code-size-m">
                   <text id="pi-code-validate" x="0" y="32">
-                    <tspan class="pi-code-add">+</tspan>
-                    <tspan class="pi-code-ok">✓</tspan>
-                    <tspan>validateArtifact()</tspan>
+                    <tspan>oompf</tspan>
                   </text>
+                  <use href="#pi-code-validate" x="-68"></use>
                   <use href="#pi-code-validate" x="68"></use>
+                  <use href="#pi-code-validate" x="136"></use>
                 </g>
-                <g class="pi-code-track pi-code-track-gist">
+                <g class="pi-code-track pi-code-track-gist pi-code-size-s">
                   <text id="pi-code-gist" x="0" y="38">
-                    <tspan class="pi-code-add">+</tspan>
-                    <tspan>createPublicProfileGist()</tspan>
+                    <tspan>
+                      validateArtifact() → createPublicProfileGist() →
+                      registerProfile()
+                    </tspan>
                   </text>
-                  <use href="#pi-code-gist" x="68"></use>
+                  <use href="#pi-code-gist" x="-88"></use>
+                  <use href="#pi-code-gist" x="88"></use>
+                  <use href="#pi-code-gist" x="176"></use>
                 </g>
-                <g class="pi-code-track pi-code-track-register">
+                <g class="pi-code-track pi-code-track-register pi-code-size-m">
                   <text id="pi-code-register" x="0" y="44">
-                    <tspan class="pi-code-add">+</tspan>
-                    <tspan class="pi-code-ok">✓</tspan>
-                    <tspan>registerProfile()</tspan>
+                    <tspan>omp · π</tspan>
                   </text>
-                  <use href="#pi-code-register" x="68"></use>
+                  <use href="#pi-code-register" x="-72"></use>
+                  <use href="#pi-code-register" x="72"></use>
+                  <use href="#pi-code-register" x="144"></use>
                 </g>
-                <g class="pi-code-track pi-code-track-url">
+                <g class="pi-code-track pi-code-track-url pi-code-size-s">
                   <text id="pi-code-url" x="0" y="50">
-                    <tspan class="pi-code-output">&gt;</tspan>
-                    <tspan>oompf.run/p/prof_00e08f39</tspan>
+                    <tspan>
+                      registerProfile() → indexed → oompf.run/p/prof_00e08f39
+                    </tspan>
                   </text>
-                  <use href="#pi-code-url" x="68"></use>
+                  <use href="#pi-code-url" x="-74"></use>
+                  <use href="#pi-code-url" x="74"></use>
+                  <use href="#pi-code-url" x="148"></use>
                 </g>
-                <g class="pi-code-track pi-code-track-indexed">
+                <g class="pi-code-track pi-code-track-indexed pi-code-size-l">
                   <text id="pi-code-indexed" x="0" y="56">
-                    <tspan class="pi-code-add">+</tspan>
-                    <tspan class="pi-code-ok">✓</tspan>
-                    <tspan>indexed</tspan>
-                    <tspan class="pi-code-add">+</tspan>
-                    <tspan class="pi-code-ok">✓</tspan>
-                    <tspan>indexed</tspan>
+                    <tspan class="pi-code-meta">@</tspan>
                   </text>
-                  <use href="#pi-code-indexed" x="68"></use>
+                  <use href="#pi-code-indexed" x="-80"></use>
+                  <use href="#pi-code-indexed" x="80"></use>
+                  <use href="#pi-code-indexed" x="160"></use>
                 </g>
               </g>
             </svg>
