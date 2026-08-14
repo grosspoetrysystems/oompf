@@ -373,7 +373,7 @@ p {
     28px 28px,
     5px 5px;
   opacity: 0.75;
-  animation: pi-texture-drift 14s linear infinite alternate;
+  animation: pi-texture-drift 36s linear infinite;
 }
 
 .pi-field::after {
@@ -390,37 +390,122 @@ p {
 
 .pi-mark {
   position: relative;
+  display: block;
   margin: 0;
-  font-size: clamp(0.72rem, 1.05vw, 0.95rem);
-  line-height: 0.9;
-  color: transparent;
-  letter-spacing: -0.08em;
-  white-space: pre;
-  background: linear-gradient(
-    110deg,
-    #555 0%,
-    #8a8a8a 28%,
-    #f2f2f2 46%,
-    #aaa 60%,
-    #626262 100%
-  );
-  background-position: 100% 50%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  background-size: 220% 100%;
-  filter: drop-shadow(0 0 12px rgb(255 255 255 / 10%));
-  animation: pi-luminance-scan 7s ease-in-out infinite alternate;
+  overflow: visible;
 }
 
-@keyframes pi-luminance-scan {
-  to {
-    background-position: 0 50%;
+.pi-mark-base {
+  filter: drop-shadow(0 0 12px rgb(255 255 255 / 10%));
+  fill: rgb(255 255 255 / 2%);
+  stroke: #8f9693;
+  stroke-width: 0.45;
+}
+
+.pi-code-plane {
+  font-family: var(--font-mono);
+  text-rendering: optimizeSpeed;
+  animation-name: pi-code-coriolis;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.pi-code-plane-s {
+  --pi-flow-distance: -140px;
+  --pi-half-distance: -70px;
+  --pi-depth-drift: 0.45px;
+
+  font-size: 3.15px;
+  font-weight: 500;
+  letter-spacing: 0.01px;
+  opacity: 0.64;
+  animation-duration: 24s;
+  animation-delay: -8.4s;
+}
+
+.pi-code-plane-m {
+  --pi-flow-distance: -74px;
+  --pi-half-distance: -37px;
+  --pi-depth-drift: -0.8px;
+
+  font-size: 4.95px;
+  font-weight: 600;
+  letter-spacing: -0.05px;
+  opacity: 0.82;
+  animation-duration: 10.8s;
+  animation-delay: -3.7s;
+}
+
+.pi-code-plane-l {
+  --pi-flow-distance: -60px;
+  --pi-half-distance: -30px;
+  --pi-depth-drift: 1.15px;
+
+  font-size: 5.85px;
+  font-weight: 700;
+  letter-spacing: -0.07px;
+  opacity: 0.96;
+  animation-duration: 6.8s;
+  animation-delay: -5.2s;
+}
+
+.pi-code-stack-a {
+  fill: #ab96ce;
+}
+
+.pi-code-stack-b {
+  fill: #76aebf;
+}
+
+.pi-code-stack-c {
+  fill: #72acb5;
+}
+
+.pi-code-brand-oompf {
+  fill: #83b89c;
+}
+
+.pi-code-brand-omp {
+  fill: #a493c1;
+}
+
+.pi-code-brand-pi {
+  fill: #de965a;
+}
+
+.pi-code-sigil-warm {
+  fill: #de965a;
+}
+
+.pi-code-sigil-green {
+  fill: #8bb883;
+}
+
+.pi-code-sigil-violet {
+  fill: #ab96ce;
+}
+
+@keyframes pi-code-coriolis {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(var(--pi-half-distance), var(--pi-depth-drift));
+  }
+
+  100% {
+    transform: translate(var(--pi-flow-distance), 0);
   }
 }
 
 @keyframes pi-texture-drift {
   to {
-    transform: translate3d(6px, 4px, 0);
+    background-position:
+      140px 140px,
+      140px 140px,
+      140px 140px;
   }
 }
 
@@ -1454,7 +1539,7 @@ a.tag {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pi-mark,
+  .pi-code-plane,
   .pi-field::before {
     animation: none;
   }

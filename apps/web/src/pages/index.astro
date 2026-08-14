@@ -105,15 +105,69 @@ const docsRail = [
               >built for OMP (oh my pi) -- learn more ↗</a
             >
           </div>
-          <div aria-hidden="true" class="pi-field">
-            <pre class="pi-mark">██████████████
-   ███   ███
-   ███   ███
-   ███   ███
-   ███   ███
-   ███   ███
-         ███
-         ███</pre>
+          <div class="pi-field">
+            <svg
+              aria-hidden="true"
+              class="pi-mark"
+              height="9.25rem"
+              viewBox="0 0 64 64"
+              width="min(86%, 22rem)"
+            >
+              <defs>
+                <clipPath id="pi-mark-clip">
+                  <path d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"></path>
+                </clipPath>
+              </defs>
+              <path
+                class="pi-mark-base"
+                d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"
+              ></path>
+              <g clip-path="url(#pi-mark-clip)">
+                <g class="pi-code-plane pi-code-plane-s">
+                  <g id="pi-code-tile-s">
+                    <text class="pi-code-stack-a" x="0" y="24">
+                      oompf publish → resolveProfile() → validateArtifact()
+                    </text>
+                    <text class="pi-code-stack-b" x="-22" y="39">
+                      validateArtifact() → createPublicProfileGist() →
+                      registerProfile()
+                    </text>
+                    <text class="pi-code-stack-c" x="16" y="53">
+                      registerProfile() → indexed → oompf.run/p/prof_00e08f39
+                    </text>
+                  </g>
+                  <use href="#pi-code-tile-s" x="-140"></use>
+                  <use href="#pi-code-tile-s" x="140"></use>
+                  <use href="#pi-code-tile-s" x="280"></use>
+                </g>
+                <g class="pi-code-plane pi-code-plane-m">
+                  <g id="pi-code-tile-m">
+                    <text class="pi-code-brand-oompf" x="2" y="28">oompf</text>
+                    <text class="pi-code-brand-pi" x="33" y="31">π</text>
+                    <text class="pi-code-brand-omp" x="48" y="37">omp</text>
+                    <text class="pi-code-brand-pi" x="12" y="46">π</text>
+                    <text class="pi-code-brand-oompf" x="39" y="51">oompf</text>
+                    <text class="pi-code-brand-omp" x="20" y="56">omp</text>
+                  </g>
+                  <use href="#pi-code-tile-m" x="-74"></use>
+                  <use href="#pi-code-tile-m" x="74"></use>
+                  <use href="#pi-code-tile-m" x="148"></use>
+                </g>
+                <g class="pi-code-plane pi-code-plane-l">
+                  <g id="pi-code-tile-l">
+                    <text class="pi-code-sigil-warm" x="3" y="20">$</text>
+                    <text class="pi-code-sigil-green" x="31" y="19">#</text>
+                    <text class="pi-code-sigil-violet" x="16" y="34">@</text>
+                    <text class="pi-code-sigil-warm" x="48" y="40">$</text>
+                    <text class="pi-code-sigil-green" x="8" y="51">#</text>
+                    <text class="pi-code-sigil-violet" x="39" y="55">@</text>
+                  </g>
+                  <use href="#pi-code-tile-l" x="-60"></use>
+                  <use href="#pi-code-tile-l" x="60"></use>
+                  <use href="#pi-code-tile-l" x="120"></use>
+                </g>
+              </g>
+            </svg>
           </div>
         </aside>
       </div>
