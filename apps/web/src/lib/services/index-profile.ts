@@ -31,6 +31,7 @@ import {
   type GistFetch,
   type GistSource,
   normalizeGistUrl,
+  parseGistLocation,
 } from "@oompf/github/gists";
 
 /** Stable machine-readable error codes returned in the JSON error envelope. */
@@ -154,6 +155,19 @@ export async function indexPublicGist(
     sourceUrl = normalizeGistUrl(source);
   } catch (error) {
     throw new IndexError("invalid_source", 400, messageOf(error));
+  }
+
+  // Reject revision-pinned references before any fetch: a Gist revision must
+  // never be written to a published profile, since the row is keyed on the
+  // revision-free canonical URL and an older revision would silently overwrite
+  // the live profile with stale bytes. Registration always indexes current head.
+  const location = parseGistLocation(source);
+  if (location.revision !== null) {
+    throw new IndexError(
+      "invalid_source",
+      400,
+      "A Gist revision cannot be registered. Provide the Gist without a pinned revision so the live profile is indexed."
+    );
   }
 
   const fetchGist = deps.fetchGist ?? fetchPublicGist;
@@ -327,27 +341,20 @@ export function toCompactProfile(record: ProfileRecord): CompactProfile {
 /** Free-text search over the index, returning compact records. */
 export async function searchIndexedProfiles(
   repository: ProfileRepository,
-  query: string
+  query: string,
+  limit?: number
 ): Promise<CompactProfile[]> {
-  const records = await repository.searchProfiles(query);
+  const records = await repository.searchProfiles(query, limit);
   return records.map(toCompactProfile);
 }
 
-/**
- * A broad term every indexed source URL contains, used to surface a sample of
- * the index on the home page. v0's repository exposes no dedicated recency
- * listing, so featured profiles reuse the search seam over the shared source
- * host; a dedicated `listRecent` is a follow-up once the schema grows one.
- */
-const FEATURED_QUERY = "gist.github.com";
-
-/** Surface a capped sample of indexed profiles for the home page. */
+/** Surface a capped sample of the most recently updated profiles. */
 export async function listFeaturedProfiles(
   repository: ProfileRepository,
   limit = 12
 ): Promise<CompactProfile[]> {
-  const records = await repository.searchProfiles(FEATURED_QUERY);
-  return records.slice(0, limit).map(toCompactProfile);
+  const records = await repository.listRecent(limit);
+  return records.map(toCompactProfile);
 }
 
 /** Fetch a single profile's metadata, or throw a `not_found` {@link IndexError}. */
