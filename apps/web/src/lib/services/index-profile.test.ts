@@ -95,6 +95,7 @@ interface RepoCalls {
   createOrUpdate: number;
   findBySource: number;
   get: number;
+  listRecent: number;
   search: number;
 }
 
@@ -113,6 +114,7 @@ function fakeRepository(): {
     createOrUpdate: 0,
     findBySource: 0,
     get: 0,
+    listRecent: 0,
     search: 0,
   };
 
@@ -204,15 +206,22 @@ function fakeRepository(): {
       calls.get++;
       return rows.get(id) ?? null;
     },
-    async searchProfiles(query) {
+    async listRecent(limit) {
+      calls.listRecent++;
+      return [...rows.values()]
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+        .slice(0, limit);
+    },
+    async searchProfiles(query, limit) {
       calls.search++;
       const q = query.trim().toLowerCase();
       if (q === "") {
-        return [];
+        return this.listRecent(limit);
       }
-      return [...rows.values()].filter((row) =>
+      const matches = [...rows.values()].filter((row) =>
         JSON.stringify(row).toLowerCase().includes(q)
       );
+      return limit === undefined ? matches : matches.slice(0, limit);
     },
   };
 
@@ -330,6 +339,48 @@ describe("indexPublicGist", () => {
     await expect(promise).rejects.toBeInstanceOf(IndexError);
     expect(fetched).toBe(false);
     expect(calls.createOrUpdate).toBe(0);
+  });
+
+  test("rejects a revision-pinned Gist before any fetch and leaves stored rows untouched", async () => {
+    const { repo, rows } = fakeRepository();
+    // Seed an existing published profile under the canonical URL.
+    const seeded = await indexPublicGist(
+      { source: SOURCE },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
+    );
+    const before = rows.get(seeded.id);
+    expect(before).toBeDefined();
+
+    let fetched = false;
+    const spyFetch: FetchPublicGist = async () => {
+      fetched = true;
+      return makeGist({ content: VALID_YAML_V2, revision: REV_B });
+    };
+
+    const pinned = `https://api.github.com/gists/${GIST_ID}/${REV_A}`;
+    const promise = indexPublicGist(
+      { source: pinned },
+      { fetchGist: spyFetch, repository: repo }
+    );
+    await promise.catch((error: IndexError) => {
+      expect(error.code).toBe("invalid_source");
+      expect(error.status).toBe(400);
+    });
+    await expect(promise).rejects.toBeInstanceOf(IndexError);
+    expect(fetched).toBe(false);
+    // No write happened: the stored row is byte-identical.
+    const after = rows.get(seeded.id);
+    expect(after).toEqual(before);
+  });
+
+  test("still registers a plain revision-free Gist", async () => {
+    const { repo } = fakeRepository();
+    const record = await indexPublicGist(
+      { source: SOURCE },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
+    );
+    expect(record.revision).toBe(REV_A);
+    expect(record.sourceUrl).toBe(CANONICAL);
   });
 
   test("is idempotent for an unchanged source", async () => {
@@ -454,10 +505,15 @@ describe("searchIndexedProfiles", () => {
     expect(results[0]?.url).toBe(`/p/${results[0]?.id}`);
   });
 
-  test("returns an empty list for an empty query", async () => {
+  test("a blank query lists the indexed profiles, newest first", async () => {
     const { repo } = fakeRepository();
+    await indexPublicGist(
+      { source: SOURCE },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
+    );
     const results = await searchIndexedProfiles(repo, "   ");
-    expect(results).toEqual([]);
+    expect(results.length).toBe(1);
+    expect(results[0]?.name).toBe("atlas");
   });
 });
 
@@ -582,5 +638,37 @@ describe("GET /api/search", () => {
     expect(json.results.length).toBe(1);
     expect(json.results[0]?.name).toBe("atlas");
     expect(json.results[0]?.url).toMatch(/^\/p\/prof_/);
+  });
+
+  test("passes an explicit limit through to the repository", async () => {
+    const { repo } = fakeRepository();
+    await indexPublicGist(
+      { source: SOURCE },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
+    );
+    // A second source sharing the "atlas" term, so both would match un-capped.
+    const secondId = "b".repeat(32);
+    await indexPublicGist(
+      { source: `https://gist.github.com/octocat/${secondId}` },
+      {
+        fetchGist: stubFetchGist(
+          makeGist({
+            gistId: secondId,
+            htmlUrl: `https://gist.github.com/octocat/${secondId}`,
+          })
+        ),
+        repository: repo,
+      }
+    );
+    const res = await callRoute(searchRoute, {
+      locals: { repository: repo } as never,
+      url: new URL("https://oompf.test/api/search?q=atlas&limit=1"),
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      results: Array<{ name: string }>;
+    };
+    expect(json.results.length).toBe(1);
+    expect(json.results[0]?.name).toBe("atlas");
   });
 });
