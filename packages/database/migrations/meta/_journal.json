@@ -15,6 +15,13 @@
       "when": 1786407658587,
       "tag": "0001_marvelous_emma_frost",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786721639330,
+      "tag": "0002_soft_delete_profiles",
+      "breakpoints": true
     }
   ]
 }
