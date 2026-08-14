@@ -67,6 +67,8 @@ export const profiles = pgTable(
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
+    /** Deleted through the removal route; `null` until then. */
+    deletedAt: timestamp("deleted_at", { mode: "date", withTimezone: true }),
     /** Normalized, source-derived facts. */
     facts: jsonb("facts").$type<ProfileFacts>().notNull(),
     /** Opaque Gist identifier when the source is a Gist, else `null`. */

@@ -74,6 +74,16 @@ export const openApiDocument = {
         ],
         type: "object",
       },
+      DeleteResponse: {
+        additionalProperties: false,
+        description: "Response of POST /api/v1/profiles/{id}/delete.",
+        properties: {
+          deleted: { const: true, type: "boolean" },
+          id: { pattern: "^prof_[0-9a-f]{32}$", type: "string" },
+        },
+        required: ["deleted", "id"],
+        type: "object",
+      },
       Error: errorSchema,
       ModelMappings: {
         additionalProperties: false,
@@ -280,18 +290,60 @@ export const openApiDocument = {
         tags: ["profiles"],
       },
     },
+    "/api/v1/profiles/{id}/delete": {
+      post: {
+        description:
+          "Soft-delete a profile so it leaves read lookups and listings while the row survives for provenance. Idempotent: re-deleting an already-deleted profile still succeeds. Like the rest of v0 this route is unauthenticated.",
+        operationId: "deleteProfile",
+        parameters: [
+          {
+            description: "Stable opaque profile id (prof_<32 hex>).",
+            in: "path",
+            name: "id",
+            required: true,
+            schema: { pattern: "^prof_[0-9a-f]{32}$", type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DeleteResponse" },
+              },
+            },
+            description: "The profile was marked deleted.",
+          },
+          "404": errorResponse("No indexed profile with that id."),
+        },
+        summary: "Delete a profile",
+        tags: ["profiles"],
+      },
+    },
     "/api/v1/search": {
       get: {
         description:
-          "Free-text search over the profile index, returning compact metadata-only summaries. Alias: GET /api/search.",
+          "Free-text search over the profile index, returning compact metadata-only summaries. A blank or omitted `q` lists the most recently updated profiles, newest first. Alias: GET /api/search.",
         operationId: "searchProfiles",
         parameters: [
           {
-            description: "Free-text query over indexed profile metadata.",
+            description:
+              "Free-text query over indexed profile metadata. Blank or omitted lists the most recently updated profiles, newest first.",
             in: "query",
             name: "q",
             required: false,
             schema: { type: "string" },
+          },
+          {
+            description: "Maximum number of results to return.",
+            in: "query",
+            name: "limit",
+            required: false,
+            schema: {
+              default: 50,
+              maximum: 100,
+              minimum: 1,
+              type: "integer",
+            },
           },
         ],
         responses: {
