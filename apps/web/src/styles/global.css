@@ -396,13 +396,43 @@ p {
   filter: drop-shadow(0 0 12px rgb(255 255 255 / 10%));
 }
 
-.pi-mark-sheen {
-  animation: pi-luminance-scan 7s ease-in-out infinite alternate;
+.pi-mark-base {
+  fill: rgb(255 255 255 / 3%);
+  stroke: #bdbdbd;
+  stroke-width: 0.55;
 }
 
-@keyframes pi-luminance-scan {
+.pi-code-row {
+  font-family: var(--font-mono);
+  font-size: 4.35px;
+  font-weight: 700;
+  letter-spacing: -0.12px;
+  fill: #d4d4d4;
+  text-rendering: optimizeSpeed;
+  animation: pi-code-drift 5.4s steps(14, end) infinite alternate;
+}
+
+.pi-code-row:nth-of-type(even) {
+  animation-direction: alternate-reverse;
+}
+
+.pi-code-prompt,
+.pi-code-output {
+  fill: #e28a4b;
+}
+
+.pi-code-meta {
+  fill: #b19bd8;
+}
+
+.pi-code-add,
+.pi-code-ok {
+  fill: #8fb9a6;
+}
+
+@keyframes pi-code-drift {
   to {
-    transform: translateX(72px);
+    transform: translateX(-16px);
   }
 }
 
@@ -1442,7 +1472,7 @@ a.tag {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pi-mark-sheen,
+  .pi-code-row,
   .pi-field::before {
     animation: none;
   }
