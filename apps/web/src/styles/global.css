@@ -373,7 +373,7 @@ p {
     28px 28px,
     5px 5px;
   opacity: 0.75;
-  animation: pi-texture-drift 14s linear infinite alternate;
+  animation: pi-texture-drift 36s linear infinite;
 }
 
 .pi-field::after {
@@ -397,48 +397,104 @@ p {
 }
 
 .pi-mark-base {
-  fill: rgb(255 255 255 / 3%);
-  stroke: #bdbdbd;
-  stroke-width: 0.55;
+  fill: rgb(255 255 255 / 2%);
+  stroke: #8f9693;
+  stroke-width: 0.45;
 }
 
-.pi-code-row {
+.pi-code-track {
+  opacity: 0.92;
+  animation: pi-code-flow 10.4s linear infinite;
+  will-change: transform;
+}
+
+.pi-code-track text {
   font-family: var(--font-mono);
-  font-size: 4.35px;
+  font-size: 4.2px;
   font-weight: 700;
-  letter-spacing: -0.12px;
-  fill: #d4d4d4;
+  letter-spacing: -0.08px;
+  fill: inherit;
   text-rendering: optimizeSpeed;
-  animation: pi-code-drift 5.4s steps(14, end) infinite alternate;
 }
 
-.pi-code-row:nth-of-type(even) {
-  animation-direction: alternate-reverse;
+.pi-code-track:nth-child(2) {
+  animation-duration: 12.2s;
+  animation-delay: -1.8s;
+}
+
+.pi-code-track:nth-child(3) {
+  animation-duration: 9.6s;
+  animation-delay: -5.2s;
+}
+
+.pi-code-track:nth-child(4) {
+  animation-duration: 13.1s;
+  animation-delay: -8.4s;
+}
+
+.pi-code-track:nth-child(5) {
+  animation-duration: 11.3s;
+  animation-delay: -3.6s;
+}
+
+.pi-code-track:nth-child(6) {
+  animation-duration: 14.2s;
+  animation-delay: -10.1s;
+}
+
+.pi-code-track:nth-child(7) {
+  animation-duration: 8.9s;
+  animation-delay: -4.7s;
+}
+
+.pi-code-track-command {
+  fill: #de965a;
+}
+
+.pi-code-track-resolve {
+  fill: #ab96ce;
+}
+
+.pi-code-track-validate {
+  fill: #83b89c;
+}
+
+.pi-code-track-gist {
+  fill: #76aebf;
+}
+
+.pi-code-track-register {
+  fill: #a493c1;
+}
+
+.pi-code-track-url {
+  fill: #72acb5;
+}
+
+.pi-code-track-indexed {
+  fill: #8bb883;
 }
 
 .pi-code-prompt,
-.pi-code-output {
-  fill: #e28a4b;
-}
-
-.pi-code-meta {
-  fill: #b19bd8;
-}
-
+.pi-code-meta,
 .pi-code-add,
-.pi-code-ok {
-  fill: #8fb9a6;
+.pi-code-ok,
+.pi-code-output {
+  fill: inherit;
 }
 
-@keyframes pi-code-drift {
+@keyframes pi-code-flow {
   to {
-    transform: translateX(-16px);
+    transform: translateX(-68px);
   }
 }
 
 @keyframes pi-texture-drift {
   to {
-    transform: translate3d(6px, 4px, 0);
+    background-position:
+      140px 140px,
+      140px 140px,
+      140px 140px;
   }
 }
 
@@ -1472,7 +1528,7 @@ a.tag {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pi-code-row,
+  .pi-code-track,
   .pi-field::before {
     animation: none;
   }
