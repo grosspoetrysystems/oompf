@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import { sha256 } from "@oompf/core";
 import {
@@ -23,6 +23,7 @@ import {
   IndexError,
   indexPublicGist,
   listFeaturedProfiles,
+  resolveRateLimiter,
   searchIndexedProfiles,
   toCompactProfile,
   toRegisterResponse,
@@ -736,6 +737,34 @@ describe("POST /api/profiles", () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { id: string };
     expect(json.id).toMatch(/^prof_/);
+  });
+});
+
+describe("resolveRateLimiter", () => {
+  const WARN_MESSAGE =
+    "rate-limit binding absent; POST /api/v1/profiles is unmetered";
+
+  test("returns nullish and warns when no binding is present", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const limiter = await resolveRateLimiter({} as never);
+      expect(limiter).toBeNull();
+      expect(warn).toHaveBeenCalledWith(WARN_MESSAGE);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("returns the injected binding without warning", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const rateLimiter = { limit: async () => ({ success: true }) };
+      const resolved = await resolveRateLimiter({ rateLimiter } as never);
+      expect(resolved).toBe(rateLimiter);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
