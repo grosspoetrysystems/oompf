@@ -30,8 +30,12 @@ export function createNeonDatabase(connectionString: string): ProfileDatabase {
 }
 
 export {
+  type Cursor,
   createProfileRepository,
+  decodeCursor,
   deriveProfileId,
+  encodeCursor,
+  type Page,
   type ProfileDatabase,
   type ProfileRecord,
   type ProfileRepository,

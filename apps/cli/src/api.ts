@@ -42,6 +42,8 @@ export interface CompactProfile {
 
 /** Response body of `GET /api/search`. */
 export interface SearchResponse {
+  /** Opaque keyset cursor for the next page, or `null` when this is the last. */
+  readonly nextCursor: string | null;
   readonly query: string;
   readonly results: readonly CompactProfile[];
 }
@@ -160,9 +162,13 @@ export async function fetchProfileMetadata(
 export async function searchProfiles(
   baseUrl: string,
   query: string,
-  fetchImpl: HttpFetch
+  fetchImpl: HttpFetch,
+  cursor?: string | null
 ): Promise<SearchResponse> {
-  const url = joinUrl(baseUrl, `/api/v1/search?q=${encodeURIComponent(query)}`);
+  let url = joinUrl(baseUrl, `/api/v1/search?q=${encodeURIComponent(query)}`);
+  if (cursor) {
+    url += `&cursor=${encodeURIComponent(cursor)}`;
+  }
   const response = await request(fetchImpl, url, { method: "GET" });
   if (!response.ok) {
     throw await envelopeError(response, "search_failed");

@@ -104,6 +104,10 @@ export const searchResult = z.object({
 /** `search` result: the query plus its compact matches. */
 export const searchOutput = z.object({
   count: z.number(),
+  nextCursor: z
+    .string()
+    .nullable()
+    .describe("Opaque cursor for the next page, or null on the last page"),
   query: z.string(),
   results: z.array(searchResult),
 });

@@ -8,7 +8,9 @@ import {
   clampLimit,
   createProfileRepository,
   DEFAULT_SEARCH_LIMIT,
+  decodeCursor,
   deriveProfileId,
+  encodeCursor,
   MAX_SEARCH_LIMIT,
   type ProfileDatabase,
   type ProfileRecord,
@@ -371,15 +373,21 @@ describe("softDeleteProfile", () => {
     const record = await repo.createOrUpdateProfile(
       registerInput(PROFILE_YAML)
     );
-    expect((await repo.listRecent()).map((r) => r.id)).toContain(record.id);
+    expect((await repo.listRecent()).items.map((r) => r.id)).toContain(
+      record.id
+    );
     expect(
-      (await repo.searchProfiles(record.profileName)).length
+      (await repo.searchProfiles(record.profileName)).items.length
     ).toBeGreaterThan(0);
 
     await repo.softDeleteProfile(record.id);
 
-    expect((await repo.listRecent()).map((r) => r.id)).not.toContain(record.id);
-    expect(await repo.searchProfiles(record.profileName)).toHaveLength(0);
+    expect((await repo.listRecent()).items.map((r) => r.id)).not.toContain(
+      record.id
+    );
+    expect((await repo.searchProfiles(record.profileName)).items).toHaveLength(
+      0
+    );
   });
 });
 
@@ -415,9 +423,9 @@ describe("searchProfiles", () => {
     test(`matches on ${label}`, async () => {
       const repo = await seeded();
       const results = await repo.searchProfiles(query);
-      expect(results.map((r) => r.profileName)).toContain(expectedName);
+      expect(results.items.map((r) => r.profileName)).toContain(expectedName);
       expect(
-        results.every((r) => r.profileName !== otherThan(expectedName))
+        results.items.every((r) => r.profileName !== otherThan(expectedName))
       ).toBe(true);
     });
   }
@@ -431,11 +439,12 @@ describe("searchProfiles", () => {
     const { repo, db } = await freshRepo();
     const records = await seedRecent(db, repo, 3);
     const results = await repo.searchProfiles("   ");
-    expect(results.map((r) => r.id)).toEqual([
+    expect(results.items.map((r) => r.id)).toEqual([
       records[2]!.id,
       records[1]!.id,
       records[0]!.id,
     ]);
+    expect(results.nextCursor).toBeNull();
   });
 
   test("a non-blank query never exceeds the requested limit", async () => {
@@ -443,13 +452,28 @@ describe("searchProfiles", () => {
     // Register four profiles whose names all match the "pr-" term.
     await seedRecent(db, repo, 4);
     const results = await repo.searchProfiles("pr-", 2);
-    expect(results).toHaveLength(2);
+    expect(results.items).toHaveLength(2);
   });
 
   test("treats LIKE wildcards as literals", async () => {
     const repo = await seeded();
     // '%' would match everything if unescaped; escaped, it matches nothing.
-    expect(await repo.searchProfiles("%")).toEqual([]);
+    expect((await repo.searchProfiles("%")).items).toEqual([]);
+  });
+
+  test("pages through a search without duplicates or gaps", async () => {
+    const { repo, db } = await freshRepo();
+    // Every seeded profile's name matches "pr-", so all 7 are searchable.
+    const records = await seedRecent(db, repo, 7);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const page = await repo.searchProfiles("pr-", 3, cursor);
+      seen.push(...page.items.map((r) => r.id));
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+    expect(seen).toEqual([...records].reverse().map((r) => r.id));
+    expect(seen).toHaveLength(7);
   });
 });
 
@@ -458,7 +482,103 @@ describe("listRecent", () => {
     const { repo, db } = await freshRepo();
     const records = await seedRecent(db, repo, 4);
     const results = await repo.listRecent(2);
-    expect(results.map((r) => r.id)).toEqual([records[3]!.id, records[2]!.id]);
+    expect(results.items.map((r) => r.id)).toEqual([
+      records[3]!.id,
+      records[2]!.id,
+    ]);
+  });
+
+  test("pages through the whole set without duplicates or gaps", async () => {
+    const { repo, db } = await freshRepo();
+    const records = await seedRecent(db, repo, 7);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page = await repo.listRecent(3, cursor);
+      seen.push(...page.items.map((r) => r.id));
+      cursor = page.nextCursor;
+      pages++;
+    } while (cursor !== null);
+    // Exactly the full set, newest first, each row exactly once.
+    expect(seen).toEqual([...records].reverse().map((r) => r.id));
+    expect(seen).toHaveLength(7);
+    expect(new Set(seen).size).toBe(7);
+    // 7 rows at 3 per page = 3 pages (3+3+1).
+    expect(pages).toBe(3);
+  });
+
+  test("pages a shared-updatedAt tie group in id-desc order without dup or gap", async () => {
+    const { repo, db } = await freshRepo();
+    const records = await seedRecent(db, repo, 5);
+    // Collapse every row to one identical updatedAt so ordering reduces to the
+    // id tie-break — the exact case the (updatedAt, id) total order exists for.
+    await db
+      .update(profiles)
+      .set({ updatedAt: new Date(Date.UTC(2026, 5, 1)) });
+    const expected = records.map((r) => r.id).sort((a, b) => (a < b ? 1 : -1)); // id DESC, matching RECENT_ORDER
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      // limit 2 over 5 tied rows cuts the tie group at page boundaries.
+      const page = await repo.listRecent(2, cursor);
+      seen.push(...page.items.map((r) => r.id));
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+
+    expect(seen).toEqual(expected);
+    expect(new Set(seen).size).toBe(5);
+  });
+
+  test("returns a null nextCursor on the last page", async () => {
+    const { repo, db } = await freshRepo();
+    await seedRecent(db, repo, 2);
+    const page = await repo.listRecent(5);
+    expect(page.items).toHaveLength(2);
+    expect(page.nextCursor).toBeNull();
+  });
+});
+
+describe("cursor encoding", () => {
+  test("encodeCursor/decodeCursor round-trip a row position", () => {
+    const row = {
+      id: "prof_abc",
+      updatedAt: new Date("2026-08-08T00:00:00.000Z"),
+    };
+    const encoded = encodeCursor(row);
+    expect(decodeCursor(encoded)).toEqual({
+      i: row.id,
+      u: row.updatedAt.toISOString(),
+    });
+  });
+
+  test("decodeCursor tolerates malformed or invalid values", () => {
+    expect(decodeCursor(null)).toBeNull();
+    expect(decodeCursor(undefined)).toBeNull();
+    expect(decodeCursor("")).toBeNull();
+    expect(decodeCursor("not-base64!!")).toBeNull();
+    expect(decodeCursor(btoa("not json"))).toBeNull();
+    expect(
+      decodeCursor(btoa(JSON.stringify({ i: "x", u: "not-a-date" })))
+    ).toBeNull();
+    expect(decodeCursor(btoa(JSON.stringify({})))).toBeNull();
+  });
+
+  test("listRecent treats a malformed cursor as a fresh first page", async () => {
+    const { repo, db } = await freshRepo();
+    const records = await seedRecent(db, repo, 3);
+    for (const bad of [
+      "not-base64!!",
+      btoa("{}"),
+      btoa(JSON.stringify({ i: "x", u: "nope" })),
+    ]) {
+      const page = await repo.listRecent(2, bad);
+      expect(page.items.map((r) => r.id)).toEqual([
+        records[2]!.id,
+        records[1]!.id,
+      ]);
+    }
   });
 });
 

@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import { sha256 } from "@oompf/core";
 import {
+  decodeCursor,
   deriveProfileId,
+  encodeCursor,
   type ProfileRecord,
   type ProfileRepository,
   type RegisterProfileInput,
@@ -20,6 +22,7 @@ import {
   getProfileMetadata,
   IndexError,
   indexPublicGist,
+  listFeaturedProfiles,
   searchIndexedProfiles,
   toCompactProfile,
   toRegisterResponse,
@@ -207,26 +210,75 @@ function fakeRepository(): {
       calls.get++;
       return rows.get(id) ?? null;
     },
-    async listRecent(limit) {
+    async listRecent(limit, cursor) {
       calls.listRecent++;
-      return [...rows.values()]
-        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-        .slice(0, limit);
+      return slicePage(
+        sortNewestFirst([...rows.values()]),
+        limit ?? DEFAULT_LIMIT,
+        cursor
+      );
     },
-    async searchProfiles(query, limit) {
+    async searchProfiles(query, limit, cursor) {
       calls.search++;
       const q = query.trim().toLowerCase();
-      if (q === "") {
-        return this.listRecent(limit);
-      }
-      const matches = [...rows.values()].filter((row) =>
-        JSON.stringify(row).toLowerCase().includes(q)
-      );
-      return limit === undefined ? matches : matches.slice(0, limit);
+      const base =
+        q === ""
+          ? [...rows.values()]
+          : [...rows.values()].filter((row) =>
+              JSON.stringify(row).toLowerCase().includes(q)
+            );
+      return slicePage(sortNewestFirst(base), limit ?? DEFAULT_LIMIT, cursor);
     },
   };
 
   return { calls, repo, rows };
+}
+
+/**
+ * Mirror the repository's cursor semantics: newest first on the
+ * (updatedAt DESC, id DESC) total order, one page of `limit`, with the opaque
+ * keyset cursor for the next page. Kept in lockstep with the real repository so
+ * the route-level paging/`nextCursor` contract is exercised hermetically.
+ */
+const DEFAULT_LIMIT = 50;
+
+function sortNewestFirst<T extends { id: string; updatedAt: Date | string }>(
+  rows: T[]
+): T[] {
+  return rows.sort((a, b) => {
+    const aU =
+      a.updatedAt instanceof Date
+        ? a.updatedAt.getTime()
+        : Date.parse(a.updatedAt);
+    const bU =
+      b.updatedAt instanceof Date
+        ? b.updatedAt.getTime()
+        : Date.parse(b.updatedAt);
+    return bU - aU || (a.id < b.id ? 1 : -1);
+  });
+}
+
+function slicePage<T extends { id: string; updatedAt: Date | string }>(
+  sorted: T[],
+  limit: number,
+  cursor: string | null | undefined
+): { items: T[]; nextCursor: string | null } {
+  const take = Math.max(1, Math.floor(limit));
+  const dec = typeof cursor === "string" ? decodeCursor(cursor) : null;
+  const eligible =
+    dec === null
+      ? sorted
+      : sorted.filter((r) => {
+          const u =
+            r.updatedAt instanceof Date
+              ? r.updatedAt.toISOString()
+              : r.updatedAt;
+          return u < dec.u || (u === dec.u && r.id < dec.i);
+        });
+  const hasMore = eligible.length > take;
+  const items = hasMore ? eligible.slice(0, take) : eligible;
+  const last = items.at(-1);
+  return { items, nextCursor: hasMore && last ? encodeCursor(last) : null };
 }
 
 /** Invoke an Astro route handler with a minimal synthetic context. */
@@ -500,21 +552,77 @@ describe("searchIndexedProfiles", () => {
       { source: SOURCE },
       { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
-    const results = await searchIndexedProfiles(repo, "atlas");
+    const { results, nextCursor } = await searchIndexedProfiles(repo, "atlas");
     expect(results.length).toBe(1);
     expect(results[0]?.name).toBe("atlas");
     expect(results[0]?.url).toBe(`/p/${results[0]?.id}`);
+    expect(nextCursor).toBeNull();
   });
 
-  test("a blank query lists the indexed profiles, newest first", async () => {
+  test("a blank query lists the indexed profiles, newest first, with a nextCursor", async () => {
+    const { repo } = fakeRepository();
+    // Seed more than one page (default 50) so a nextCursor is produced.
+    for (let i = 0; i < 52; i++) {
+      const seedId = i.toString(16).padStart(32, "0");
+      await indexPublicGist(
+        { source: `https://gist.github.com/octocat/${seedId}` },
+        {
+          fetchGist: stubFetchGist(
+            makeGist({
+              gistId: seedId,
+              htmlUrl: `https://gist.github.com/octocat/${seedId}`,
+            })
+          ),
+          repository: repo,
+        }
+      );
+    }
+    const { results, nextCursor } = await searchIndexedProfiles(repo, "   ");
+    expect(results.length).toBe(50);
+    expect(typeof nextCursor).toBe("string");
+    expect(nextCursor!.length).toBeGreaterThan(0);
+  });
+});
+
+describe("listFeaturedProfiles", () => {
+  test("is an honest recency slice: at most 5, newest first", async () => {
+    const { repo, rows } = fakeRepository();
+    for (let i = 0; i < 8; i++) {
+      const seedId = i.toString(32).padStart(32, "0");
+      const record = await indexPublicGist(
+        { source: `https://gist.github.com/octocat/${seedId}` },
+        {
+          fetchGist: stubFetchGist(
+            makeGist({
+              gistId: seedId,
+              htmlUrl: `https://gist.github.com/octocat/${seedId}`,
+            })
+          ),
+          repository: repo,
+        }
+      );
+      // Space the update times apart so the recency order is well-defined.
+      const row = rows.get(record.id)!;
+      rows.set(record.id, {
+        ...row,
+        updatedAt: new Date(Date.UTC(2026, 0, i + 1)),
+      });
+    }
+    const featured = await listFeaturedProfiles(repo);
+    expect(featured.length).toBe(5);
+    // Descending by updatedAt.
+    const stamps = featured.map((p) => Date.parse(p.updatedAt));
+    expect(stamps).toEqual([...stamps].sort((a, b) => b - a));
+  });
+
+  test("returns fewer than five when the index is small", async () => {
     const { repo } = fakeRepository();
     await indexPublicGist(
       { source: SOURCE },
       { fetchGist: stubFetchGist(makeGist()), repository: repo }
     );
-    const results = await searchIndexedProfiles(repo, "   ");
-    expect(results.length).toBe(1);
-    expect(results[0]?.name).toBe("atlas");
+    const featured = await listFeaturedProfiles(repo);
+    expect(featured.length).toBe(1);
   });
 });
 
@@ -662,7 +770,7 @@ describe("GET /api/profiles/:id", () => {
 });
 
 describe("GET /api/search", () => {
-  test("returns { query, results } with compact records", async () => {
+  test("returns { query, results, nextCursor } with compact records", async () => {
     const { repo } = fakeRepository();
     await indexPublicGist(
       { source: SOURCE },
@@ -675,12 +783,103 @@ describe("GET /api/search", () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       query: string;
+      nextCursor: string | null;
       results: Array<{ name: string; url: string }>;
     };
     expect(json.query).toBe("atlas");
     expect(json.results.length).toBe(1);
     expect(json.results[0]?.name).toBe("atlas");
     expect(json.results[0]?.url).toMatch(/^\/p\/prof_/);
+    expect(json.nextCursor).toBeNull();
+  });
+
+  test("pages with a cursor and returns the next page's nextCursor", async () => {
+    const { repo } = fakeRepository();
+    for (let i = 0; i < 5; i++) {
+      const seedId = i.toString(32).padStart(32, "0");
+      await indexPublicGist(
+        { source: `https://gist.github.com/octocat/${seedId}` },
+        {
+          fetchGist: stubFetchGist(
+            makeGist({
+              gistId: seedId,
+              htmlUrl: `https://gist.github.com/octocat/${seedId}`,
+            })
+          ),
+          repository: repo,
+        }
+      );
+    }
+    const first = await callRoute(searchRoute, {
+      locals: { repository: repo } as never,
+      url: new URL("https://oompf.test/api/search?q=&limit=2"),
+    });
+    const { nextCursor, results: firstPage } = (await first.json()) as {
+      nextCursor: string;
+      results: Array<{ id: string }>;
+    };
+    expect(firstPage).toHaveLength(2);
+    expect(typeof nextCursor).toBe("string");
+
+    const seen = new Set(firstPage.map((r) => r.id));
+    let cursor: string | null = nextCursor;
+    do {
+      const res = await callRoute(searchRoute, {
+        locals: { repository: repo } as never,
+        url: new URL(
+          `https://oompf.test/api/search?q=&limit=2&cursor=${encodeURIComponent(cursor)}`
+        ),
+      });
+      const json = (await res.json()) as {
+        nextCursor: string | null;
+        results: Array<{ id: string }>;
+      };
+      // Overlapping cursor pages must never repeat a row.
+      for (const r of json.results) {
+        expect(seen.has(r.id)).toBe(false);
+        seen.add(r.id);
+      }
+      cursor = json.nextCursor;
+    } while (cursor !== null);
+
+    // 5 rows at 2 per page, each exactly once, terminating on the last page.
+    expect(seen.size).toBe(5);
+  });
+
+  test("the final page's nextCursor is null", async () => {
+    const { repo } = fakeRepository();
+    for (let i = 0; i < 5; i++) {
+      const seedId = i.toString(16).padStart(32, "0");
+      await indexPublicGist(
+        { source: `https://gist.github.com/octocat/${seedId}` },
+        {
+          fetchGist: stubFetchGist(
+            makeGist({
+              gistId: seedId,
+              htmlUrl: `https://gist.github.com/octocat/${seedId}`,
+            })
+          ),
+          repository: repo,
+        }
+      );
+    }
+    const res = await callRoute(searchRoute, {
+      locals: { repository: repo } as never,
+      url: new URL("https://oompf.test/api/search?q=&limit=10"),
+    });
+    const json = (await res.json()) as { nextCursor: string | null };
+    expect(json.nextCursor).toBeNull();
+  });
+
+  test("rejects a malformed cursor with a 400 error envelope", async () => {
+    const { repo } = fakeRepository();
+    const res = await callRoute(searchRoute, {
+      locals: { repository: repo } as never,
+      url: new URL("https://oompf.test/api/search?q=atlas&cursor=not-base64!!"),
+    });
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe("invalid_cursor");
   });
 
   test("passes an explicit limit through to the repository", async () => {

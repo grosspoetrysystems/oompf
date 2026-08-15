@@ -143,7 +143,11 @@ export function apiFetch(
     ) {
       return (
         routes.search ??
-        jsonResponse(200, { query: "", results: [compactProfile()] })
+        jsonResponse(200, {
+          nextCursor: null,
+          query: "",
+          results: [compactProfile()],
+        })
       );
     }
     return jsonResponse(404, "not found");

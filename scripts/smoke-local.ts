@@ -168,8 +168,11 @@ export async function runLocalSmoke(): Promise<SmokeSummary> {
         method === "GET"
       ) {
         const query = parsed.searchParams.get("q") ?? "";
-        const results = await searchIndexedProfiles(repository, query);
-        return jsonResponse(200, { query, results });
+        const { results, nextCursor } = await searchIndexedProfiles(
+          repository,
+          query
+        );
+        return jsonResponse(200, { nextCursor, query, results });
       }
 
       return jsonResponse(404, {
