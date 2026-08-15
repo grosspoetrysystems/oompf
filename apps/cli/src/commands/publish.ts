@@ -195,7 +195,12 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
               ...registration.validation.warnings,
             ],
           },
-          { cta: { commands: [addCommand], description: "Install it with:" } }
+          {
+            cta: {
+              commands: [{ command: addCommand }],
+              description: "Install it with:",
+            },
+          }
         );
       } catch (error) {
         return toCliError(c.error, error);

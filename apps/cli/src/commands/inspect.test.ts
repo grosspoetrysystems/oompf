@@ -55,6 +55,17 @@ describe("inspect", () => {
     expect(result.installCommand).toBe(`oompf add ${OOMPF_URL}`);
   });
 
+  test("emits the install CTA exactly once, not doubled", async () => {
+    const { out } = await runCli(inspectDeps(), [
+      "inspect",
+      OOMPF_URL,
+      "--json",
+    ]);
+    const result = JSON.parse(out);
+    expect(result.cta.commands[0].command).toBe(`oompf add ${OOMPF_URL}`);
+    expect(JSON.stringify(result)).not.toContain("oompf oompf");
+  });
+
   test("maps a metadata API 404 to a nonzero exit", async () => {
     const deps = inspectDeps({
       httpFetch: apiFetch({
