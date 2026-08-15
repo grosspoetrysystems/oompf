@@ -11,6 +11,11 @@ import "../styles/global.css";
 
 interface Props {
   description?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  ogTitle?: string;
+  ogType?: string;
+  ogUrl?: string;
   title?: string;
 }
 
@@ -18,6 +23,14 @@ const {
   title = "OOMPF — the public index for OMP profiles",
   description = "Discover, inspect, and install community OMP (Oh My Pi) profiles published as public GitHub Gists.",
 } = Astro.props;
+
+// Open Graph / Twitter meta. Every value has a sensible fallback so any page
+// can override just the fields it needs (the profile page sets them all).
+const ogTitle = Astro.props.ogTitle ?? title;
+const ogDescription = Astro.props.ogDescription ?? description;
+const ogUrl = Astro.props.ogUrl ?? Astro.url;
+const ogType = Astro.props.ogType ?? "website";
+const ogImage = Astro.props.ogImage;
 
 const q = Astro.url.searchParams.get("q") ?? "";
 const path = Astro.url.pathname;
@@ -32,6 +45,15 @@ const inIndex = path === "/" || path.startsWith("/p/");
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <meta content={description} name="description">
     <title>{title}</title>
+    <meta content={ogUrl} property="og:url">
+    <meta content={ogType} property="og:type">
+    <meta content={ogTitle} property="og:title">
+    <meta content={ogDescription} property="og:description">
+    {ogImage !== undefined && <meta content={ogImage} property="og:image" />}
+    <meta content="summary_large_image" name="twitter:card">
+    <meta content={ogTitle} name="twitter:title">
+    <meta content={ogDescription} name="twitter:description">
+    {ogImage !== undefined && <meta content={ogImage} name="twitter:image" />}
     <link href="/favicon.ico" rel="icon" sizes="any">
     <link href="/favicon-32x32.png" rel="icon" sizes="32x32" type="image/png">
     <link href="/favicon-16x16.png" rel="icon" sizes="16x16" type="image/png">
