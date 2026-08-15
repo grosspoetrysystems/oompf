@@ -1,0 +1,22 @@
+# Codex-only — single provider (OpenAI Codex), differentiated by task. Runs in any
+# OpenAI-only harness (e.g. Codex) as well as omp/pi.
+symbolPreset: default
+defaultThinkingLevel: medium
+modelRoles:
+  default: openai-codex/gpt-5.6-luna
+  task: openai-codex/gpt-5.6-luna
+  plan: openai-codex/gpt-5.6-luna:max
+  slow: openai-codex/gpt-5.6-luna:max
+  smol: openai-codex/gpt-5.5
+  commit: openai-codex/gpt-5.5
+advisor:
+  enabled: true
+oompf:
+  kind: general
+  summary: >-
+    One provider, differentiated by task — the max-reasoning tier for planning,
+    the standard tier for the everyday, a cheaper tier for chores. All OpenAI
+    Codex, so it runs in a single-provider harness (Codex) as well as omp/pi.
+    Reach for it when you are all-in on one provider but still want per-task
+    model selection.
+  tags: [single-provider, openai, codex, task-routing]

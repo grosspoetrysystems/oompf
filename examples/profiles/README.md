@@ -15,8 +15,15 @@ private setup; adjust model names to what you actually run.
 | `max-quality` | general | No compromises, cost is not the constraint | Opus | GPT-5.6 | Gemini + security pass | Sonnet | xhigh | on | default |
 | `budget` | budget | Maximize throughput per dollar | DeepSeek Flash | Kimi | GLM | local | low | off | — |
 | `research` | research | Understand deeply over shipping fast | GPT-5.6 | Opus | — | Haiku | high | on | — |
+| `claude-only` | general | Single provider (Anthropic), differentiated by task | Sonnet | Opus | — | Haiku | medium | on | — |
+| `codex-only` | general | Single provider (OpenAI Codex), differentiated by task | gpt-5.6-luna | luna:max | — | gpt-5.5 | medium | on | — |
 
-The axes that differentiate them: model-per-role, local vs hosted execution,
+The axes that differentiate them: model-per-task, local vs hosted execution,
 cost/speed tier, `defaultThinkingLevel`, `advisor` on/off, and `retry.fallbackChains`.
+
+`claude-only` and `codex-only` are deliberately **single-provider**: the unit is
+the task, not the provider, so a profile whose tasks all resolve within one
+provider is first-class — not a degraded multi-provider one. This is the
+conformance principle behind the interoperability work (GPS-154 / GPS-156).
 
 Design rationale: the [Pi-native profiles design](https://linear.app/grosspoetrysystems/document/pi-native-profiles-bringing-omp-profiles-to-upstream-pi-no-fork-0723354546a4).
