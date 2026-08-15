@@ -177,7 +177,57 @@ describe("add", () => {
     );
     expect(warning).toBeDefined();
     // The warning names only the key path — never the referenced value.
-    expect(out).not.toContain("DB_PASSWORD");
+    expect(warning).not.toContain("DB_PASSWORD");
+    // Prerequisites legitimately surface the environment-variable *name*
+    // (value-free guidance), but the raw placeholder is never echoed.
+    expect(
+      result.prerequisites.some(
+        (p: { kind: string; name: string }) =>
+          p.kind === "environment" && p.name === "DB_PASSWORD"
+      )
+    ).toBe(true);
+    expect(out).not.toContain("${DB_PASSWORD}");
+  });
+
+  test("surfaces the profile's prerequisites in JSON and human output", async () => {
+    const { deps, store } = addDeps();
+    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    expect(code).toBeUndefined();
+    expect(store.writes).toHaveLength(1);
+    const result = JSON.parse(out);
+    // The extracted prerequisite is surfaced value-free (name and kind, no
+    // credentials or config values).
+    expect(result.prerequisites).toEqual([
+      {
+        kind: "provider",
+        name: "anthropic",
+        reason:
+          'Provider "anthropic" requires credentials or configuration in the local runtime.',
+      },
+    ]);
+
+    const human = await runCli(addDeps().deps, ["add", GIST_HTML]);
+    expect(human.code).toBeUndefined();
+    expect(human.out).toContain("prerequisites");
+    expect(human.out).toContain("anthropic");
+  });
+
+  test("adds no prerequisite noise for a profile without prerequisites", async () => {
+    const none = gistFetch("symbolPreset: default\n");
+    const { deps, store } = addDeps({ gistFetch: none });
+    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    expect(code).toBeUndefined();
+    expect(store.writes).toHaveLength(1);
+    const result = JSON.parse(out);
+    expect(result.prerequisites).toBeUndefined();
+    expect(out).not.toContain("prerequisite");
+
+    const human = await runCli(addDeps({ gistFetch: none }).deps, [
+      "add",
+      GIST_HTML,
+    ]);
+    expect(human.code).toBeUndefined();
+    expect(human.out).not.toContain("prerequisite");
   });
 
   test("maps a metadata API 404 to a nonzero exit", async () => {

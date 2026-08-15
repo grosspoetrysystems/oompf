@@ -44,12 +44,25 @@ export const publishOutput = z.object({
   warnings: z.array(z.string()),
 });
 
+/** A single machine-local prerequisite the installed profile needs. */
+const prerequisite = z.object({
+  kind: z.enum(["provider", "environment", "project-overlay", "extension"]),
+  name: z.string(),
+  reason: z.string(),
+});
+
 /** `add` result: the installed profile and how to run it. */
 export const addOutput = z.object({
   command: z.string().describe("Command to run OMP with this profile"),
   hash: z.string().describe("SHA-256 of the installed artifact"),
   name: z.string().describe("Local OMP profile name installed"),
   path: z.string().describe("Config file written"),
+  prerequisites: z
+    .array(prerequisite)
+    .optional()
+    .describe(
+      "Profiles' machine-local prerequisites (names and kinds only, never secret values); informational, install succeeds regardless"
+    ),
   revision: z.string().nullable(),
   source: z.string().describe("Resolved canonical source"),
   warnings: z.array(z.string()),
