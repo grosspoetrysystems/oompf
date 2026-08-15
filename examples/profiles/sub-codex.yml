@@ -1,4 +1,4 @@
-# Codex-only — single provider (OpenAI Codex), differentiated by task. Runs in any
+# sub-codex (single OpenAI Codex subscription) — single provider (OpenAI Codex), differentiated by task. Runs in any
 # OpenAI-only harness (e.g. Codex) as well as omp/pi.
 symbolPreset: default
 defaultThinkingLevel: medium
