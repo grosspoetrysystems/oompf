@@ -14,6 +14,7 @@ import type { APIRoute } from "astro";
 
 import {
   jsonResponse,
+  READ_CACHE_CONTROL,
   toErrorEnvelope,
 } from "../../../../lib/services/index-profile.ts";
 
@@ -21,7 +22,11 @@ export const prerender = false;
 
 export const GET: APIRoute = () => {
   try {
-    return jsonResponse(200, { providers: listProviderLinks() });
+    return jsonResponse(
+      200,
+      { providers: listProviderLinks() },
+      READ_CACHE_CONTROL
+    );
   } catch (error) {
     const { status, body } = toErrorEnvelope(error);
     return jsonResponse(status, body);

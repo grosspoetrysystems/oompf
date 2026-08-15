@@ -11,6 +11,7 @@ import {
 } from "@oompf/database";
 import type { GistSource } from "@oompf/github/gists";
 import type { APIContext } from "astro";
+import { GET as providersRoute } from "../../pages/api/mappings/providers.ts";
 import { GET as getProfileRoute } from "../../pages/api/profiles/[id].ts";
 import { POST } from "../../pages/api/profiles.ts";
 import { GET as searchRoute } from "../../pages/api/search.ts";
@@ -712,5 +713,57 @@ describe("GET /api/search", () => {
     };
     expect(json.results.length).toBe(1);
     expect(json.results[0]?.name).toBe("atlas");
+  });
+});
+
+describe("cache-control", () => {
+  const READ_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=60";
+
+  test("advertises READ_CACHE_CONTROL on successful reads", async () => {
+    const { repo } = fakeRepository();
+    await indexPublicGist(
+      { source: SOURCE },
+      { fetchGist: stubFetchGist(makeGist()), repository: repo }
+    );
+    const res = await callRoute(searchRoute, {
+      locals: { repository: repo } as never,
+      url: new URL("https://oompf.test/api/search?q=atlas"),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe(READ_CACHE_CONTROL);
+  });
+
+  test("advertises READ_CACHE_CONTROL on pure curated mapping reads", async () => {
+    const res = await callRoute(providersRoute, {});
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe(READ_CACHE_CONTROL);
+  });
+
+  test("never caches read error envelopes", async () => {
+    const { repo } = fakeRepository();
+    const res = await callRoute(getProfileRoute, {
+      locals: { repository: repo } as never,
+      params: { id: "prof_missing" },
+    });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  test("never caches POST registration", async () => {
+    const { repo } = fakeRepository();
+    const request = new Request("https://oompf.test/api/profiles", {
+      body: JSON.stringify({ ompVersion: "0.3.1", source: SOURCE }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const res = await callRoute(POST, {
+      locals: {
+        fetchGist: stubFetchGist(makeGist()),
+        repository: repo,
+      } as never,
+      request,
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
   });
 });

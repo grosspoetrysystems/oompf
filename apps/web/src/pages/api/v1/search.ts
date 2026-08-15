@@ -13,6 +13,7 @@ import type { APIRoute } from "astro";
 import {
   type AppLocals,
   jsonResponse,
+  READ_CACHE_CONTROL,
   resolveRepository,
   searchIndexedProfiles,
   toErrorEnvelope,
@@ -33,7 +34,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         ? Number(rawLimit)
         : undefined;
     const results = await searchIndexedProfiles(repository, query, limit);
-    return jsonResponse(200, { query, results });
+    return jsonResponse(200, { query, results }, READ_CACHE_CONTROL);
   } catch (error) {
     const { status, body } = toErrorEnvelope(error);
     return jsonResponse(status, body);
