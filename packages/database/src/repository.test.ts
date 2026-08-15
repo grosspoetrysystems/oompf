@@ -349,6 +349,38 @@ describe("softDeleteProfile", () => {
 
     expect(await repo.softDeleteProfile("prof_does_not_exist")).toBeNull();
   });
+
+  test("re-registering a withdrawn source revives its row instead of erroring", async () => {
+    const { repo } = await freshRepo();
+    const first = await repo.createOrUpdateProfile(registerInput(PROFILE_YAML));
+    await repo.softDeleteProfile(first.id);
+    expect(await repo.getProfile(first.id)).toBeNull();
+
+    const revived = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+
+    expect(revived.id).toBe(first.id);
+    expect(revived.deletedAt).toBeNull();
+    expect(revived.createdAt.getTime()).toBe(first.createdAt.getTime());
+    expect(await repo.getProfile(first.id)).not.toBeNull();
+  });
+
+  test("excludes soft-deleted rows from search and the recent listing", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    expect((await repo.listRecent()).map((r) => r.id)).toContain(record.id);
+    expect(
+      (await repo.searchProfiles(record.profileName)).length
+    ).toBeGreaterThan(0);
+
+    await repo.softDeleteProfile(record.id);
+
+    expect((await repo.listRecent()).map((r) => r.id)).not.toContain(record.id);
+    expect(await repo.searchProfiles(record.profileName)).toHaveLength(0);
+  });
 });
 
 describe("searchProfiles", () => {

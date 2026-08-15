@@ -245,7 +245,15 @@ export function createProfileRepository(
   ): Promise<ProfileRecord> {
     const id = deriveProfileId(input.sourceUrl);
     const revision = input.revision ?? null;
-    const existing = await findBySource(input.sourceUrl);
+    // Look up by id (deterministic from the source URL) WITHOUT the deleted
+    // filter, so re-registering a previously withdrawn source revives its row
+    // instead of colliding with the surviving tombstone on a fresh insert.
+    const existingRows = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, id))
+      .limit(1);
+    const existing = existingRows[0] ?? null;
 
     // Everything registration is allowed to change, in one place. Comparing the
     // whole set is what makes the no-op case honest: an earlier version only
@@ -270,12 +278,12 @@ export function createProfileRepository(
       const changed = (Object.keys(desired) as (keyof typeof desired)[]).filter(
         (key) => !sameStoredValue(existing[key], desired[key])
       );
-      if (changed.length === 0) {
+      if (changed.length === 0 && existing.deletedAt === null) {
         return existing;
       }
       const updated = await db
         .update(profiles)
-        .set({ ...desired, updatedAt: new Date() })
+        .set({ ...desired, deletedAt: null, updatedAt: new Date() })
         .where(eq(profiles.id, existing.id))
         .returning();
       const row = updated[0];
