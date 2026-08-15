@@ -1,0 +1,20 @@
+# Budget — minimize spend with cheap API and open-weight models.
+symbolPreset: default
+defaultThinkingLevel: low
+modelRoles:
+  default: deepseek/deepseek-v4-flash
+  task: deepseek/deepseek-v4-flash
+  smol: ollama/qwen3.6
+  commit: ollama/qwen3.6
+  plan: moonshotai/kimi-k2.6
+  reviewer: z-ai/glm-5.2
+advisor:
+  enabled: false
+oompf:
+  kind: budget
+  summary: >-
+    The cheapest way to keep working — DeepSeek Flash for the bulk, a local
+    model for chores, Kimi for planning, GLM for review. Reach for it on
+    high-volume, low-stakes work where throughput per dollar matters more than
+    peak quality.
+  tags: [budget, cost-sensitive, deepseek, open-weight]

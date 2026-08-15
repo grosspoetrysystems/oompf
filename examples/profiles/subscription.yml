@@ -1,0 +1,19 @@
+# Subscription — predictable marginal cost on a single provider subscription.
+symbolPreset: default
+defaultThinkingLevel: medium
+modelRoles:
+  default: anthropic/claude-sonnet-4.6
+  task: anthropic/claude-sonnet-4.6
+  plan: anthropic/claude-opus-4-8
+  slow: anthropic/claude-opus-4-8
+  smol: anthropic/claude-haiku-4.6
+  commit: anthropic/claude-haiku-4.6
+advisor:
+  enabled: false
+oompf:
+  kind: general
+  summary: >-
+    Everything on one Claude subscription — Opus for planning, Sonnet for
+    day-to-day, Haiku for cheap chores. Reach for it when you want strong
+    quality at a flat, predictable monthly cost with no metered-API surprises.
+  tags: [subscription, anthropic, predictable-cost, general]

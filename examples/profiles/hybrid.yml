@@ -1,0 +1,33 @@
+# Hybrid — subscription for the bulk, metered frontier for planning, independent
+# review, local for background. The best general-purpose starting point.
+symbolPreset: default
+defaultThinkingLevel: medium
+modelRoles:
+  default: anthropic/claude-sonnet-4.6
+  task: anthropic/claude-sonnet-4.6
+  plan: openai/gpt-5.6
+  slow: openai/gpt-5.6
+  reviewer: google/gemini-3.5-pro
+  smol: anthropic/claude-haiku-4.6
+  commit: ollama/qwen3.6
+  tiny: ollama/qwen3.6
+advisor:
+  enabled: true
+  subagents: true
+retry:
+  fallbackChains:
+    plan:
+      - openai/gpt-5.6
+      - anthropic/claude-opus-4-8
+    default:
+      - anthropic/claude-sonnet-4.6
+      - google/gemini-3.5-flash
+oompf:
+  kind: general
+  summary: >-
+    The everyday driver — Sonnet subscription for most work, GPT-5.6 for
+    planning, Gemini as an independent reviewer, and a local model for cheap
+    background chores. Fallback chains keep you working when a provider
+    degrades. Reach for it when you want strong results without paying frontier
+    rates for every token.
+  tags: [hybrid, multi-provider, fallback, advisor, general]

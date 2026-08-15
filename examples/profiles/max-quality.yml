@@ -1,0 +1,26 @@
+# Max-quality — strongest models everywhere, cost is not the constraint.
+symbolPreset: default
+defaultThinkingLevel: xhigh
+modelRoles:
+  default: anthropic/claude-opus-4-8
+  task: anthropic/claude-opus-4-8
+  plan: openai/gpt-5.6
+  slow: openai/gpt-5.6
+  reviewer: google/gemini-3.5-pro
+  security: anthropic/claude-opus-4-8
+  smol: anthropic/claude-sonnet-4.6
+advisor:
+  enabled: true
+  subagents: true
+retry:
+  fallbackChains:
+    default:
+      - anthropic/claude-opus-4-8
+      - openai/gpt-5.6
+oompf:
+  kind: general
+  summary: >-
+    No compromises — Opus and GPT-5.6 at high reasoning for everything, an
+    independent frontier reviewer, and a dedicated security pass. Reach for it
+    on high-stakes work where a wrong answer costs far more than the tokens.
+  tags: [max-quality, frontier, high-reasoning, independent-review, security]
