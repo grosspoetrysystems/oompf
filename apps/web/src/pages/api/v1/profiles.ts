@@ -16,6 +16,7 @@ import {
   indexPublicGist,
   jsonResponse,
   parseRegisterBody,
+  resolveRateLimiter,
   resolveRepository,
   toErrorEnvelope,
   toRegisterResponse,
@@ -25,6 +26,26 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ request, locals }) => {
   const appLocals = locals as unknown as AppLocals;
+  const rateLimiter =
+    appLocals.rateLimiter ?? (await resolveRateLimiter(appLocals));
+  if (rateLimiter) {
+    // The Simple scheme keys on client IP; fall back to the CF-injected header
+    // when the binding does not supply one itself.
+    const key =
+      request.headers.get("CF-Connecting-IP") ??
+      request.headers.get("X-Forwarded-For") ??
+      "anonymous";
+    const { success } = await rateLimiter.limit({ key });
+    if (!success) {
+      return jsonResponse(429, {
+        error: {
+          code: "rate_limited",
+          message:
+            "Too many registration requests from this address. Please try again later.",
+        },
+      });
+    }
+  }
   try {
     const repository = await resolveRepository(appLocals);
     const input = await parseRegisterBody(request);
