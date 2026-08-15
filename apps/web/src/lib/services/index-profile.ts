@@ -242,15 +242,23 @@ export async function resolveRateLimiter(
   if (locals.rateLimiter) {
     return locals.rateLimiter;
   }
+  let limiter: RateLimiter | null = null;
   try {
     const workerModule = (await import("cloudflare:workers")) as {
       env?: { PROFILE_RATE_LIMITER?: RateLimiter };
     };
-    return workerModule.env?.PROFILE_RATE_LIMITER ?? null;
+    limiter = workerModule.env?.PROFILE_RATE_LIMITER ?? null;
   } catch {
     // The virtual Worker module is unavailable in local Node/Bun execution.
-    return null;
   }
+  if (!limiter) {
+    // Fail open, but never silently: an absent binding leaves the register
+    // route unmetered, which ops needs to hear about.
+    console.warn(
+      "rate-limit binding absent; POST /api/v1/profiles is unmetered"
+    );
+  }
+  return limiter;
 }
 
 /**
