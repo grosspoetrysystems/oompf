@@ -62,7 +62,7 @@ export interface GistFetchResponse {
   /** Raw response body stream, used to cap oversized payloads pre-read. */
   readonly body?: ReadableStream<Uint8Array> | null;
   /** Response headers; only `content-length` is consulted. */
-  readonly headers?: Readonly<Record<string, string>>;
+  readonly headers?: Headers | Readonly<Record<string, string>>;
   readonly ok: boolean;
   readonly status: number;
   text(): Promise<string>;
@@ -231,7 +231,11 @@ async function readRawYaml(
   gistId: string,
   filename: string
 ): Promise<string> {
-  const contentLength = Number(rawResponse.headers?.["content-length"]);
+  const rawContentLength =
+    rawResponse.headers instanceof Headers
+      ? rawResponse.headers.get("content-length")
+      : rawResponse.headers?.["content-length"];
+  const contentLength = Number(rawContentLength);
   if (Number.isFinite(contentLength) && contentLength > DEFAULT_MAX_BYTES) {
     throw oversizedError(gistId, filename);
   }
