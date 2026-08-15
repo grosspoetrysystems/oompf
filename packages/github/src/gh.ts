@@ -228,5 +228,5 @@ function extractGistUrl(stdout: string): string | null {
     return null;
   }
   // Strip trailing punctuation the shell/terminal may have appended.
-  return match[0].replace(/[).,]+$/, "");
+  return match[0].replace(/[).,\]]+$/, "");
 }
