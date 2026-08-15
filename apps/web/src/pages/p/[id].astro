@@ -12,6 +12,7 @@
 import { resolveModelDisplay, resolveProviderLink } from "@oompf/core";
 import type { ProfileRecord } from "@oompf/database";
 import Base from "../../layouts/Base.astro";
+import { buildProfileMeta } from "../../lib/profile-meta.ts";
 import { buildProfileView } from "../../lib/profile-view.ts";
 import {
   type AppLocals,
@@ -51,9 +52,26 @@ const view =
         resolveProvider: resolveProviderLink,
         siteOrigin: Astro.site?.origin ?? null,
       });
+
+// Per-profile Open Graph / Twitter meta. The og:image lands on the request
+// origin (resolved against the canonical profile URL) so crawlers fetch an
+// absolute, raster thumbnail — svg logos are not widely supported there.
+const meta = view === null ? null : buildProfileMeta(view);
+const ogImage =
+  meta === null
+    ? undefined
+    : new URL("/android-chrome-512x512.png", meta.url).href;
 ---
 
-<Base title={view !== null ? `${view.profileName} — OOMPF` : "Profile — OOMPF"}>
+<Base
+  title={meta !== null ? meta.title : "Profile — OOMPF"}
+  description={meta !== null ? meta.description : undefined}
+  ogDescription={meta?.description}
+  ogImage={ogImage}
+  ogTitle={meta?.title}
+  ogType="article"
+  ogUrl={meta?.url}
+>
   <div class="wrap">
     {view === null ? (
         <section class="hero">
