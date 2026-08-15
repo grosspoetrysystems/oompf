@@ -1,0 +1,20 @@
+# Local-first — open-weight models on-device, cloud only for planning and review.
+symbolPreset: default
+defaultThinkingLevel: low
+modelRoles:
+  default: ollama/qwen3.6
+  task: ollama/qwen3.6
+  smol: ollama/qwen3.6
+  commit: ollama/qwen3.6
+  plan: openai/gpt-5.6
+  reviewer: anthropic/claude-opus-4-8
+advisor:
+  enabled: false
+oompf:
+  kind: local
+  summary: >-
+    Runs day-to-day work on a local open-weight model for privacy and zero
+    marginal cost, escalating only planning and review to cloud frontier
+    models. Reach for it when you want most tokens to stay on your machine but
+    still want a strong second opinion on the hard calls.
+  tags: [local, open-weight, privacy, ollama, cloud-escalation]

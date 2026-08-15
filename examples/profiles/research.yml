@@ -1,0 +1,18 @@
+# Research — deep reasoning and broad exploration, tuned for investigation over shipping.
+symbolPreset: default
+defaultThinkingLevel: high
+modelRoles:
+  default: openai/gpt-5.6
+  slow: openai/gpt-5.6
+  plan: anthropic/claude-opus-4-8
+  task: anthropic/claude-sonnet-4.6
+  smol: anthropic/claude-haiku-4.6
+advisor:
+  enabled: true
+oompf:
+  kind: research
+  summary: >-
+    Optimized for investigation — frontier reasoning by default, Opus for
+    planning the approach, and generous thinking budgets. Reach for it when the
+    goal is understanding a problem deeply rather than shipping code fast.
+  tags: [research, high-reasoning, exploration]
