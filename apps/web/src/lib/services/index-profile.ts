@@ -219,7 +219,38 @@ export async function indexPublicGist(
  */
 export interface AppLocals {
   fetchGist?: FetchPublicGist;
+  rateLimiter?: RateLimiter;
   repository?: ProfileRepository;
+}
+
+/** The Cloudflare Rate Limiting binding shape (name from `wrangler.jsonc`). */
+export interface RateLimiter {
+  limit(options?: {
+    readonly key?: string;
+  }): Promise<{ readonly success: boolean }>;
+}
+
+/**
+ * Resolve the profile rate limiter for a request. Prefers an injected test
+ * limiter; otherwise reads the `PROFILE_RATE_LIMITER` binding from the Worker
+ * environment. Returns `null` when the binding is unavailable (local Node/Bun
+ * execution) so the write route keeps working without a limiter there.
+ */
+export async function resolveRateLimiter(
+  locals: AppLocals
+): Promise<RateLimiter | null> {
+  if (locals.rateLimiter) {
+    return locals.rateLimiter;
+  }
+  try {
+    const workerModule = (await import("cloudflare:workers")) as {
+      env?: { PROFILE_RATE_LIMITER?: RateLimiter };
+    };
+    return workerModule.env?.PROFILE_RATE_LIMITER ?? null;
+  } catch {
+    // The virtual Worker module is unavailable in local Node/Bun execution.
+    return null;
+  }
 }
 
 /**

@@ -586,6 +586,48 @@ describe("POST /api/profiles", () => {
     expect(json.error.code).toBe("validation_failed");
     expect((json.error.details ?? []).length).toBeGreaterThan(0);
   });
+
+  test("returns a 429 error envelope when the rate limit is exceeded", async () => {
+    const { repo } = fakeRepository();
+    const request = new Request("https://oompf.test/api/profiles", {
+      body: JSON.stringify({ source: SOURCE }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const res = await callRoute(POST, {
+      locals: {
+        rateLimiter: { limit: async () => ({ success: false }) },
+        repository: repo,
+      } as never,
+      request,
+    });
+    expect(res.status).toBe(429);
+    const json = (await res.json()) as {
+      error: { code: string; message: string };
+    };
+    expect(json.error.code).toBe("rate_limited");
+    expect(typeof json.error.message).toBe("string");
+  });
+
+  test("passes through to the normal flow when under the rate limit", async () => {
+    const { repo } = fakeRepository();
+    const request = new Request("https://oompf.test/api/profiles", {
+      body: JSON.stringify({ ompVersion: "0.3.1", source: SOURCE }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const res = await callRoute(POST, {
+      locals: {
+        fetchGist: stubFetchGist(makeGist()),
+        rateLimiter: { limit: async () => ({ success: true }) },
+        repository: repo,
+      } as never,
+      request,
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { id: string };
+    expect(json.id).toMatch(/^prof_/);
+  });
 });
 
 describe("GET /api/profiles/:id", () => {
