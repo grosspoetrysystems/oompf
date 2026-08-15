@@ -475,10 +475,28 @@ export function toErrorEnvelope(error: unknown): {
   };
 }
 
-/** Build a JSON `Response` with the given status. */
-export function jsonResponse(status: number, body: unknown): Response {
+/**
+ * Cache policy for successful GET read routes: public, short TTL, with a
+ * same-length stale-while-revalidate window so anonymous reads and homepage
+ * renders stop round-tripping Neon on every hit while staying fresh.
+ */
+export const READ_CACHE_CONTROL =
+  "public, max-age=60, stale-while-revalidate=60";
+
+/**
+ * Build a JSON `Response` with the given status. Writes and error envelopes
+ * default to `no-store`; read routes pass {@link READ_CACHE_CONTROL}.
+ */
+export function jsonResponse(
+  status: number,
+  body: unknown,
+  cacheControl = "no-store"
+): Response {
   return new Response(JSON.stringify(body), {
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "cache-control": cacheControl,
+      "content-type": "application/json; charset=utf-8",
+    },
     status,
   });
 }

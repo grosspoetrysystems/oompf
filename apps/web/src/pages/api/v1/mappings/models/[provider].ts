@@ -18,6 +18,7 @@ import type { APIRoute } from "astro";
 import {
   IndexError,
   jsonResponse,
+  READ_CACHE_CONTROL,
   toErrorEnvelope,
 } from "../../../../../lib/services/index-profile.ts";
 
@@ -41,7 +42,7 @@ export const GET: APIRoute = ({ params }) => {
         `No curated model mappings for provider "${provider}".`
       );
     }
-    return jsonResponse(200, { models, provider });
+    return jsonResponse(200, { models, provider }, READ_CACHE_CONTROL);
   } catch (error) {
     const { status, body } = toErrorEnvelope(error);
     return jsonResponse(status, body);

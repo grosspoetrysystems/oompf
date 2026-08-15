@@ -14,6 +14,7 @@ import {
   type AppLocals,
   getProfileMetadata,
   jsonResponse,
+  READ_CACHE_CONTROL,
   resolveRepository,
   toErrorEnvelope,
 } from "../../../../lib/services/index-profile.ts";
@@ -25,7 +26,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   try {
     const repository = await resolveRepository(appLocals);
     const record = await getProfileMetadata(repository, params.id ?? "");
-    return jsonResponse(200, record);
+    return jsonResponse(200, record, READ_CACHE_CONTROL);
   } catch (error) {
     const { status, body } = toErrorEnvelope(error);
     return jsonResponse(status, body);
