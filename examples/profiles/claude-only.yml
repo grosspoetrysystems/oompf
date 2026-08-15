@@ -1,0 +1,21 @@
+# Claude-only — single provider (Anthropic), differentiated by task. Runs in any
+# Anthropic-only harness (e.g. Claude Code) as well as omp/pi.
+symbolPreset: default
+defaultThinkingLevel: medium
+modelRoles:
+  default: anthropic/claude-sonnet-4.6
+  task: anthropic/claude-sonnet-4.6
+  plan: anthropic/claude-opus-4-8
+  slow: anthropic/claude-opus-4-8
+  smol: anthropic/claude-haiku-4.6
+  commit: anthropic/claude-haiku-4.6
+advisor:
+  enabled: true
+oompf:
+  kind: general
+  summary: >-
+    One provider, differentiated by task — Opus for planning, Sonnet for the
+    everyday, Haiku for cheap chores. All Anthropic, so it runs anywhere Claude
+    runs (Claude Code included), not only multi-provider harnesses. Reach for it
+    when you live in one provider but still want the right model per task.
+  tags: [single-provider, anthropic, claude, task-routing]
