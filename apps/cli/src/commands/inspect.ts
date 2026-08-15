@@ -72,7 +72,7 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
             },
             {
               cta: {
-                commands: [`oompf add ${c.args.ref}`],
+                commands: [{ command: `oompf add ${c.args.ref}` }],
                 description: "Install it with:",
               },
             }
@@ -108,7 +108,7 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
           },
           {
             cta: {
-              commands: [`oompf add ${c.args.ref}`],
+              commands: [{ command: `oompf add ${c.args.ref}` }],
               description: "Install it with:",
             },
           }

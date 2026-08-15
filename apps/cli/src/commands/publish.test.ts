@@ -76,6 +76,18 @@ describe("publish", () => {
     expect(result.addCommand).toBe(`oompf add ${OOMPF_URL}`);
   });
 
+  test("CTA install command is emitted exactly once", async () => {
+    const { out, code } = await runCli(publishDeps(), [
+      "publish",
+      "work",
+      "--json",
+    ]);
+    expect(code).toBeUndefined();
+    const result = JSON.parse(out);
+    expect(result.cta.commands[0].command).toBe(`oompf add ${OOMPF_URL}`);
+    expect(JSON.stringify(result)).not.toContain("oompf oompf");
+  });
+
   test("does not label setupVersion as an OMP runtime version", async () => {
     let captured = "";
     const deps = publishDeps({
@@ -106,6 +118,7 @@ describe("publish", () => {
     const { out, code } = await runCli(publishDeps(), ["publish", "work"]);
     expect(code).toBeUndefined();
     expect(out).toContain(`oompf add ${OOMPF_URL}`);
+    expect(out).not.toContain("oompf oompf");
   });
 
   test("derives the sole publishable profile when none is named", async () => {
