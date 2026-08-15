@@ -1,4 +1,4 @@
-# Claude-only — single provider (Anthropic), differentiated by task. Runs in any
+# sub-claude (single Anthropic subscription) — single provider (Anthropic), differentiated by task. Runs in any
 # Anthropic-only harness (e.g. Claude Code) as well as omp/pi.
 symbolPreset: default
 defaultThinkingLevel: medium
