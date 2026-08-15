@@ -638,6 +638,11 @@ p {
   gap: 0.5rem;
 }
 
+.browse {
+  margin: 0.9rem 0 0;
+  font-size: var(--step--1);
+}
+
 .ledger-row {
   display: block;
   padding: 0.7rem 0.85rem;

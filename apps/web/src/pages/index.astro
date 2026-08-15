@@ -20,17 +20,33 @@ import {
 
 export const prerender = false;
 
-const q = (Astro.url.searchParams.get("q") ?? "").trim();
+const queryParam = Astro.url.searchParams.get("q");
+const q = (queryParam ?? "").trim();
+const cursorParam = Astro.url.searchParams.get("cursor");
+// The bare home (no `q`/`cursor` params) is the pin: an honest recency top-5.
+// Any explicit search params put the page in the full, cursor-paginated
+// listing (the header search submits `/?q=` — an empty but *present* `q` here
+// means "browse all", not "home").
+const featuredHome = queryParam === null && cursorParam === null;
 const locals = Astro.locals as unknown as AppLocals;
 
-let profiles: CompactProfile[] = [];
+let profiles: readonly CompactProfile[] = [];
+let nextCursor: string | null = null;
 let dbError: string | null = null;
 try {
   const repository = await resolveRepository(locals);
-  profiles =
-    q === ""
-      ? await listFeaturedProfiles(repository)
-      : await searchIndexedProfiles(repository, q);
+  if (featuredHome) {
+    profiles = await listFeaturedProfiles(repository);
+  } else {
+    const page = await searchIndexedProfiles(
+      repository,
+      q,
+      undefined,
+      cursorParam
+    );
+    profiles = page.results;
+    nextCursor = page.nextCursor;
+  }
 } catch (error) {
   dbError =
     error instanceof IndexError
@@ -38,7 +54,19 @@ try {
       : "The index is unreachable right now. The profiles themselves are unaffected — they live on GitHub.";
 }
 
-const heading = q === "" ? "Index" : `Matches for “${q}”`;
+const heading = featuredHome
+  ? "Recently shared"
+  : q === ""
+    ? "All profiles"
+    : `Matches for “${q}”`;
+
+/** Build the no-JS "next page" link carrying the keyset cursor. */
+function nextPageHref(cursor: string, query: string): string {
+  const params = new URLSearchParams();
+  params.set("q", query);
+  params.set("cursor", cursor);
+  return `/?${params.toString()}`;
+}
 
 /** Shorten an opaque profile id for display; the page carries the full one. */
 function shortId(id: string): string {
@@ -231,6 +259,16 @@ const docsRail = [
               </a>
             ))}
           </div>
+        )}
+      {featuredHome && profiles.length > 0 && (
+          <p class="browse">
+            <a href="/?q=">Browse all profiles →</a>
+          </p>
+        )}
+      {!featuredHome && nextCursor !== null && (
+          <p class="browse">
+            <a href={nextPageHref(nextCursor, q)}>Next page →</a>
+          </p>
         )}
     </section>
 
