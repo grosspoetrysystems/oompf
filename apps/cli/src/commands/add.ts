@@ -89,7 +89,7 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
 
         // 2. Validate before writing anything to disk.
         const validation = validateArtifact({ yaml: gist.content });
-        if (validation.structural === "invalid") {
+        if (validation.structural === "invalid" || validation.facts === null) {
           throw new CommandError(
             "invalid_artifact",
             `Refusing to install an invalid artifact: ${validation.errors.join("; ")}`
@@ -139,6 +139,7 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
         await deps.fs.writeFile(target, gist.content, 0o600);
 
         const command = `omp --profile ${name}`;
+        const prerequisites = validation.facts.prerequisites;
         return c.ok(
           {
             command,
@@ -148,6 +149,11 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
             revision: gist.revision,
             source: sourceUrl,
             warnings: [...validation.warnings],
+            // Value-free names/kinds; omitted entirely when none to keep the
+            // output quiet.
+            ...(prerequisites.length > 0
+              ? { prerequisites: [...prerequisites] }
+              : {}),
           },
           { cta: { commands: [command], description: "Run it with:" } }
         );
