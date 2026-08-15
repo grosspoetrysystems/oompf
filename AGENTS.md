@@ -86,7 +86,7 @@ the ticket — never the message. This is the rule agents break most often.
 | Subject | lower-case start, no trailing period |
 | Header length | 100 characters maximum, including type and scope |
 | Body / footer | must be empty |
-| Scope | optional; use the package a change belongs to (`core`, `database`, `github`, `cli`, `web`) |
+| Scope | the Linear issue key the work belongs to (e.g. `GPS-123`); optional, but when present it must be a `GPS-<n>` key (enforced by commitlint). Omit only for untracked housekeeping |
 | Breaking change | `feat(api)!: ...` — the `!` marker, since a `BREAKING CHANGE:` footer is not allowed here |
 
 ### Types decide the released version
