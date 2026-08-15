@@ -23,6 +23,12 @@ export function registerSearch(cli: Cli.Cli, deps: ResolvedDeps): void {
     examples: [
       { args: { query: "anthropic" }, description: "Search for a term" },
     ],
+    options: z.object({
+      cursor: z
+        .string()
+        .optional()
+        .describe("Opaque pagination cursor from a previous search"),
+    }),
     output: searchOutput,
     async run(c) {
       try {
@@ -30,10 +36,12 @@ export function registerSearch(cli: Cli.Cli, deps: ResolvedDeps): void {
         const response = await searchProfiles(
           c.env.OOMPF_BASE_URL,
           query,
-          deps.httpFetch
+          deps.httpFetch,
+          c.options.cursor
         );
         return c.ok({
           count: response.results.length,
+          nextCursor: response.nextCursor,
           query: response.query,
           results: response.results.map((r) => ({
             id: r.id,

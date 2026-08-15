@@ -8,6 +8,7 @@
  * `/api/search` route re-exports this handler as a compatibility alias.
  */
 
+import { decodeCursor } from "@oompf/database";
 import type { APIRoute } from "astro";
 
 import {
@@ -33,8 +34,30 @@ export const GET: APIRoute = async ({ url, locals }) => {
       rawLimit !== null && /^\d+$/.test(rawLimit)
         ? Number(rawLimit)
         : undefined;
-    const results = await searchIndexedProfiles(repository, query, limit);
-    return jsonResponse(200, { query, results }, READ_CACHE_CONTROL);
+    // A present-but-malformed cursor is a client error, surfaced with the
+    // standard 400 envelope; an absent cursor simply starts from the top. The
+    // raw cursor string is passed through unchanged so the repository decodes
+    // once, at the boundary that owns the format.
+    const cursorParam = url.searchParams.get("cursor");
+    if (cursorParam !== null && decodeCursor(cursorParam) === null) {
+      return jsonResponse(400, {
+        error: {
+          code: "invalid_cursor",
+          message: "The `cursor` query parameter is malformed.",
+        },
+      });
+    }
+    const { results, nextCursor } = await searchIndexedProfiles(
+      repository,
+      query,
+      limit,
+      cursorParam
+    );
+    return jsonResponse(
+      200,
+      { nextCursor, query, results },
+      READ_CACHE_CONTROL
+    );
   } catch (error) {
     const { status, body } = toErrorEnvelope(error);
     return jsonResponse(status, body);

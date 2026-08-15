@@ -15,6 +15,7 @@
 
 import type { ProfileFacts, ProfileMetadata } from "@oompf/core";
 import { sha256 } from "@oompf/core";
+import type { SQL } from "drizzle-orm";
 import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
@@ -97,6 +98,103 @@ export function clampLimit(
   return Math.min(Math.max(1, Math.floor(limit)), max);
 }
 
+/**
+ * The total order shared by {@link ProfileRepository.listRecent} and
+ * {@link ProfileRepository.searchProfiles}: newest first, ties broken by id, so
+ * every row has a unique position. A stable total order is what makes keyset
+ * pagination safe — without the id tie-break, rows sharing an `updatedAt` could
+ * be skipped or duplicated across pages.
+ */
+const RECENT_ORDER = [desc(profiles.updatedAt), desc(profiles.id)];
+
+/**
+ * A decoded keyset cursor: the (updatedAt, id) position of the last row on a
+ * page, against which the next page is selected.
+ */
+export interface Cursor {
+  /** Id of the last row on the page (total-order tie-break). */
+  readonly i: string;
+  /** ISO timestamp of the last row's `updatedAt`. */
+  readonly u: string;
+}
+
+/** One page of results plus the opaque cursor for the page after it. */
+export interface Page<T> {
+  /** This page's rows, at most the requested limit. */
+  readonly items: T[];
+  /** Opaque cursor for the next page, or `null` when this is the last page. */
+  readonly nextCursor: string | null;
+}
+
+/**
+ * Encode a row's (updatedAt, id) as an opaque URL-query-safe cursor. The payload
+ * is ASCII (an id and an ISO timestamp), so `btoa`/`atob` — available in Node,
+ * Bun, and Cloudflare Workers alike — are safe and dependency-free.
+ */
+export function encodeCursor(row: {
+  id: string;
+  updatedAt: Date | string;
+}): string {
+  const u =
+    row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt;
+  return btoa(JSON.stringify({ i: row.id, u }));
+}
+
+/**
+ * Decode a cursor to `{i, u}`, or return `null` for an absent, malformed, or
+ * invalid value. Repositories treat `null` as "start from the top", so a bad
+ * cursor degrades to a normal first page instead of throwing; the HTTP boundary
+ * is responsible for turning a *present* bad cursor into a 400.
+ */
+export function decodeCursor(cursor: string | null | undefined): Cursor | null {
+  if (typeof cursor !== "string" || cursor === "") {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(atob(cursor));
+  } catch {
+    return null;
+  }
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    typeof (parsed as Cursor).i !== "string" ||
+    (parsed as Cursor).i === "" ||
+    typeof (parsed as Cursor).u !== "string" ||
+    Number.isNaN(Date.parse((parsed as Cursor).u))
+  ) {
+    return null;
+  }
+  return { i: (parsed as Cursor).i, u: (parsed as Cursor).u };
+}
+
+/**
+ * Keyset boundary selecting strictly "before" the row at `(updatedAt, id)` in
+ * the {@link RECENT_ORDER} total order (row-wise `<` on the pair matches the
+ * DESC ordering). `undefined` when no cursor is set, which Drizzle's `and()`
+ * ignores.
+ */
+function keysetPredicate(cursor: Cursor | null): SQL | undefined {
+  return cursor === null
+    ? undefined
+    : sql`(${profiles.updatedAt}, ${profiles.id}) < (${cursor.u}::timestamptz, ${cursor.i})`;
+}
+
+/**
+ * Fetch a page of rows: at most `limit`, plus one extra probe row so
+ * {@link Page.nextCursor} can honestly say whether another page exists.
+ */
+async function pageRows(
+  rows: ProfileRecord[],
+  take: number
+): Promise<{ items: ProfileRecord[]; nextCursor: string | null }> {
+  const hasMore = rows.length > take;
+  const items = hasMore ? rows.slice(0, take) : rows;
+  const last = items.at(-1);
+  return { items, nextCursor: hasMore && last ? encodeCursor(last) : null };
+}
+
 /** Persistence surface for indexed profile metadata. */
 export interface ProfileRepository {
   /** Register a source or refresh its metadata; idempotent per source URL. */
@@ -105,10 +203,24 @@ export interface ProfileRepository {
   findBySource(sourceUrl: string): Promise<ProfileRecord | null>;
   /** Look up a record by its stable opaque id. */
   getProfile(id: string): Promise<ProfileRecord | null>;
-  /** Most recently updated records, newest first, capped at `limit`. */
-  listRecent(limit?: number): Promise<ProfileRecord[]>;
-  /** Free-text search across name, owner, and normalized facts. */
-  searchProfiles(query: string, limit?: number): Promise<ProfileRecord[]>;
+  /**
+   * Most recently updated records, newest first, as a cursor-paginated page.
+   * Pass the previous page's {@link Page.nextCursor} as `cursor` for the next
+   * page; a `null`/absent/malformed cursor starts from the top.
+   */
+  listRecent(
+    limit?: number,
+    cursor?: string | null
+  ): Promise<Page<ProfileRecord>>;
+  /**
+   * Free-text search across name, owner, and normalized facts, cursor-paginated
+   * over the same total order as {@link listRecent}.
+   */
+  searchProfiles(
+    query: string,
+    limit?: number,
+    cursor?: string | null
+  ): Promise<Page<ProfileRecord>>;
   /**
    * Soft-delete a profile so it leaves read lookups but its row survives for
    * provenance. Idempotent: marking an already-deleted row again returns it.
@@ -306,40 +418,55 @@ export function createProfileRepository(
     return row;
   }
 
-  /** Most recently updated records, newest first, capped at `limit`. */
+  /**
+   * Most recently updated records, newest first, as a cursor-paginated page
+   * (see {@link ProfileRepository.listRecent}).
+   */
   async function listRecent(
-    limit = DEFAULT_SEARCH_LIMIT
-  ): Promise<ProfileRecord[]> {
-    return db
+    limit = DEFAULT_SEARCH_LIMIT,
+    cursor: string | null = null
+  ): Promise<Page<ProfileRecord>> {
+    const take = clampLimit(limit);
+    const rows = await db
       .select()
       .from(profiles)
-      .where(isNull(profiles.deletedAt))
-      .orderBy(desc(profiles.updatedAt))
-      .limit(clampLimit(limit));
+      .where(
+        and(isNull(profiles.deletedAt), keysetPredicate(decodeCursor(cursor)))
+      )
+      .orderBy(...RECENT_ORDER)
+      .limit(take + 1);
+    return pageRows(rows, take);
   }
 
+  /**
+   * Free-text search across name, owner, and normalized facts, cursor-paginated
+   * over the same total order as {@link listRecent}. A blank query lists the
+   * most recently updated profiles, newest first.
+   */
   async function searchProfiles(
     query: string,
-    limit = DEFAULT_SEARCH_LIMIT
-  ): Promise<ProfileRecord[]> {
+    limit = DEFAULT_SEARCH_LIMIT,
+    cursor: string | null = null
+  ): Promise<Page<ProfileRecord>> {
     const trimmed = query.trim();
-    const id = clampLimit(limit);
+    const take = clampLimit(limit);
     if (trimmed === "") {
       // A blank query lists the most recently updated profiles — "empty lists
       // all", newest first — so first-run discovery works before any term is
       // typed. This is what turns the CLI's documented behaviour into truth.
-      return listRecent(id);
+      return listRecent(take, cursor);
     }
     const term = likeTerm(trimmed);
     // Parameterized ILIKE across displayable columns plus the normalized facts
     // JSON (which carries model/provider/advisor/hook names). Casting JSONB to
     // text lets a single term match any nested fact without per-field columns.
-    return db
+    const rows = await db
       .select()
       .from(profiles)
       .where(
         and(
           isNull(profiles.deletedAt),
+          keysetPredicate(decodeCursor(cursor)),
           or(
             ilike(profiles.profileName, term),
             ilike(profiles.owner, term),
@@ -348,8 +475,9 @@ export function createProfileRepository(
           )
         )
       )
-      .orderBy(profiles.profileName)
-      .limit(id);
+      .orderBy(...RECENT_ORDER)
+      .limit(take + 1);
+    return pageRows(rows, take);
   }
 
   async function softDeleteProfile(id: string): Promise<ProfileRecord | null> {

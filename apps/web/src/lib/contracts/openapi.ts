@@ -146,13 +146,18 @@ export const openApiDocument = {
         additionalProperties: false,
         description: "Response of GET /api/v1/search.",
         properties: {
+          nextCursor: {
+            description:
+              "Opaque keyset cursor for the next page; pass as `cursor` to page further, or null when this is the last page.",
+            type: ["string", "null"],
+          },
           query: { type: "string" },
           results: {
             items: { $ref: "#/components/schemas/CompactProfile" },
             type: "array",
           },
         },
-        required: ["query", "results"],
+        required: ["query", "results", "nextCursor"],
         type: "object",
       },
     },
@@ -322,7 +327,7 @@ export const openApiDocument = {
     "/api/v1/search": {
       get: {
         description:
-          "Free-text search over the profile index, returning compact metadata-only summaries. A blank or omitted `q` lists the most recently updated profiles, newest first. Alias: GET /api/search.",
+          "Free-text search over the profile index, returning compact metadata-only summaries. A blank or omitted `q` lists the most recently updated profiles, newest first. Results are cursor-paginated on a stable (updatedAt DESC, id DESC) total order: pass the returned `nextCursor` as `cursor` for the next page. Alias: GET /api/search.",
         operationId: "searchProfiles",
         parameters: [
           {
@@ -334,7 +339,7 @@ export const openApiDocument = {
             schema: { type: "string" },
           },
           {
-            description: "Maximum number of results to return.",
+            description: "Maximum number of results to return on this page.",
             in: "query",
             name: "limit",
             required: false,
@@ -344,6 +349,14 @@ export const openApiDocument = {
               minimum: 1,
               type: "integer",
             },
+          },
+          {
+            description:
+              "Opaque keyset cursor from a previous page's `nextCursor`. Omit for the first page.",
+            in: "query",
+            name: "cursor",
+            required: false,
+            schema: { type: "string" },
           },
         ],
         responses: {
@@ -355,6 +368,7 @@ export const openApiDocument = {
             },
             description: "Matching compact profile summaries.",
           },
+          "400": errorResponse("A malformed `cursor` query parameter."),
         },
         summary: "Search profiles",
         tags: ["profiles"],

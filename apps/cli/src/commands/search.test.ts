@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { CliDeps } from "../deps.ts";
+import type { CliDeps, HttpFetch } from "../deps.ts";
 import {
   apiFetch,
   compactProfile,
@@ -19,6 +19,7 @@ describe("search", () => {
     const deps = searchDeps({
       httpFetch: apiFetch({
         search: jsonResponse(200, {
+          nextCursor: null,
           query: "anthropic",
           results: [compactProfile()],
         }),
@@ -29,15 +30,39 @@ describe("search", () => {
     expect(code).toBeUndefined();
     expect(result.query).toBe("anthropic");
     expect(result.count).toBe(1);
+    expect(result.nextCursor).toBeNull();
     expect(result.results[0].id).toBe(PROFILE_ID);
     expect(result.results[0].name).toBe(STEM);
     expect(result.results[0].source).toBe(GIST_HTML);
+  });
+
+  test("forwards --cursor and surfaces nextCursor", async () => {
+    const seen: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      seen.push(url);
+      return jsonResponse(200, {
+        nextCursor: "nEXt_CuRs0r",
+        query: "",
+        results: [compactProfile()],
+      });
+    }) as HttpFetch;
+    const { out, code } = await runCli(searchDeps({ httpFetch: fetchImpl }), [
+      "search",
+      "--cursor",
+      "nEXt_CuRs0r",
+      "--json",
+    ]);
+    expect(code).toBeUndefined();
+    expect(seen.some((u) => u.includes("cursor=nEXt_CuRs0r"))).toBe(true);
+    const result = JSON.parse(out);
+    expect(result.nextCursor).toBe("nEXt_CuRs0r");
   });
 
   test("renders human output with the matched name", async () => {
     const deps = searchDeps({
       httpFetch: apiFetch({
         search: jsonResponse(200, {
+          nextCursor: null,
           query: "anthropic",
           results: [compactProfile()],
         }),
@@ -52,6 +77,7 @@ describe("search", () => {
     const deps = searchDeps({
       httpFetch: apiFetch({
         search: jsonResponse(200, {
+          nextCursor: null,
           query: "",
           results: [compactProfile()],
         }),

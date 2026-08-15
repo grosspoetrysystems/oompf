@@ -369,23 +369,38 @@ export function toCompactProfile(record: ProfileRecord): CompactProfile {
   };
 }
 
-/** Free-text search over the index, returning compact records. */
+/** A page of search results plus the opaque cursor for the next page. */
+export interface SearchIndexResult {
+  /** Opaque cursor for the next page, or `null` when this is the last page. */
+  readonly nextCursor: string | null;
+  readonly results: readonly CompactProfile[];
+}
+
+/** Free-text search over the index, returning a cursor-paginated page. */
 export async function searchIndexedProfiles(
   repository: ProfileRepository,
   query: string,
-  limit?: number
-): Promise<CompactProfile[]> {
-  const records = await repository.searchProfiles(query, limit);
-  return records.map(toCompactProfile);
+  limit?: number,
+  cursor?: string | null
+): Promise<SearchIndexResult> {
+  const page = await repository.searchProfiles(query, limit, cursor ?? null);
+  return {
+    nextCursor: page.nextCursor,
+    results: page.items.map(toCompactProfile),
+  };
 }
 
-/** Surface a capped sample of the most recently updated profiles. */
+/**
+ * The landing's recency slice: the 5 most recently updated, not-yet-withdrawn
+ * profiles. This is an honest recency sample — OOMPF has no popularity or "top
+ * rated" signal yet — kept as a one-function seam so a real ranking can replace
+ * the body later without touching the page.
+ */
 export async function listFeaturedProfiles(
-  repository: ProfileRepository,
-  limit = 12
+  repository: ProfileRepository
 ): Promise<CompactProfile[]> {
-  const records = await repository.listRecent(limit);
-  return records.map(toCompactProfile);
+  const page = await repository.listRecent(5);
+  return page.items.map(toCompactProfile);
 }
 
 /** Fetch a single profile's metadata, or throw a `not_found` {@link IndexError}. */
