@@ -58,23 +58,21 @@ interface SmokeSummary {
   readonly searchCount: number;
 }
 
+const MIGRATIONS = new URL("../packages/database/migrations/", import.meta.url);
+
 async function freshRepository(): Promise<{
   readonly repository: ProfileRepository;
   readonly close: () => Promise<void>;
 }> {
   const client = new PGlite();
-  const migrations = await Promise.all(
-    [
-      "0000_nosy_liz_osborn.sql",
-      "0001_marvelous_emma_frost.sql",
-      "0002_soft_delete_profiles.sql",
-    ].map((name) =>
-      Bun.file(
-        new URL(`../packages/database/migrations/${name}`, import.meta.url)
-      ).text()
-    )
-  );
-  for (const ddl of migrations) {
+  // Every journaled migration, in journal order. A hardcoded list rots on the
+  // next migration and the breakage surfaces as an unreachable API rather than
+  // as a stale fixture.
+  const journal = (await Bun.file(
+    new URL("meta/_journal.json", MIGRATIONS)
+  ).json()) as { readonly entries: readonly { readonly tag: string }[] };
+  for (const entry of journal.entries) {
+    const ddl = await Bun.file(new URL(`${entry.tag}.sql`, MIGRATIONS)).text();
     await client.exec(ddl);
   }
   const db = drizzle(client, { schema }) as unknown as ProfileDatabase;

@@ -74,6 +74,10 @@ const REQUIRED_COLUMNS = [
   "created_at",
   "updated_at",
   "deleted_at",
+  "check_failures",
+  "last_check_error",
+  "last_checked_at",
+  "source_changed_at",
 ] as const;
 
 const columns = await client.query<{ column_name: string }>(

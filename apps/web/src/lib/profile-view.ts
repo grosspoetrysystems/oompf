@@ -90,6 +90,24 @@ interface BehaviorView {
   readonly settings: readonly BehaviorSetting[];
 }
 
+/** How current the indexed metadata is against its live source. */
+interface FreshnessView {
+  /** ISO timestamp of the last check, for a `<time datetime>`, else `null`. */
+  readonly checkedAt: string | null;
+  /** Compact UTC label for the last check, or `null` when never checked. */
+  readonly checkedLabel: string | null;
+  /** Short human badge text; never the raw state enum. */
+  readonly label: string;
+  /** One-sentence, value-free explanation shown under the source row. */
+  readonly note: string;
+  readonly state:
+    | "changed"
+    | "check_failed"
+    | "current"
+    | "unchecked"
+    | "unreachable";
+}
+
 /** Explained source and integrity provenance. */
 interface ProvenanceView {
   readonly contentHash: string;
@@ -105,6 +123,7 @@ interface ProvenanceView {
 /** The fully shaped, render-ready profile view. */
 export interface ProfileView {
   readonly behavior: BehaviorView;
+  readonly freshness: FreshnessView;
   /** `oompf add https://oompf.run/p/<id>` — always the canonical OOMPF URL. */
   readonly installCommand: string;
   readonly kind: KindView | null;
@@ -230,6 +249,71 @@ function formatIndexedLabel(indexedAt: string | null): string | null {
   }).format(date);
 }
 
+/**
+ * Derive the freshness state from the columns the cron sweep maintains.
+ *
+ * Two consecutive failures turn a profile `unreachable`, not one: a single
+ * transient GitHub blip must not brand a live profile dead. This reversible,
+ * repeated-failure threshold is the foundation GPS-149 builds on when it
+ * converges dead sources to a withdrawn state. A single failure is still not
+ * "current" though — the sweep stamps `lastCheckedAt` on failure too, so
+ * falling through to `current` would claim the metadata matched a source that
+ * was never fetched.
+ *
+ * `lastCheckedAt` is read the same defensive way as `updatedAt` below, since a
+ * timestamp reaching this function may already have been serialized to a string.
+ */
+function deriveFreshness(record: ProfileRecord): FreshnessView {
+  const lastCheckedAt = record.lastCheckedAt ?? null;
+  const checkedAt =
+    lastCheckedAt instanceof Date ? lastCheckedAt.toISOString() : lastCheckedAt;
+  const checkedLabel = formatIndexedLabel(checkedAt);
+
+  if (record.checkFailures >= 2) {
+    return {
+      checkedAt,
+      checkedLabel,
+      label: "source unreachable",
+      note: "The source could not be fetched on repeated checks, so it may have been deleted or made private.",
+      state: "unreachable",
+    };
+  }
+  if (record.sourceChangedAt !== null) {
+    return {
+      checkedAt,
+      checkedLabel,
+      label: "source changed",
+      note: "The source has changed since it was indexed, so these facts describe the earlier revision.",
+      state: "changed",
+    };
+  }
+  if (checkedAt === null) {
+    return {
+      checkedAt: null,
+      checkedLabel: null,
+      label: "not re-checked",
+      note: "This profile has not been re-checked since it was indexed.",
+      state: "unchecked",
+    };
+  }
+  if (record.checkFailures > 0) {
+    return {
+      checkedAt,
+      checkedLabel,
+      label: "check failed",
+      note: "The most recent check could not fetch the source; it will be retried, and repeated failures are flagged.",
+      state: "check_failed",
+    };
+  }
+  return {
+    checkedAt,
+    checkedLabel,
+    label: "source current",
+    note: "The indexed metadata matched the source at the last check.",
+    state: "current",
+  };
+}
+
 /** Collect advisor entries as labeled settings, skipping absent keys. */
 function advisorSettings(
   advisor: ProfileRecord["facts"]["advisor"]
@@ -352,6 +436,7 @@ export function buildProfileView(
 
   return {
     behavior,
+    freshness: deriveFreshness(record),
     installCommand: `oompf add ${profileUrl}`,
     kind: metadata.kind,
     links: metadata.links

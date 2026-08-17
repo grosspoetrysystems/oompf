@@ -14,6 +14,7 @@
 
 import type { ProfileFacts, ProfileMetadata } from "@oompf/core";
 import {
+  integer,
   jsonb,
   pgTable,
   text,
@@ -61,6 +62,11 @@ export interface ProfileValidationMetadata {
 export const profiles = pgTable(
   "profiles",
   {
+    /**
+     * Consecutive failed source checks; `0` means the last check succeeded or
+     * none has run yet. Reset to `0` on any successful fetch.
+     */
+    checkFailures: integer("check_failures").notNull().default(0),
     /** Lowercase hex SHA-256 of the canonical source bytes. */
     contentHash: text("content_hash").notNull(),
     /** First-indexed timestamp; preserved across re-registration. */
@@ -75,6 +81,19 @@ export const profiles = pgTable(
     gistId: text("gist_id"),
     /** Stable opaque profile identifier (see {@link deriveProfileId}). */
     id: text("id").primaryKey(),
+    /**
+     * Stable value-free error code from the most recent failed check
+     * (`"not_found"` or `"unreachable"`); `null` when the last check succeeded.
+     */
+    lastCheckError: text("last_check_error"),
+    /**
+     * When the most recent source check ran; `null` means the source has never
+     * been checked by the freshness sweep.
+     */
+    lastCheckedAt: timestamp("last_checked_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
     /** Publisher-curated `oompf` metadata (summary, kind, tags, links). */
     metadata: jsonb("metadata")
       .$type<ProfileMetadata>()
@@ -88,6 +107,15 @@ export const profiles = pgTable(
     profileName: text("profile_name").notNull(),
     /** Pinned source revision (git SHA) the metadata was read from. */
     revision: text("revision"),
+    /**
+     * When content was first observed to differ from the indexed snapshot;
+     * `null` means the source has not drifted since it was indexed. First
+     * notice wins, so a repeated check does not keep advancing it.
+     */
+    sourceChangedAt: timestamp("source_changed_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
     /** Origin kind, e.g. `"gist"`. */
     sourceType: text("source_type").notNull(),
     /** Canonical, normalized source URL; unique across the index. */
