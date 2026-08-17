@@ -191,6 +191,10 @@ export async function runLocalSmoke(): Promise<SmokeSummary> {
       fs: store.fs,
       gistFetch: gistFetch(PROFILE_YAML),
       httpFetch,
+      resolveAgentRuntime: async () => ({
+        command: "omp",
+        runtime: "omp" as const,
+      }),
       resolveInstallTarget: async (name: string) =>
         `/omp/profiles/${name}/agent`,
       resolveProfileConfig: async () => ({
