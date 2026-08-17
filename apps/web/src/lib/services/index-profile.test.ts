@@ -766,6 +766,25 @@ describe("resolveRateLimiter", () => {
       warn.mockRestore();
     }
   });
+
+  test("wrangler.jsonc declares the binding the route reads", async () => {
+    // The route fails open, so a renamed or dropped `ratelimits` entry would
+    // leave production silently unmetered with every unit test still green.
+    // A computed specifier keeps tsc out of .jsonc resolution; Bun parses
+    // JSONC natively at runtime.
+    const configPath = new URL("../../../wrangler.jsonc", import.meta.url)
+      .pathname;
+    const config = (await import(configPath)) as {
+      default: { ratelimits?: unknown };
+    };
+    expect(config.default.ratelimits).toEqual([
+      {
+        name: "PROFILE_RATE_LIMITER",
+        namespace_id: "1001",
+        simple: { limit: 5, period: 60 },
+      },
+    ]);
+  });
 });
 
 describe("GET /api/profiles/:id", () => {
