@@ -168,8 +168,12 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
             ...(prerequisites.length > 0
               ? { prerequisites: [...prerequisites] }
               : {}),
-          },
-          { cta: { commands: [command], description: "Run it with:" } }
+          }
+          // No CTA block: incur omits its binary-name prefix only when a CTA
+          // command is `oompf` or starts with `oompf ` (which is why publish
+          // and inspect can carry one). `omp --profile <name>` is neither, so a
+          // CTA here could only render the non-existent `oompf omp --profile
+          // ...`. The command stays discoverable as the `command` output field.
         );
       } catch (error) {
         return toCliError(c.error, error);

@@ -303,4 +303,20 @@ describe("add", () => {
     expect(code).toBeUndefined();
     expect(probed).toBe(false);
   });
+
+  // incur prefixes the binary name to CTA commands, so a CTA carrying
+  // `omp --profile <name>` rendered as `oompf omp --profile <name>` — advice
+  // for a command that does not exist. The run command must stay discoverable
+  // as the `command` field instead.
+  test("never advises a non-existent oompf omp command", async () => {
+    const json = await runCli(addDeps().deps, ["add", GIST_HTML, "--json"]);
+    expect(json.code).toBeUndefined();
+    expect(json.out).not.toContain("oompf omp");
+    expect(JSON.parse(json.out).command).toBe("omp --profile octocat-work");
+
+    const human = await runCli(addDeps().deps, ["add", GIST_HTML]);
+    expect(human.code).toBeUndefined();
+    expect(human.out).not.toContain("oompf omp");
+    expect(human.out).toContain("omp --profile octocat-work");
+  });
 });
