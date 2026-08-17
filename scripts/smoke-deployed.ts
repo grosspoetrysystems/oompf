@@ -147,11 +147,55 @@ for (const check of checks) {
   }
 }
 
+/**
+ * The rate limiter must actually enforce in production.
+ *
+ * GPS-139 shipped the binding; GPS-159 found it inert. The Worker deployed
+ * with `env.PROFILE_RATE_LIMITER (5 requests/60s)` bound and reachable, but the
+ * code read it from the module env instead of the request-scoped runtime, so
+ * the public write endpoint stayed unmetered behind a green deploy. Only a live
+ * burst proves enforcement, so assert one.
+ *
+ * Empty bodies never write: the limiter runs before body parsing, so every
+ * request here is either 429 or a 400 that touches nothing. This runs last so
+ * it cannot rate-limit the checks above.
+ */
+const BURST = 8;
+const statuses: number[] = [];
+let sawRateLimit = false;
+for (let attempt = 1; attempt <= BURST; attempt += 1) {
+  const response = await fetch(`${origin}/api/v1/profiles`, {
+    body: "{}",
+    headers: {
+      "content-type": "application/json",
+      "user-agent": "oompf-deploy-smoke",
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  statuses.push(response.status);
+  if (response.status === 429) {
+    sawRateLimit = true;
+    break;
+  }
+}
+
+if (sawRateLimit) {
+  process.stdout.write(
+    `ok    register rate limit (429 after ${statuses.length - 1} allowed)\n`
+  );
+} else {
+  process.stdout.write(
+    `FAIL  register rate limit: ${BURST} rapid POSTs never returned 429 (statuses ${statuses.join(",")}); the public write endpoint is unmetered\n`
+  );
+  failed += 1;
+}
+
 if (failed > 0) {
   process.stdout.write(`\n${failed} check(s) failed against ${origin}\n`);
   process.exit(1);
 }
 
 process.stdout.write(
-  `\nall ${checks.length} checks passed against ${origin}\n`
+  `\nall ${checks.length + 1} checks passed against ${origin}\n`
 );
