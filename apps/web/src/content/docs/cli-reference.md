@@ -30,6 +30,9 @@ oompf publish work
 ```
 
 - **Syntax:** `oompf publish [profile]`, where `profile` is a native OMP profile name.
+- **Agent runtime:** `--agent <omp|pi>` selects the runtime binary (default
+  `omp`). When omitted, the sole installed runtime is used automatically; OMP
+  wins when both are installed.
 - **Output:** the canonical profile URL, `https://oompf.run/p/<id>`.
 - **Omitted input:** When the name is omitted, OOMPF automatically uses the sole
   publishable profile. With multiple profiles it opens a selector only in an
@@ -81,6 +84,9 @@ oompf add https://oompf.run/p/<id>
 ```
 
 - **Syntax:** `oompf add <oompf-url-or-id>`
+- **Agent runtime:** `--agent <omp|pi>` selects the runtime binary (default
+  `omp`). When omitted, the sole installed runtime is used automatically; OMP
+  wins when both are installed.
 - **Safe install:** OOMPF resolves the id, fetches the canonical Gist,
   re-validates it structurally and for secrets, verifies the SHA-256 fingerprint,
   and only then installs a native OMP profile. It installs nothing on failure.

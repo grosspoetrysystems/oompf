@@ -52,10 +52,25 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
     examples: [
       { args: { profile: "work" }, description: "Publish the 'work' profile" },
     ],
+    options: z.object({
+      agent: z
+        .enum(["omp", "pi"])
+        .optional()
+        .describe("Agent runtime to use (default: omp)"),
+    }),
     output: publishOutput,
     async run(c) {
       try {
-        const ompOptions = { ompCommand: deps.ompCommand };
+        // Resolve the agent runtime once: an explicitly pinned binary wins;
+        // otherwise probe the installed runtimes.
+        const ompCommand =
+          deps.ompCommand ??
+          (
+            await deps.resolveAgentRuntime({
+              requested: c.options.agent,
+            })
+          ).command;
+        const ompOptions = { ompCommand };
 
         // 1. Validate the named profile, or derive it when unambiguous.
         let name: string;

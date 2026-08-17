@@ -48,6 +48,10 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
       },
     ],
     options: z.object({
+      agent: z
+        .enum(["omp", "pi"])
+        .optional()
+        .describe("Agent runtime to use (default: omp)"),
       name: z
         .string()
         .optional()
@@ -56,6 +60,16 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
     output: addOutput,
     async run(c) {
       try {
+        // Resolve the agent runtime once: an explicitly pinned binary wins;
+        // otherwise probe the installed runtimes.
+        const ompCommand =
+          deps.ompCommand ??
+          (
+            await deps.resolveAgentRuntime({
+              requested: c.options.agent,
+            })
+          ).command;
+
         // 1. Resolve the canonical Gist source (directly or via an OOMPF id).
         const oompfId = parseOompfRef(c.args.ref);
         let sourceUrl = c.args.ref;
@@ -119,7 +133,7 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
 
         // 4. Ask OMP for the install directory (portable, never hardcoded).
         const agentDir = await deps.resolveInstallTarget(name, {
-          ompCommand: deps.ompCommand,
+          ompCommand,
         });
 
         // 5. Refuse an existing target without modifying anything.

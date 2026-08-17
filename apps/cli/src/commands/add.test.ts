@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { AgentRuntimeUnavailableError } from "@oompf/core";
 import type { CliDeps } from "../deps.ts";
 import {
   apiFetch,
@@ -22,6 +23,10 @@ function addDeps(overrides: Partial<CliDeps> = {}) {
     fs: store.fs,
     gistFetch: gistFetch(),
     httpFetch: apiFetch(),
+    resolveAgentRuntime: async () => ({
+      command: "omp",
+      runtime: "omp" as const,
+    }),
     resolveInstallTarget: async (name) => `/omp/profiles/${name}/agent`,
     ...overrides,
   };
@@ -241,5 +246,61 @@ describe("add", () => {
     const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("not_found");
+  });
+
+  test("--agent pi reaches runtime resolution and flows the binary to the install target", async () => {
+    let requested: unknown;
+    const { deps } = addDeps({
+      resolveAgentRuntime: async (options) => {
+        requested = options?.requested;
+        return { command: "pi", runtime: "pi" as const };
+      },
+      resolveInstallTarget: async (name, options) => {
+        expect(options?.ompCommand).toBe("pi");
+        return `/omp/profiles/${name}/agent`;
+      },
+    });
+    const { out, code } = await runCli(deps, [
+      "add",
+      GIST_HTML,
+      "--agent",
+      "pi",
+      "--json",
+    ]);
+    expect(code).toBeUndefined();
+    expect(requested).toBe("pi");
+    const result = JSON.parse(out);
+    expect(result.name).toBe("octocat-work");
+  });
+
+  test("maps an absent agent runtime to agent_not_found", async () => {
+    const { deps, store } = addDeps({
+      resolveAgentRuntime: async () => {
+        throw new AgentRuntimeUnavailableError("No agent runtime installed.");
+      },
+    });
+    const { out, code } = await runCli(deps, ["add", GIST_HTML]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("agent_not_found");
+    expect(out).not.toContain("ENOENT");
+    expect(store.writes).toHaveLength(0);
+  });
+
+  test("a pinned omp binary short-circuits runtime detection", async () => {
+    let probed = false;
+    const { deps } = addDeps({
+      ompCommand: "pinned-omp",
+      resolveAgentRuntime: async () => {
+        probed = true;
+        return { command: "omp", runtime: "omp" as const };
+      },
+      resolveInstallTarget: async (name, options) => {
+        expect(options?.ompCommand).toBe("pinned-omp");
+        return `/omp/profiles/${name}/agent`;
+      },
+    });
+    const { code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    expect(code).toBeUndefined();
+    expect(probed).toBe(false);
   });
 });
