@@ -7,6 +7,15 @@
 export const VERSION = "0.0.0";
 
 export type {
+  AgentRuntime,
+  AgentRuntimeOptions,
+  AgentRuntimeSelection,
+} from "./agent-runtime.ts";
+export {
+  AgentRuntimeUnavailableError,
+  resolveAgentRuntime,
+} from "./agent-runtime.ts";
+export type {
   AdvisorFacts,
   FallbackChain,
   ModelRole,

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { OmpProfileNotFoundError } from "@oompf/core";
+import {
+  AgentRuntimeUnavailableError,
+  OmpProfileNotFoundError,
+} from "@oompf/core";
 import type { CliDeps } from "../deps.ts";
 import {
   apiFetch,
@@ -29,6 +32,10 @@ function publishDeps(overrides: Partial<CliDeps> = {}): CliDeps {
     ],
     fs,
     httpFetch: apiFetch(),
+    resolveAgentRuntime: async () => ({
+      command: "omp",
+      runtime: "omp" as const,
+    }),
     resolveProfileConfig: async (profile) => ({
       agentDir: AGENT_DIR,
       configPath: CONFIG_PATH,
@@ -363,5 +370,70 @@ describe("publish", () => {
     const { out, code } = await runCli(deps, ["publish", "work"]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("validation_failed");
+  });
+
+  test("--agent pi reaches runtime resolution and flows the binary to the profile resolver", async () => {
+    let requested: unknown;
+    const deps = publishDeps({
+      resolveAgentRuntime: async (options) => {
+        requested = options?.requested;
+        return { command: "pi", runtime: "pi" as const };
+      },
+      resolveProfileConfig: async (profile, options) => {
+        expect(options?.ompCommand).toBe("pi");
+        return {
+          agentDir: AGENT_DIR,
+          configPath: CONFIG_PATH,
+          document: {},
+          profile,
+        };
+      },
+    });
+    const { out, code } = await runCli(deps, [
+      "publish",
+      "work",
+      "--agent",
+      "pi",
+      "--json",
+    ]);
+    expect(code).toBeUndefined();
+    expect(requested).toBe("pi");
+    const result = JSON.parse(out);
+    expect(result.profile).toBe("work");
+  });
+
+  test("maps an absent agent runtime to agent_not_found", async () => {
+    const deps = publishDeps({
+      resolveAgentRuntime: async () => {
+        throw new AgentRuntimeUnavailableError("No agent runtime installed.");
+      },
+    });
+    const { out, code } = await runCli(deps, ["publish", "work"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("agent_not_found");
+    expect(out).not.toContain("ENOENT");
+  });
+
+  test("a pinned omp binary short-circuits runtime detection", async () => {
+    let probed = false;
+    const deps = publishDeps({
+      ompCommand: "pinned-omp",
+      resolveAgentRuntime: async () => {
+        probed = true;
+        return { command: "omp", runtime: "omp" as const };
+      },
+      resolveProfileConfig: async (profile, options) => {
+        expect(options?.ompCommand).toBe("pinned-omp");
+        return {
+          agentDir: AGENT_DIR,
+          configPath: CONFIG_PATH,
+          document: {},
+          profile,
+        };
+      },
+    });
+    const { code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBeUndefined();
+    expect(probed).toBe(false);
   });
 });

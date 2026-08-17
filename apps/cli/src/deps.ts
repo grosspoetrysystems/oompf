@@ -10,7 +10,9 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 
 import {
+  AgentRuntimeUnavailableError,
   discoverProfiles,
+  resolveAgentRuntime,
   resolveInstallTarget,
   resolveProfileConfig,
 } from "@oompf/core";
@@ -81,6 +83,9 @@ export function toCliError(error: CliErrorFn, err: unknown): never {
   if (err instanceof CommandError) {
     return error({ code: err.code, message: err.message });
   }
+  if (err instanceof AgentRuntimeUnavailableError) {
+    return error({ code: "agent_not_found", message: err.message });
+  }
   const message = err instanceof Error ? err.message : String(err);
   return error({ code: "error", message });
 }
@@ -101,6 +106,8 @@ export interface CliDeps {
   readonly ompCommand?: string;
   /** Interactive native-profile selection seam (publish). */
   readonly profileSelector?: ProfileSelector;
+  /** Agent-runtime resolver seam (probes omp/pi when no binary is pinned). */
+  readonly resolveAgentRuntime?: typeof resolveAgentRuntime;
   /** Install-target resolver seam (add). */
   readonly resolveInstallTarget?: typeof resolveInstallTarget;
   /** Existing-profile resolver seam (publish). */
@@ -150,6 +157,7 @@ export function resolveDeps(deps: CliDeps = {}) {
     httpFetch: deps.httpFetch ?? defaultHttpFetch,
     ompCommand: deps.ompCommand,
     profileSelector: deps.profileSelector ?? defaultProfileSelector,
+    resolveAgentRuntime: deps.resolveAgentRuntime ?? resolveAgentRuntime,
     resolveInstallTarget: deps.resolveInstallTarget ?? resolveInstallTarget,
     resolveProfileConfig: deps.resolveProfileConfig ?? resolveProfileConfig,
     runner: deps.runner,
