@@ -5,6 +5,7 @@ import { buildProfileView } from "./profile-view.ts";
 
 function profileRecord(): ProfileRecord {
   return {
+    checkFailures: 0,
     contentHash: "f".repeat(64),
     createdAt: new Date("2026-08-10T12:00:00.000Z"),
     facts: {
@@ -45,6 +46,8 @@ function profileRecord(): ProfileRecord {
     },
     gistId: "abc123",
     id: "prof_0123456789abcdef0123456789abcdef",
+    lastCheckError: null,
+    lastCheckedAt: null,
     metadata: {
       kind: null,
       links: [],
@@ -55,6 +58,7 @@ function profileRecord(): ProfileRecord {
     owner: "octocat",
     profileName: "reasoning-profile",
     revision: "92a08aef1d67525afb11f239588883be94401d84",
+    sourceChangedAt: null,
     sourceType: "gist",
     sourceUrl: "https://gist.github.com/octocat/abc123",
     updatedAt: new Date("2026-08-12T14:54:05.478Z"),
@@ -148,5 +152,90 @@ describe("profile detail presentation", () => {
     expect(view.links).toEqual([
       { label: "https://example.com", url: "https://example.com" },
     ]);
+  });
+
+  /** The freshness block for a record carrying the given sweep-tracked state. */
+  function freshnessOf(overrides: {
+    checkFailures?: number;
+    lastCheckedAt?: Date | null;
+    sourceChangedAt?: Date | null;
+  }) {
+    return buildProfileView(
+      { ...profileRecord(), ...overrides },
+      {
+        resolveModel: resolveModelDisplay,
+        resolveProvider: resolveProviderLink,
+        siteOrigin: "https://oompf.run",
+      }
+    ).freshness;
+  }
+
+  test("derives a current state when the source matched at the last check", () => {
+    expect(
+      freshnessOf({
+        checkFailures: 0,
+        lastCheckedAt: new Date("2026-08-15T09:30:00.000Z"),
+        sourceChangedAt: null,
+      })
+    ).toEqual({
+      checkedAt: "2026-08-15T09:30:00.000Z",
+      checkedLabel: "Aug 15, 2026",
+      label: "source current",
+      note: "The indexed metadata matched the source at the last check.",
+      state: "current",
+    });
+  });
+
+  test("derives a changed state when the source drifted since indexing", () => {
+    expect(
+      freshnessOf({
+        lastCheckedAt: new Date("2026-08-16T09:30:00.000Z"),
+        sourceChangedAt: new Date("2026-08-16T09:30:00.000Z"),
+      }).state
+    ).toBe("changed");
+  });
+
+  test("derives an unreachable state after two consecutive failures", () => {
+    expect(
+      freshnessOf({
+        checkFailures: 2,
+        lastCheckedAt: new Date("2026-08-16T09:30:00.000Z"),
+      }).state
+    ).toBe("unreachable");
+  });
+
+  test("prefers unreachable over changed when both conditions hold", () => {
+    expect(
+      freshnessOf({
+        checkFailures: 2,
+        lastCheckedAt: new Date("2026-08-16T09:30:00.000Z"),
+        sourceChangedAt: new Date("2026-08-16T09:30:00.000Z"),
+      }).state
+    ).toBe("unreachable");
+  });
+
+  test("a single failure reads as a failed check, never as current", () => {
+    expect(
+      freshnessOf({
+        checkFailures: 1,
+        lastCheckedAt: new Date("2026-08-16T09:30:00.000Z"),
+      })
+    ).toEqual({
+      checkedAt: "2026-08-16T09:30:00.000Z",
+      checkedLabel: "Aug 16, 2026",
+      label: "check failed",
+      note: "The most recent check could not fetch the source; it will be retried, and repeated failures are flagged.",
+      state: "check_failed",
+    });
+  });
+
+  test("renders unchecked until the first sweep has run", () => {
+    expect(freshnessOf({})).toEqual({
+      checkedAt: null,
+      checkedLabel: null,
+      label: "not re-checked",
+      note: "This profile has not been re-checked since it was indexed.",
+      state: "unchecked",
+    });
   });
 });

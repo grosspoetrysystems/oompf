@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { PGlite } from "@electric-sql/pglite";
 import { type ArtifactValidation, validateArtifact } from "@oompf/core";
 import { eq } from "drizzle-orm";
@@ -49,24 +49,47 @@ hooks:
 `;
 
 /**
+ * Every PGlite client created by {@link freshRepo}. Tests in this file run
+ * serially, so closing all of them after each test is safe and keeps the WASM
+ * workers from keeping the test process alive (bun then exits 0 instead of 99).
+ */
+const liveClients: PGlite[] = [];
+
+afterEach(async () => {
+  await Promise.allSettled(
+    liveClients.splice(0).map((client) => client.close())
+  );
+});
+
+const MIGRATIONS = new URL("../migrations/", import.meta.url);
+
+/**
+ * Apply every journaled migration, in journal order — the order production
+ * uses. Read from the journal rather than a hardcoded list: a list rots the
+ * moment a migration is added, and the breakage then looks like a broken query
+ * rather than a stale harness.
+ */
+async function applyMigrations(client: PGlite): Promise<void> {
+  const journal = (await Bun.file(
+    new URL("meta/_journal.json", MIGRATIONS)
+  ).json()) as { readonly entries: readonly { readonly tag: string }[] };
+  for (const entry of journal.entries) {
+    const ddl = await Bun.file(new URL(`${entry.tag}.sql`, MIGRATIONS)).text();
+    await client.exec(ddl);
+  }
+}
+
+/**
  * Build a repository backed by a fresh in-memory Postgres (PGlite), with the
- * schema applied from the real migration SQL so the migration is exercised too.
+ * schema applied from the real migration SQL so the migrations are exercised too.
  */
 async function freshRepo(): Promise<{
   repo: ProfileRepository;
   db: ProfileDatabase;
 }> {
   const client = new PGlite();
-  for (const migration of [
-    "0000_nosy_liz_osborn.sql",
-    "0001_marvelous_emma_frost.sql",
-    "0002_soft_delete_profiles.sql",
-  ]) {
-    const ddl = await Bun.file(
-      new URL(`../migrations/${migration}`, import.meta.url)
-    ).text();
-    await client.exec(ddl);
-  }
+  liveClients.push(client);
+  await applyMigrations(client);
   const db = drizzle(client, { schema }) as unknown as ProfileDatabase;
   return { db, repo: createProfileRepository(db) };
 }
@@ -632,5 +655,212 @@ describe("metadata-only persistence", () => {
     expect(meta.structural).toBe("valid");
     expect(meta.hash).toBe(full.hash);
     expect(meta.byteLength).toBe(full.byteLength);
+  });
+});
+
+describe("listProfilesToCheck", () => {
+  test("never-checked rows first, then oldest checked, excluding soft-deleted", async () => {
+    const { repo, db } = await freshRepo();
+    const [older, newer, neverChecked, deleted] = await seedRecent(db, repo, 4);
+    const base = Date.UTC(2026, 2, 1);
+    await db
+      .update(profiles)
+      .set({ lastCheckedAt: new Date(base) })
+      .where(eq(profiles.id, older!.id));
+    await db
+      .update(profiles)
+      .set({ lastCheckedAt: new Date(base + 60_000) })
+      .where(eq(profiles.id, newer!.id));
+    await repo.softDeleteProfile(deleted!.id);
+
+    const rows = await repo.listProfilesToCheck();
+
+    expect(rows.map((row) => row.id)).toEqual([
+      neverChecked!.id,
+      older!.id,
+      newer!.id,
+    ]);
+  });
+
+  test("clamps its limit through clampLimit", async () => {
+    const { repo, db } = await freshRepo();
+    await seedRecent(db, repo, 3);
+
+    expect(await repo.listProfilesToCheck(2)).toHaveLength(2);
+    expect(await repo.listProfilesToCheck(0)).toHaveLength(1);
+    expect(await repo.listProfilesToCheck()).toHaveLength(3);
+  });
+});
+
+describe("recordSourceCheck", () => {
+  test("matching-hash success clears failures, error, and drift", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+
+    await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 3, 1)),
+      error: "unreachable",
+      id: record.id,
+    });
+    const drifted = await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 3, 2)),
+      contentHash: "changed-hash",
+      id: record.id,
+    });
+    expect(drifted?.sourceChangedAt).toBeInstanceOf(Date);
+    // A differing-hash fetch is still a success, so it resets the counter.
+    expect(drifted?.checkFailures).toBe(0);
+    expect(drifted?.lastCheckError).toBeNull();
+
+    const cleared = await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 3, 3)),
+      contentHash: record.contentHash,
+      id: record.id,
+    });
+
+    expect(cleared?.lastCheckedAt?.getTime()).toBe(
+      new Date(Date.UTC(2026, 3, 3)).getTime()
+    );
+    expect(cleared?.checkFailures).toBe(0);
+    expect(cleared?.lastCheckError).toBeNull();
+    expect(cleared?.sourceChangedAt).toBeNull();
+  });
+
+  test("differing hash stamps sourceChangedAt once; repeat checks keep it", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    const first = new Date(Date.UTC(2026, 4, 1, 10));
+    const second = new Date(Date.UTC(2026, 4, 1, 11));
+
+    const a = await repo.recordSourceCheck({
+      checkedAt: first,
+      contentHash: "drifted-1",
+      id: record.id,
+    });
+    const b = await repo.recordSourceCheck({
+      checkedAt: second,
+      contentHash: "drifted-2",
+      id: record.id,
+    });
+
+    // First-noticed wins: the second drift check must not move the stamp.
+    expect(a?.sourceChangedAt?.getTime()).toBe(first.getTime());
+    expect(b?.sourceChangedAt?.getTime()).toBe(first.getTime());
+    expect(b?.lastCheckedAt?.getTime()).toBe(second.getTime());
+  });
+
+  test("failures increment checkFailures and store the code, leaving drift alone", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    const drifted = await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 5, 1)),
+      contentHash: "drifted",
+      id: record.id,
+    });
+    const driftAt = drifted!.sourceChangedAt!.getTime();
+
+    const first = await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 5, 2)),
+      error: "not_found",
+      id: record.id,
+    });
+    const second = await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 5, 3)),
+      error: "unreachable",
+      id: record.id,
+    });
+
+    expect(first?.checkFailures).toBe(1);
+    expect(first?.lastCheckError).toBe("not_found");
+    expect(second?.checkFailures).toBe(2);
+    expect(second?.lastCheckError).toBe("unreachable");
+    expect(second?.lastCheckedAt?.getTime()).toBe(
+      new Date(Date.UTC(2026, 5, 3)).getTime()
+    );
+    expect(second?.sourceChangedAt?.getTime()).toBe(driftAt);
+  });
+
+  test("a success after failures resets checkFailures and lastCheckError", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 6, 1)),
+      error: "unreachable",
+      id: record.id,
+    });
+    await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 6, 2)),
+      error: "not_found",
+      id: record.id,
+    });
+
+    const recovered = await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 6, 3)),
+      contentHash: record.contentHash,
+      id: record.id,
+    });
+
+    expect(recovered?.checkFailures).toBe(0);
+    expect(recovered?.lastCheckError).toBeNull();
+  });
+
+  test("never touches updatedAt, which drives recency and cursors", async () => {
+    const { repo, db } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    await db
+      .update(profiles)
+      .set({ updatedAt: new Date(Date.UTC(2026, 7, 1)) })
+      .where(eq(profiles.id, record.id));
+    const before = (await repo.getProfile(record.id))!.updatedAt;
+
+    // A failure, a drift, and a recovery: every write path of the sweep.
+    await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 7, 2)),
+      error: "unreachable",
+      id: record.id,
+    });
+    await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 7, 3)),
+      contentHash: "different-hash",
+      id: record.id,
+    });
+    await repo.recordSourceCheck({
+      checkedAt: new Date(Date.UTC(2026, 7, 4)),
+      contentHash: record.contentHash,
+      id: record.id,
+    });
+
+    const after = (await repo.getProfile(record.id))!.updatedAt;
+    expect(after.getTime()).toBe(before.getTime());
+  });
+
+  test("returns null for an unknown id", async () => {
+    const { repo } = await freshRepo();
+    expect(
+      await repo.recordSourceCheck({
+        contentHash: "x",
+        id: "prof_does_not_exist",
+      })
+    ).toBeNull();
+  });
+
+  test("rejects a result carrying neither contentHash nor error", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    expect(repo.recordSourceCheck({ id: record.id })).rejects.toThrow(
+      /neither contentHash nor error/
+    );
   });
 });

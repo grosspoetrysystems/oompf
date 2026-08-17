@@ -40,6 +40,7 @@ export {
   type ProfileRecord,
   type ProfileRepository,
   type RegisterProfileInput,
+  type SourceCheckResult,
   sameStoredValue,
   toValidationMetadata,
   type ValidationInput,

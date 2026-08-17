@@ -7,7 +7,12 @@
   "name": "oompf-web",
   "compatibility_date": "2026-08-08",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@astrojs/cloudflare/entrypoints/server",
+  // A custom entrypoint (rather than the adapter's
+  // `@astrojs/cloudflare/entrypoints/server`) so the Worker can export a
+  // `scheduled` handler alongside `fetch`. It delegates request handling to the
+  // adapter's own handler, so Astro's asset serving, sessions and locals are
+  // unchanged.
+  "main": "./src/worker.ts",
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist"
@@ -27,5 +32,11 @@
         "period": 60
       }
     }
-  ]
+  ],
+  // Source freshness (GPS-134): re-check indexed sources so a moved or deleted
+  // Gist stops looking current. Runs inside the Worker, so there is no public
+  // refresh endpoint and no shared secret to hold.
+  "triggers": {
+    "crons": ["0 */6 * * *"]
+  }
 }

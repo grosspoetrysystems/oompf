@@ -208,6 +208,26 @@ const ogImage =
                       </time>
                     </span>
                   )}
+                <span
+                  class:list={[
+                    "badge",
+                    { valid: view.freshness.state === "current" },
+                    // Only a source that cannot be fetched is an error. A source
+                    // that merely moved on is still live, so it stays neutral.
+                    { invalid: view.freshness.state === "unreachable" },
+                  ]}
+                >
+                  {view.freshness.label}
+                  {view.freshness.checkedAt !== null &&
+                    view.freshness.checkedLabel !== null && (
+                      <>
+                        {" · checked "}
+                        <time datetime={view.freshness.checkedAt}>
+                          {view.freshness.checkedLabel}
+                        </time>
+                      </>
+                    )}
+                </span>
                 <span class="fingerprint">
                   <code title={`SHA-256 ${view.provenance.contentHash}`}>
                     sha256 {view.provenance.contentHash.slice(0, 8)}…
@@ -223,6 +243,7 @@ const ogImage =
                   </button>
                 </span>
               </div>
+              <p class="section-note">{view.freshness.note}</p>
             </div>
           </section>
 

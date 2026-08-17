@@ -16,7 +16,7 @@
 import type { ProfileFacts, ProfileMetadata } from "@oompf/core";
 import { sha256 } from "@oompf/core";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import {
@@ -127,6 +127,26 @@ export interface Page<T> {
 }
 
 /**
+ * One source-check outcome as recorded by the freshness sweep. Exactly one of
+ * `contentHash` (a successful fetch) or `error` (a failure) is expected;
+ * carrying neither is a programming bug that {@link ProfileRepository.recordSourceCheck}
+ * rejects.
+ */
+export interface SourceCheckResult {
+  /** When the check ran; defaults to now. */
+  readonly checkedAt?: Date;
+  /** Observed content hash; present only when the fetch succeeded. */
+  readonly contentHash?: string;
+  /**
+   * Stable value-free failure code; present only when the fetch failed. Typed
+   * as the closed set so a raw error message — which can embed a URL — cannot
+   * reach the column.
+   */
+  readonly error?: "not_found" | "unreachable";
+  readonly id: string;
+}
+
+/**
  * Encode a row's (updatedAt, id) as an opaque URL-query-safe cursor. The payload
  * is ASCII (an id and an ISO timestamp), so `btoa`/`atob` — available in Node,
  * Bun, and Cloudflare Workers alike — are safe and dependency-free.
@@ -204,6 +224,13 @@ export interface ProfileRepository {
   /** Look up a record by its stable opaque id. */
   getProfile(id: string): Promise<ProfileRecord | null>;
   /**
+   * Not-yet-withdrawn rows, stalest first, for the freshness sweep: never
+   * checked first (NULLS FIRST), then oldest `lastCheckedAt`, then `id` as a
+   * total-order tie-break. Stale-before-fresh is what lets a young sweep catch
+   * up on sources that were indexed long ago.
+   */
+  listProfilesToCheck(limit?: number): Promise<ProfileRecord[]>;
+  /**
    * Most recently updated records, newest first, as a cursor-paginated page.
    * Pass the previous page's {@link Page.nextCursor} as `cursor` for the next
    * page; a `null`/absent/malformed cursor starts from the top.
@@ -212,6 +239,12 @@ export interface ProfileRepository {
     limit?: number,
     cursor?: string | null
   ): Promise<Page<ProfileRecord>>;
+  /**
+   * Record one source-check outcome, returning the updated row or `null` when
+   * no row has that id. Must NOT touch `updatedAt`, which means "indexed
+   * metadata changed" and drives the recency listing plus every keyset cursor.
+   */
+  recordSourceCheck(result: SourceCheckResult): Promise<ProfileRecord | null>;
   /**
    * Free-text search across name, owner, and normalized facts, cursor-paginated
    * over the same total order as {@link listRecent}.
@@ -480,6 +513,82 @@ export function createProfileRepository(
     return pageRows(rows, take);
   }
 
+  /**
+   * Not-yet-withdrawn rows, stalest first (see
+   * {@link ProfileRepository.listProfilesToCheck}). `NULLS FIRST` is deliberate:
+   * a bare `asc()` puts NULLs last in Postgres, which would check never-checked
+   * sources dead last — exactly backwards for a catch-up sweep.
+   */
+  async function listProfilesToCheck(limit?: number): Promise<ProfileRecord[]> {
+    const take = clampLimit(limit);
+    return db
+      .select()
+      .from(profiles)
+      .where(isNull(profiles.deletedAt))
+      .orderBy(sql`${profiles.lastCheckedAt} asc nulls first`, asc(profiles.id))
+      .limit(take);
+  }
+
+  /**
+   * Record one source-check outcome (see
+   * {@link ProfileRepository.recordSourceCheck}). Read-then-update by id,
+   * deliberately WITHOUT the deleted filter, because checkFailures needs the
+   * previous count, the hash comparison needs the indexed hash, and the
+   * first-noticed `sourceChangedAt` must survive a repeat check.
+   */
+  async function recordSourceCheck(
+    result: SourceCheckResult
+  ): Promise<ProfileRecord | null> {
+    const checkedAt = result.checkedAt ?? new Date();
+    if (result.error === undefined && result.contentHash === undefined) {
+      // An ambiguous result is a programming bug, not a state: fail before any
+      // write so a broken sweep cannot silently mislabel a row.
+      throw new Error(
+        `ambiguous source check for ${result.id}: neither contentHash nor error given`
+      );
+    }
+    const rows = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, result.id))
+      .limit(1);
+    const existing = rows[0];
+    if (!existing) {
+      return null;
+    }
+
+    if (result.error !== undefined) {
+      const updated = await db
+        .update(profiles)
+        .set({
+          checkFailures: existing.checkFailures + 1,
+          lastCheckError: result.error,
+          lastCheckedAt: checkedAt,
+        })
+        .where(eq(profiles.id, existing.id))
+        .returning();
+      // `sourceChangedAt` is deliberately untouched here.
+      return updated[0] ?? null;
+    }
+
+    const changed = existing.contentHash !== result.contentHash;
+    const updated = await db
+      .update(profiles)
+      .set({
+        checkFailures: 0,
+        lastCheckError: null,
+        lastCheckedAt: checkedAt,
+        // First-noticed wins: keep the prior sourceChangedAt when drift was
+        // already seen, else stamp this check as the first observation.
+        sourceChangedAt: changed
+          ? (existing.sourceChangedAt ?? checkedAt)
+          : null,
+      })
+      .where(eq(profiles.id, existing.id))
+      .returning();
+    return updated[0] ?? null;
+  }
+
   async function softDeleteProfile(id: string): Promise<ProfileRecord | null> {
     // A raw update by id, not the deleted-filtered lookups, so marking an
     // already-deleted row again is still a no-op success that returns the row.
@@ -495,7 +604,9 @@ export function createProfileRepository(
     createOrUpdateProfile,
     findBySource,
     getProfile,
+    listProfilesToCheck,
     listRecent,
+    recordSourceCheck,
     searchProfiles,
     softDeleteProfile,
   };
