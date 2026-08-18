@@ -5,7 +5,7 @@ import type {
   ProfileRepository,
   SourceCheckResult,
 } from "@oompf/database";
-import type { GistSource } from "@oompf/github/gists";
+import { GistHttpError, type GistSource } from "@oompf/github/gists";
 import type { FetchPublicGist } from "./index-profile.ts";
 import { DEFAULT_SWEEP_LIMIT, sweepSourceChecks } from "./source-check.ts";
 
@@ -40,10 +40,17 @@ function stubFetchGist(gists: Record<string, GistSource>): FetchPublicGist {
   };
 }
 
-/** A fetch seam that always rejects with the given message. */
+/** A fetch seam that always rejects with a plain, non-HTTP error. */
 function rejectingFetchGist(message: string): FetchPublicGist {
   return async () => {
     throw new Error(message);
+  };
+}
+
+/** A fetch seam that always rejects with an HTTP failure of the given status. */
+function httpFailingFetchGist(status: number): FetchPublicGist {
+  return async () => {
+    throw new GistHttpError(`Failed to fetch Gist: HTTP ${status}.`, status);
   };
 }
 
@@ -92,7 +99,7 @@ describe("sweepSourceChecks", () => {
       repository: fake.repository,
     });
 
-    expect(summary).toEqual({ changed: 0, checked: 1, failed: 0 });
+    expect(summary).toEqual({ changed: 0, checked: 1, failed: 0, skipped: 0 });
     expect(fake.recorded).toHaveLength(1);
     expect(fake.recorded[0]?.id).toBe("p1");
     expect(fake.recorded[0]?.contentHash).toBe(hash);
@@ -110,17 +117,17 @@ describe("sweepSourceChecks", () => {
       repository: fake.repository,
     });
 
-    expect(summary).toEqual({ changed: 1, checked: 1, failed: 0 });
+    expect(summary).toEqual({ changed: 1, checked: 1, failed: 0, skipped: 0 });
     expect(fake.recorded[0]?.contentHash).toBe(newGist.contentHash);
   });
 
-  test("a missing source records not_found, any other failure unreachable", async () => {
+  test("a 404 records not_found, a reached-but-broken source unreachable", async () => {
     const hash = sha256(YAML_A);
     const missing = fakeRepository([
       { contentHash: hash, id: "p1", sourceUrl: SOURCE },
     ]);
     await sweepSourceChecks({
-      fetchGist: rejectingFetchGist("Gist d4e5 was not found"),
+      fetchGist: httpFailingFetchGist(404),
       repository: missing.repository,
     });
 
@@ -129,19 +136,86 @@ describe("sweepSourceChecks", () => {
     ]);
     await sweepSourceChecks({
       fetchGist: rejectingFetchGist(
-        "fetch failed: connection reset https://example.invalid/secrets"
+        'Gist "d4e5" contains multiple YAML files: https://example.invalid/secrets'
       ),
       repository: unreachable.repository,
     });
 
     expect(missing.recorded[0]?.error).toBe("not_found");
     expect(unreachable.recorded[0]?.error).toBe("unreachable");
-    // The codes are a closed set; no raw error text may leak into them.
     for (const rec of [...missing.recorded, ...unreachable.recorded]) {
       // The codes are a closed set; no raw error text may leak into them.
       expect(["not_found", "unreachable"]).toContain(rec.error);
-      expect(rec.error).not.toMatch(/example|reset|fetch|https?:/);
+      expect(rec.error).not.toMatch(/example|multiple|https?:/);
     }
+  });
+
+  test("a rate-limited or failing GitHub is not a verdict about the source", async () => {
+    const hash = sha256(YAML_A);
+    for (const status of [401, 403, 429, 500, 503]) {
+      const fake = fakeRepository([
+        { contentHash: hash, id: "p1", sourceUrl: SOURCE },
+      ]);
+      const summary = await sweepSourceChecks({
+        fetchGist: httpFailingFetchGist(status),
+        repository: fake.repository,
+      });
+
+      // Nothing recorded at all: the row keeps its previous lastCheckedAt and
+      // failure count, so a shared-IP quota cannot brand a live profile dead.
+      expect(fake.recorded).toEqual([]);
+      expect(summary).toEqual({
+        changed: 0,
+        checked: 1,
+        failed: 0,
+        skipped: 1,
+      });
+    }
+  });
+
+  test("a conclusive non-404 HTTP answer is a verdict about the source", async () => {
+    // 410 Gone says the Gist entity is gone for good — that is evidence, so it
+    // records `unreachable`, unlike a 403 quota answer which records nothing.
+    const hash = sha256(YAML_A);
+    for (const status of [410, 422, 451]) {
+      const fake = fakeRepository([
+        { contentHash: hash, id: "p1", sourceUrl: SOURCE },
+      ]);
+      const summary = await sweepSourceChecks({
+        fetchGist: httpFailingFetchGist(status),
+        repository: fake.repository,
+      });
+
+      expect(fake.recorded[0]?.error).toBe("unreachable");
+      expect(summary).toEqual({
+        changed: 0,
+        checked: 1,
+        failed: 1,
+        skipped: 0,
+      });
+    }
+  });
+
+  test("a skipped row does not stop the rows after it", async () => {
+    const hash = sha256(YAML_A);
+    const other = "https://gist.github.com/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const fake = fakeRepository([
+      { contentHash: hash, id: "p1", sourceUrl: SOURCE },
+      { contentHash: hash, id: "p2", sourceUrl: other },
+    ]);
+
+    const summary = await sweepSourceChecks({
+      fetchGist: async (source: string) => {
+        if (source === SOURCE) {
+          throw new GistHttpError("Failed to fetch Gist: HTTP 403.", 403);
+        }
+        return makeGist(YAML_A);
+      },
+      repository: fake.repository,
+    });
+
+    expect(fake.recorded.map((r) => r.id)).toEqual(["p2"]);
+    expect(summary).toEqual({ changed: 0, checked: 2, failed: 0, skipped: 1 });
   });
 
   test("one failing row does not abort the sweep", async () => {
@@ -171,12 +245,9 @@ describe("sweepSourceChecks", () => {
     };
 
     async function flakyFetch(source: string): Promise<GistSource> {
-      if (source.includes("2222")) {
-        throw new Error("Gist was not found");
-      }
       const gist = gists[source];
       if (gist === undefined) {
-        throw new Error("Gist was not found");
+        throw new GistHttpError("Public Gist was not found.", 404);
       }
       return gist;
     }
@@ -189,7 +260,7 @@ describe("sweepSourceChecks", () => {
     expect(fake.recorded).toHaveLength(3);
     expect(fake.recorded.map((r) => r.id)).toEqual(["p1", "p2", "p3"]);
     expect(fake.recorded[1]?.error).toBe("not_found");
-    expect(summary).toEqual({ changed: 2, checked: 3, failed: 1 });
+    expect(summary).toEqual({ changed: 2, checked: 3, failed: 1, skipped: 0 });
   });
 
   test("a stored source URL that cannot be parsed costs one row, not the sweep", async () => {
@@ -209,7 +280,7 @@ describe("sweepSourceChecks", () => {
     expect(fake.recorded.map((r) => r.id)).toEqual(["p1", "p2"]);
     expect(fake.recorded[0]?.error).toBe("unreachable");
     expect(fake.recorded[1]?.contentHash).toBe(hash);
-    expect(summary).toEqual({ changed: 0, checked: 2, failed: 1 });
+    expect(summary).toEqual({ changed: 0, checked: 2, failed: 1, skipped: 0 });
   });
 
   test("passes its resolved limit and defaults to DEFAULT_SWEEP_LIMIT", async () => {

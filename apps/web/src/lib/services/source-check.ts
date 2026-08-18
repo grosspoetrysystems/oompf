@@ -23,7 +23,12 @@
  */
 
 import type { ProfileRepository } from "@oompf/database";
-import { fetchPublicGist, normalizeGistUrl } from "@oompf/github/gists";
+import {
+  fetchPublicGist,
+  GistHttpError,
+  type GistSource,
+  normalizeGistUrl,
+} from "@oompf/github/gists";
 
 import type { FetchPublicGist } from "./index-profile.ts";
 
@@ -55,18 +60,43 @@ export interface SourceSweepDeps {
 export interface SourceSweepSummary {
   /** Rows whose observed content differs from the indexed hash. */
   readonly changed: number;
+  /** Rows attempted, including the ones that produced no verdict. */
   readonly checked: number;
+  /** Rows recorded as a failed check. */
   readonly failed: number;
+  /** Rows left untouched because the check could not be performed at all. */
+  readonly skipped: number;
 }
 
 /**
- * Map a fetch failure to the closed-set, value-free stored code. The raw
- * error message may embed a URL or other value, so it must never become the
- * stored code — the codes are exactly `"not_found"` and `"unreachable"`.
+ * HTTP statuses that say nothing about the source, only about our ability to
+ * ask right now. GitHub's unauthenticated API allows 60 requests per hour per
+ * IP and a Worker egresses from shared addresses, so 403 and 429 are routine
+ * and carry no evidence; 408 and 5xx are GitHub having a moment.
  */
-function classifyCheckError(error: unknown): "not_found" | "unreachable" {
-  const message = error instanceof Error ? error.message : String(error);
-  return /was not found/i.test(message) ? "not_found" : "unreachable";
+const UNDECIDED_STATUSES = new Set([401, 403, 408, 429]);
+
+/**
+ * Map a fetch failure either to the closed-set, value-free stored code or to
+ * `null`, meaning the check did not happen and must not be recorded.
+ *
+ * Recording a rate-limited request as a failure is how a live profile gets
+ * branded dead: two sweeps into a shared-IP quota and the page would claim the
+ * source is unreachable. Only a definite 404, a non-transient HTTP error, or a
+ * source that no longer yields one usable profile YAML is evidence.
+ */
+function classifyCheckError(
+  error: unknown
+): "not_found" | "unreachable" | null {
+  if (error instanceof GistHttpError) {
+    if (error.status === 404) {
+      return "not_found";
+    }
+    return error.status >= 500 || UNDECIDED_STATUSES.has(error.status)
+      ? null
+      : "unreachable";
+  }
+  return "unreachable";
 }
 
 /**
@@ -88,8 +118,10 @@ export async function sweepSourceChecks(
 
   let changed = 0;
   let failed = 0;
+  let skipped = 0;
 
   for (const row of rows) {
+    let gist: GistSource | null = null;
     try {
       // Ask for the source's current head: `normalizeGistUrl` drops the
       // revision, so a pinned reference cannot pin us to the revision the
@@ -97,24 +129,35 @@ export async function sweepSourceChecks(
       // hash and observe no drift. It is inside the guard because it throws on a
       // reference it cannot parse, and one unparseable stored URL must cost that
       // row a check, not abort every row after it.
-      const gist = await fetchGist(normalizeGistUrl(row.sourceUrl));
-      if (gist.contentHash !== row.contentHash) {
-        changed++;
-      }
-      await repository.recordSourceCheck({
-        checkedAt,
-        contentHash: gist.contentHash,
-        id: row.id,
-      });
+      gist = await fetchGist(normalizeGistUrl(row.sourceUrl));
     } catch (error) {
+      const code = classifyCheckError(error);
+      if (code === null) {
+        // Not a verdict: leave `lastCheckedAt` and the failure count alone so
+        // the row stays exactly as stale as it was, and gets picked up first by
+        // the next sweep.
+        skipped++;
+        continue;
+      }
       failed++;
       await repository.recordSourceCheck({
         checkedAt,
-        error: classifyCheckError(error),
+        error: code,
         id: row.id,
       });
+      continue;
     }
+    // Only a resolved fetch reaches the record below, so a database failure
+    // here cannot be misread as a verdict about the source.
+    if (gist.contentHash !== row.contentHash) {
+      changed++;
+    }
+    await repository.recordSourceCheck({
+      checkedAt,
+      contentHash: gist.contentHash,
+      id: row.id,
+    });
   }
 
-  return { changed, checked: rows.length, failed };
+  return { changed, checked: rows.length, failed, skipped };
 }
