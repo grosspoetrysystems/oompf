@@ -114,12 +114,24 @@ const REGISTRY: Record<string, ProviderEntry> = {
         label: "Claude Haiku 4",
         url: "https://docs.anthropic.com/en/docs/about-claude/models",
       },
+      "claude-haiku-4.6": {
+        label: "Claude Haiku 4.6",
+        url: "https://docs.anthropic.com/en/docs/about-claude/models",
+      },
       "claude-opus-4": {
         label: "Claude Opus 4",
         url: "https://docs.anthropic.com/en/docs/about-claude/models",
       },
+      "claude-opus-4-8": {
+        label: "Claude Opus 4-8",
+        url: "https://docs.anthropic.com/en/docs/about-claude/models",
+      },
       "claude-sonnet-4": {
         label: "Claude Sonnet 4",
+        url: "https://docs.anthropic.com/en/docs/about-claude/models",
+      },
+      "claude-sonnet-4.6": {
+        label: "Claude Sonnet 4.6",
         url: "https://docs.anthropic.com/en/docs/about-claude/models",
       },
     },
@@ -136,6 +148,10 @@ const REGISTRY: Record<string, ProviderEntry> = {
         label: "DeepSeek-V3",
         url: "https://api-docs.deepseek.com",
       },
+      "deepseek-v4-flash": {
+        label: "DeepSeek-V4 Flash",
+        url: "https://api-docs.deepseek.com",
+      },
     },
     url: "https://www.deepseek.com",
   },
@@ -148,6 +164,14 @@ const REGISTRY: Record<string, ProviderEntry> = {
       },
       "gemini-2.5-pro": {
         label: "Gemini 2.5 Pro",
+        url: "https://ai.google.dev/gemini-api/docs/models",
+      },
+      "gemini-3.5-flash": {
+        label: "Gemini 3.5 Flash",
+        url: "https://ai.google.dev/gemini-api/docs/models",
+      },
+      "gemini-3.5-pro": {
+        label: "Gemini 3.5 Pro",
         url: "https://ai.google.dev/gemini-api/docs/models",
       },
     },
@@ -166,6 +190,19 @@ const REGISTRY: Record<string, ProviderEntry> = {
       "mistral-large": { label: "Mistral Large", url: null },
     },
     url: "https://mistral.ai",
+  },
+  // Motivating providers from live indexed profiles that the hand-curated set
+  // did not cover. Each maps to the provider's authoritative docs; models stay
+  // `url: null` when no stable per-model destination is verified.
+  moonshotai: {
+    displayName: "Moonshot AI",
+    models: {
+      "kimi-k2.6": {
+        label: "Kimi K2.6",
+        url: "https://platform.moonshot.ai",
+      },
+    },
+    url: "https://platform.moonshot.ai",
   },
   ollama: {
     displayName: "Ollama",
@@ -188,15 +225,41 @@ const REGISTRY: Record<string, ProviderEntry> = {
         label: "GPT-4o mini",
         url: "https://platform.openai.com/docs/models",
       },
+      "gpt-5.6": {
+        label: "GPT-5.6",
+        url: "https://platform.openai.com/docs/models",
+      },
       o1: { label: "o1", url: "https://platform.openai.com/docs/models" },
     },
     url: "https://openai.com",
   },
+  "openai-codex": {
+    displayName: "OpenAI Codex",
+    models: {
+      "gpt-5.5": {
+        label: "GPT-5.5",
+        url: "https://platform.openai.com/docs/models",
+      },
+      "gpt-5.6-luna": {
+        label: "GPT-5.6 Luna",
+        url: "https://platform.openai.com/docs/models",
+      },
+    },
+    url: "https://developers.openai.com/codex/cli",
+  },
   "opencode-go": {
     displayName: "OpenCode Go",
     models: {
+      "glm-5.2": {
+        label: "GLM 5.2",
+        url: "https://opencode.ai/zen/go/v1/models",
+      },
       "kimi-k2.7-code": {
         label: "Kimi K2.7 Code",
+        url: "https://opencode.ai/zen/go/v1/models",
+      },
+      "kimi-k3": {
+        label: "Kimi K3",
         url: "https://opencode.ai/zen/go/v1/models",
       },
     },
@@ -208,6 +271,16 @@ const REGISTRY: Record<string, ProviderEntry> = {
       "grok-2": { label: "Grok 2", url: null },
     },
     url: "https://x.ai",
+  },
+  "z-ai": {
+    displayName: "Z.AI",
+    models: {
+      "glm-5.2": {
+        label: "GLM 5.2",
+        url: "https://docs.z.ai/",
+      },
+    },
+    url: "https://docs.z.ai/",
   },
 };
 
@@ -292,14 +365,33 @@ export function resolveModelDisplay(model: string): ModelDisplay {
   }
   const providerId = model.slice(0, slash);
   const tail = model.slice(slash + 1);
-  const curated = REGISTRY[providerId]?.models[tail];
+  // A selector may carry a version tag (`provider/model:tag`, e.g. Ollama's
+  // `qwen3.6:latest`) that is not a thinking level. The tag is part of the
+  // display (two tags of the same base can differ), so the friendly name keeps
+  // the raw tail, while the link resolves from the curated base model — a
+  // tagged selector still reaches its destination instead of `url: null`.
+  const models = REGISTRY[providerId]?.models ?? {};
+  const direct = models[tail];
+  const base = direct ?? taggedBaseModel(models, tail);
   return {
-    friendlyName: curated?.label ?? tail,
+    friendlyName: direct?.label ?? tail,
     isAlias: false,
     providerId,
     selector: model,
-    url: curated?.url ?? null,
+    url: base?.url ?? null,
   };
+}
+
+/** The curated entry for the base of `tail = base:tag`, if any. */
+function taggedBaseModel(
+  models: Record<string, ModelEntry>,
+  tail: string
+): ModelEntry | undefined {
+  const colon = tail.lastIndexOf(":");
+  if (colon <= 0) {
+    return;
+  }
+  return models[tail.slice(0, colon)];
 }
 
 /** List every curated provider link, ordered by provider id. */

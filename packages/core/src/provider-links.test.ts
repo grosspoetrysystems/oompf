@@ -28,6 +28,59 @@ describe("provider and model permalinks", () => {
     ).toBeNull();
     expect(resolveProviderLink("unknown-provider").url).toBeNull();
   });
+
+  test("resolves live indexed provider/model selectors to their docs", () => {
+    expect(resolveModelDisplay("openai-codex/gpt-5.6-luna")).toEqual({
+      friendlyName: "GPT-5.6 Luna",
+      isAlias: false,
+      providerId: "openai-codex",
+      selector: "openai-codex/gpt-5.6-luna",
+      url: "https://platform.openai.com/docs/models",
+    });
+    expect(resolveModelDisplay("openai-codex/gpt-5.5").url).toBe(
+      "https://platform.openai.com/docs/models"
+    );
+    expect(resolveModelDisplay("moonshotai/kimi-k2.6").url).toBe(
+      "https://platform.moonshot.ai"
+    );
+    expect(resolveModelDisplay("z-ai/glm-5.2").url).toBe("https://docs.z.ai/");
+    expect(resolveModelDisplay("anthropic/claude-opus-4-8").url).toContain(
+      "docs.anthropic.com"
+    );
+    expect(resolveModelDisplay("anthropic/claude-haiku-4.6").url).toContain(
+      "docs.anthropic.com"
+    );
+    expect(resolveModelDisplay("google/gemini-3.5-pro").url).toContain(
+      "ai.google.dev"
+    );
+    expect(resolveModelDisplay("deepseek/deepseek-v4-flash").url).toBe(
+      "https://api-docs.deepseek.com"
+    );
+    expect(resolveModelDisplay("openai/gpt-5.6").url).toContain(
+      "platform.openai.com"
+    );
+    expect(resolveModelDisplay("opencode-go/glm-5.2").url).toBe(
+      "https://opencode.ai/zen/go/v1/models"
+    );
+    expect(resolveModelDisplay("opencode-go/kimi-k3").url).toBe(
+      "https://opencode.ai/zen/go/v1/models"
+    );
+    // The `:latest` tag is not a thinking level; it must still resolve to the
+    // curated base model's destination rather than falling to url: null.
+    expect(resolveModelDisplay("ollama/qwen3.6:latest").url).toBe(
+      "https://ollama.com/library/qwen3.6"
+    );
+  });
+
+  test("resolves the newly added provider homepages", () => {
+    expect(resolveProviderLink("openai-codex").url).toBe(
+      "https://developers.openai.com/codex/cli"
+    );
+    expect(resolveProviderLink("moonshotai").url).toBe(
+      "https://platform.moonshot.ai"
+    );
+    expect(resolveProviderLink("z-ai").url).toBe("https://docs.z.ai/");
+  });
 });
 
 describe("model selector display parsing", () => {
