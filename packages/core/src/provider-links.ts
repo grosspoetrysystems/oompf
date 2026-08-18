@@ -387,6 +387,10 @@ function taggedBaseModel(
   models: Record<string, ModelEntry>,
   tail: string
 ): ModelEntry | undefined {
+  // Any last-colon suffix is treated as a version tag. OMP thinking levels
+  // (`:high`, `:max`, …) are NOT tags and must be stripped by the caller first
+  // (profile-view runs parseModelSelectorDisplay before resolveModelDisplay), so
+  // a thinking-suffixed selector reaches this as its bare base model.
   const colon = tail.lastIndexOf(":");
   if (colon <= 0) {
     return;
