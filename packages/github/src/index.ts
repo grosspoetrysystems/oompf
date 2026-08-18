@@ -31,6 +31,7 @@ export type {
 } from "./gists.ts";
 export {
   fetchPublicGist,
+  GistHttpError,
   normalizeGistUrl,
   parseGistLocation,
 } from "./gists.ts";

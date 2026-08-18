@@ -13,6 +13,7 @@ import {
   fetchPublicGist,
   type GistFetch,
   type GistFetchResponse,
+  GistHttpError,
   normalizeGistUrl,
   parseGistLocation,
 } from "./gists.ts";
@@ -345,6 +346,42 @@ describe("fetchPublicGist", () => {
     await expect(fetchPublicGist(id, { fetch })).rejects.toThrow(
       /was not found.*private/
     );
+  });
+
+  test("carries the HTTP status so callers can tell gone from unaskable", async () => {
+    // 404 means the Gist is gone or private; 403 means GitHub's 60-per-hour
+    // unauthenticated quota is spent and says nothing about the Gist at all.
+    for (const status of [404, 403, 500]) {
+      const { fetch } = stubFetch({
+        [`https://api.github.com/gists/${id}`]: jsonResponse(status, {
+          message: "nope",
+        }),
+      });
+      const error = await fetchPublicGist(id, { fetch }).catch((e) => e);
+      expect(error).toBeInstanceOf(GistHttpError);
+      expect((error as GistHttpError).status).toBe(status);
+    }
+  });
+
+  test("carries the HTTP status when the raw content fetch fails", async () => {
+    const rawUrl = `https://gist.githubusercontent.com/octocat/${id}/raw/atlas.yml`;
+    const { fetch } = stubFetch({
+      [`https://api.github.com/gists/${id}`]: jsonResponse(200, {
+        files: {
+          "atlas.yml": {
+            content: null,
+            filename: "atlas.yml",
+            raw_url: rawUrl,
+          },
+        },
+        id,
+        owner: { login: "octocat" },
+      }),
+      [rawUrl]: jsonResponse(429, { message: "slow down" }),
+    });
+    const error = await fetchPublicGist(id, { fetch }).catch((e) => e);
+    expect(error).toBeInstanceOf(GistHttpError);
+    expect((error as GistHttpError).status).toBe(429);
   });
 
   test("rejects a Gist with multiple YAML candidates", async () => {

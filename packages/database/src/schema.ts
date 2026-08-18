@@ -64,7 +64,10 @@ export const profiles = pgTable(
   {
     /**
      * Consecutive failed source checks; `0` means the last check succeeded or
-     * none has run yet. Reset to `0` on any successful fetch.
+     * none has run yet. Reset to `0` on any successful fetch. A check that could
+     * not be performed — GitHub rate limiting, a 5xx — is not a failure and
+     * leaves this untouched, so a shared-IP quota cannot brand a live source
+     * dead.
      */
     checkFailures: integer("check_failures").notNull().default(0),
     /** Lowercase hex SHA-256 of the canonical source bytes. */
@@ -82,13 +85,16 @@ export const profiles = pgTable(
     /** Stable opaque profile identifier (see {@link deriveProfileId}). */
     id: text("id").primaryKey(),
     /**
-     * Stable value-free error code from the most recent failed check
-     * (`"not_found"` or `"unreachable"`); `null` when the last check succeeded.
+     * Stable value-free code from the most recent *conclusive* failed check:
+     * `"not_found"` (GitHub answered 404, so deleted or made private) or
+     * `"unreachable"` (reached, but no longer yields one usable profile YAML).
+     * `null` when the last check succeeded.
      */
     lastCheckError: text("last_check_error"),
     /**
-     * When the most recent source check ran; `null` means the source has never
-     * been checked by the freshness sweep.
+     * When the most recent *conclusive* source check ran; `null` means the
+     * source has never been checked. A skipped check does not advance it, so the
+     * row keeps its place at the front of the sweep queue.
      */
     lastCheckedAt: timestamp("last_checked_at", {
       mode: "date",

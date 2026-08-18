@@ -41,8 +41,15 @@ API:
   and retried; repeated failures flag the source as unreachable, which is what a
   deleted or newly private Gist looks like. GitHub answers 404 for both, so the
   flag stays reversible rather than deleting anything.
-- **Last check outcome** — `not_found` or `unreachable`. Only the code is stored,
+- **Last check outcome** — `not_found` (GitHub answered 404) or `unreachable`
+  (reached, but no longer a single usable profile YAML). Only the code is stored,
   never a raw error message.
+
+A check that could not be performed is not a verdict. GitHub's unauthenticated
+API allows 60 requests an hour per IP and OOMPF calls it from shared Cloudflare
+addresses, so rate-limited and 5xx responses are expected; those rows are left
+untouched — same last-checked time, same failure count — and come back first on
+the next sweep. Only a definite answer about the source is ever recorded.
 
 The sweep records signals only. It never rewrites indexed facts, so a source
 changing under you can never silently change what the index says it contained.

@@ -281,6 +281,28 @@ function oversizedError(gistId: string, filename: string): Error {
 }
 
 /**
+ * A Gist fetch that failed at the HTTP layer, carrying the response status.
+ *
+ * The status is what lets a caller tell "this source is gone" (404) from "we
+ * could not ask right now" (403 rate limit, 429, 5xx). That distinction matters
+ * to anything that records a judgement about a source: GitHub's unauthenticated
+ * API allows 60 requests per hour per IP, and a Cloudflare Worker egresses from
+ * shared addresses, so a 403 says nothing whatsoever about the Gist.
+ *
+ * Messages are unchanged from the plain `Error`s this replaced, so existing
+ * message-based classification keeps working.
+ */
+export class GistHttpError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "GistHttpError";
+    this.status = status;
+  }
+}
+
+/**
  * Fetch a public Gist and return its single canonical profile YAML source.
  *
  * The Gist metadata is read from `https://api.github.com/gists/<id>` (pinned
@@ -289,8 +311,10 @@ function oversizedError(gistId: string, filename: string): Error {
  * an unsupported filename is rejected. The file's exact bytes are then read
  * from its canonical `raw_url` and hashed.
  *
- * @throws Error for unsupported references, missing/private Gists (404),
- *   ambiguous or unsupported YAML files, and transport failures.
+ * @throws {GistHttpError} for HTTP-level failures, carrying the status (404 for
+ *   a missing or private Gist).
+ * @throws Error for unsupported references, ambiguous or unsupported YAML
+ *   files, oversized payloads, and transport failures.
  */
 export async function fetchPublicGist(
   source: string,
@@ -312,12 +336,14 @@ export async function fetchPublicGist(
   const metaResponse = await doFetch(apiUrl, { headers: GITHUB_API_HEADERS });
   if (!metaResponse.ok) {
     if (metaResponse.status === 404) {
-      throw new Error(
-        `Public Gist "${location.gistId}" was not found. It may be private, deleted, or the ID may be wrong.`
+      throw new GistHttpError(
+        `Public Gist "${location.gistId}" was not found. It may be private, deleted, or the ID may be wrong.`,
+        404
       );
     }
-    throw new Error(
-      `Failed to fetch Gist "${location.gistId}": HTTP ${metaResponse.status}.`
+    throw new GistHttpError(
+      `Failed to fetch Gist "${location.gistId}": HTTP ${metaResponse.status}.`,
+      metaResponse.status
     );
   }
 
@@ -330,8 +356,9 @@ export async function fetchPublicGist(
       headers: { "User-Agent": "oompf" },
     });
     if (!rawResponse.ok) {
-      throw new Error(
-        `Failed to fetch raw content for "${yamlFile.filename}" in Gist "${location.gistId}": HTTP ${rawResponse.status}.`
+      throw new GistHttpError(
+        `Failed to fetch raw content for "${yamlFile.filename}" in Gist "${location.gistId}": HTTP ${rawResponse.status}.`,
+        rawResponse.status
       );
     }
     content = await readRawYaml(
