@@ -70,6 +70,16 @@ describe("provider and model permalinks", () => {
     expect(resolveModelDisplay("ollama/qwen3.6:latest").url).toBe(
       "https://ollama.com/library/qwen3.6"
     );
+    // A tagged selector whose BASE is uncurated must never resolve: the tag
+    // fallback looks up the base only, so it cannot fabricate a provider-level
+    // link for an unknown model.
+    expect(resolveModelDisplay("ollama/llama4:latest").url).toBeNull();
+    // A thinking suffix survives only when the caller strips it first; a direct
+    // call still reaches the correct base-model destination. This pins the
+    // parse-before-resolve contract in profile-view's toModelReference.
+    expect(
+      resolveModelDisplay("anthropic/claude-sonnet-4.6:high").url
+    ).toContain("docs.anthropic.com");
   });
 
   test("resolves the newly added provider homepages", () => {
