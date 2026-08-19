@@ -564,6 +564,13 @@ export function createProfileRepository(
           checkFailures: existing.checkFailures + 1,
           lastCheckError: result.error,
           lastCheckedAt: checkedAt,
+          // A conclusive 404 run is the only thing that withdraws a source.
+          // An `unreachable` answer still proves the source answered (reached,
+          // then broke) or was a transport blip — never that it is gone — so
+          // it resets the run, keeping the streak a strictly-consecutive
+          // not-found count and not a count of "anything failed".
+          notFoundStreak:
+            result.error === "not_found" ? existing.notFoundStreak + 1 : 0,
         })
         .where(eq(profiles.id, existing.id))
         .returning();
@@ -578,6 +585,8 @@ export function createProfileRepository(
         checkFailures: 0,
         lastCheckError: null,
         lastCheckedAt: checkedAt,
+        // Any clean fetch is proof the source lives, so it ends the streak.
+        notFoundStreak: 0,
         // First-noticed wins: keep the prior sourceChangedAt when drift was
         // already seen, else stamp this check as the first observation.
         sourceChangedAt: changed

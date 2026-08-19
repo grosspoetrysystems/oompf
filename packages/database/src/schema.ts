@@ -105,6 +105,17 @@ export const profiles = pgTable(
       .$type<ProfileMetadata>()
       .notNull()
       .default({ kind: null, links: [], summary: null, tags: [] }),
+    /**
+     * Consecutive conclusive 404 checks — the `"not_found"` run that proves a
+     * source is gone, distinct from {@link checkFailures} (which conflates
+     * both failure codes for the freshness badge). Incremented only by a
+     * `not_found` verdict: any successful fetch or any `unreachable` answer
+     * resets it, because a source that answered at all was reachable, and a
+     * source that fetched cleanly is back. The sweep withdraws a row once this
+     * crosses its threshold, diverging a vanished source toward the same
+     * withdrawn state an explicit unpublish produces.
+     */
+    notFoundStreak: integer("not_found_streak").notNull().default(0),
     /** OMP version the profile targets, when declared. */
     ompVersion: text("omp_version"),
     /** Source owner login, or `null` for anonymous sources. */

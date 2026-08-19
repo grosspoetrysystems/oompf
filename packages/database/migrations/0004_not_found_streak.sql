@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "not_found_streak" integer DEFAULT 0 NOT NULL;

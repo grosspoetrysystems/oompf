@@ -4,12 +4,12 @@
  * A Cloudflare Cron Trigger calls this every six hours to re-check each
  * indexed profile's source against its current head. The sweep RECORDS
  * signals only: it never re-indexes facts, never rewrites the indexed
- * `facts`/`validation`/`metadata`, and never soft-deletes. Those columns'
- * values change only through the normal `POST /api/v1/profiles` re-index
- * path, so the sweep is safe to run and safe to skip — it can neither corrupt
- * the landing page's metadata nor mutate the artifact intent. (Converging a
- * dead source to a withdrawn state is deliberately out of scope; that is a
- * separate ticket.)
+ * `facts`/`validation`/`metadata`. Those columns' values change only through
+ * the normal `POST /api/v1/profiles` re-index path, so the sweep is safe to
+ * run and safe to skip. The one mutation it does perform is converging a
+ * source confirmed gone (enough consecutive 404s) to the same withdrawn state
+ * an explicit unpublish produces, via the shared soft-delete — that is the
+ * point of GPS-149, not an incidental cleanup.
  *
  * Each check fetches the source WITHOUT a pinned revision (the unpinned
  * canonical URL) so it observes the source's *current* head, not the revision
@@ -44,6 +44,17 @@ import type { FetchPublicGist } from "./index-profile.ts";
  */
 export const DEFAULT_SWEEP_LIMIT = 10;
 
+/**
+ * How many consecutive conclusive 404 checks (about seven days at one sweep
+ * every six hours) converge a source to the withdrawn state an explicit
+ * unpublish produces, via the shared soft-delete. Kept deliberately long and
+ * reversible: a single 404 can mean "deleted", "made private", or "GitHub had
+ * a moment", and only a durable run distinguishes those. A returning source
+ * revives — re-registration clears the tombstone and the next clean fetch
+ * resets the streak.
+ */
+export const WITHDRAW_NOT_FOUND_THRESHOLD = 28;
+
 /** Injectable seams for {@link sweepSourceChecks}. */
 export interface SourceSweepDeps {
   /** Gist-fetch seam; defaults to the real `fetchPublicGist`. */
@@ -54,6 +65,12 @@ export interface SourceSweepDeps {
   readonly now?: () => Date;
   /** Persistence surface for check outcomes. */
   readonly repository: ProfileRepository;
+  /**
+   * Consecutive 404s that withdraw a source; defaults to
+   * {@link WITHDRAW_NOT_FOUND_THRESHOLD}. Inject a small value in tests so the
+   * withdrawal path can be exercised without 28 sweeps.
+   */
+  readonly withdrawAfterNotFound?: number;
 }
 
 /** Outcome counts for one sweep invocation. */
@@ -66,6 +83,8 @@ export interface SourceSweepSummary {
   readonly failed: number;
   /** Rows left untouched because the check could not be performed at all. */
   readonly skipped: number;
+  /** Rows converged to the withdrawn state after enough consecutive 404s. */
+  readonly withdrawn: number;
 }
 
 /**
@@ -119,6 +138,10 @@ export async function sweepSourceChecks(
   let changed = 0;
   let failed = 0;
   let skipped = 0;
+  let withdrawn = 0;
+  // Realized streak threshold for this sweep invocation.
+  const withdrawAfter =
+    deps.withdrawAfterNotFound ?? WITHDRAW_NOT_FOUND_THRESHOLD;
 
   for (const row of rows) {
     let gist: GistSource | null = null;
@@ -140,11 +163,24 @@ export async function sweepSourceChecks(
         continue;
       }
       failed++;
-      await repository.recordSourceCheck({
+      const updated = await repository.recordSourceCheck({
         checkedAt,
         error: code,
         id: row.id,
       });
+      // A source that has looked gone for the whole grace window converges to
+      // the same withdrawn state an explicit unpublish produces, via the shared
+      // soft-delete. `recordSourceCheck` reads the row fresh, so `updated` is
+      // the authoritative post-increment streak; a `null` (concurrent delete or
+      // a stub in tests) just means there is nothing left to withdraw.
+      if (
+        code === "not_found" &&
+        updated !== null &&
+        updated.notFoundStreak >= withdrawAfter
+      ) {
+        await repository.softDeleteProfile(row.id);
+        withdrawn++;
+      }
       continue;
     }
     // Only a resolved fetch reaches the record below, so a database failure
@@ -159,5 +195,5 @@ export async function sweepSourceChecks(
     });
   }
 
-  return { changed, checked: rows.length, failed, skipped };
+  return { changed, checked: rows.length, failed, skipped, withdrawn };
 }
