@@ -863,4 +863,45 @@ describe("recordSourceCheck", () => {
       /neither contentHash nor error/
     );
   });
+
+  test("notFoundStreak counts consecutive 404s and resets on reach or success", async () => {
+    const { repo } = await freshRepo();
+    const record = await repo.createOrUpdateProfile(
+      registerInput(PROFILE_YAML)
+    );
+    const id = record.id;
+
+    const one = await repo.recordSourceCheck({
+      error: "not_found",
+      id,
+    });
+    const two = await repo.recordSourceCheck({
+      error: "not_found",
+      id,
+    });
+    expect(one?.notFoundStreak).toBe(1);
+    expect(two?.notFoundStreak).toBe(2);
+
+    // A reachable-but-broken answer proves the source answered, so it ends the
+    // not-found run without ever counting toward withdrawal.
+    const reached = await repo.recordSourceCheck({
+      error: "unreachable",
+      id,
+    });
+    expect(reached?.notFoundStreak).toBe(0);
+    // `checkFailures` still records the failure for the freshness badge; only
+    // the dedicated streak resets.
+    expect(reached?.checkFailures).toBe(3);
+
+    const gone = await repo.recordSourceCheck({ error: "not_found", id });
+    expect(gone?.notFoundStreak).toBe(1);
+
+    // A clean fetch is proof the source lives; both counters fully reset.
+    const back = await repo.recordSourceCheck({
+      contentHash: record.contentHash,
+      id,
+    });
+    expect(back?.notFoundStreak).toBe(0);
+    expect(back?.checkFailures).toBe(0);
+  });
 });

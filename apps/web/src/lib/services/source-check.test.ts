@@ -7,7 +7,11 @@ import type {
 } from "@oompf/database";
 import { GistHttpError, type GistSource } from "@oompf/github/gists";
 import type { FetchPublicGist } from "./index-profile.ts";
-import { DEFAULT_SWEEP_LIMIT, sweepSourceChecks } from "./source-check.ts";
+import {
+  DEFAULT_SWEEP_LIMIT,
+  sweepSourceChecks,
+  WITHDRAW_NOT_FOUND_THRESHOLD,
+} from "./source-check.ts";
 
 // Canonical (owner-free) form, matching what `sweepSourceChecks` fetches.
 const SOURCE = "https://gist.github.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -58,34 +62,73 @@ function httpFailingFetchGist(status: number): FetchPublicGist {
 interface SwRow {
   readonly contentHash: string;
   readonly id: string;
+  readonly notFoundStreak?: number;
   readonly sourceUrl: string;
 }
 
 /**
  * An in-memory fake for the parts of {@link ProfileRepository} the sweep uses:
- * `listProfilesToCheck` and `recordSourceCheck` only, so tests stay hermetically
- * off the network and the database.
+ * `listProfilesToCheck`, `recordSourceCheck`, and `softDeleteProfile`, so tests
+ * stay hermetically off the network and the database. Rows carry a mutable
+ * `notFoundStreak` so the sweep's withdrawal path (read the post-increment
+ * streak, then soft-delete past the threshold) can be exercised end to end.
  */
 function fakeRepository(rows: SwRow[]): {
   listLimit: () => number | null;
   recorded: SourceCheckResult[];
+  recordedStreak: Record<string, number>;
   repository: ProfileRepository;
+  softDeleted: string[];
 } {
   const recorded: SourceCheckResult[] = [];
+  const recordedStreak: Record<string, number> = {};
+  const softDeleted: string[] = [];
   let listLimit: number | null = null;
+  const byId = new Map(
+    rows.map((r) => [
+      r.id,
+      {
+        contentHash: r.contentHash,
+        id: r.id,
+        notFoundStreak: r.notFoundStreak ?? 0,
+        sourceUrl: r.sourceUrl,
+      },
+    ])
+  );
   const repository = {
     async listProfilesToCheck(limit?: number): Promise<ProfileRecord[]> {
       listLimit = limit ?? null;
-      return rows.map((r) => r as unknown as ProfileRecord);
+      return [...byId.values()] as unknown as ProfileRecord[];
     },
     async recordSourceCheck(
       result: SourceCheckResult
     ): Promise<ProfileRecord | null> {
       recorded.push(result);
-      return null;
+      const row = byId.get(result.id);
+      if (row === undefined) {
+        return null;
+      }
+      if (result.error !== undefined) {
+        row.notFoundStreak =
+          result.error === "not_found" ? row.notFoundStreak + 1 : 0;
+      } else {
+        row.notFoundStreak = 0;
+      }
+      recordedStreak[result.id] = row.notFoundStreak;
+      return row as unknown as ProfileRecord;
+    },
+    async softDeleteProfile(id: string): Promise<ProfileRecord | null> {
+      softDeleted.push(id);
+      return byId.get(id) as unknown as ProfileRecord | null;
     },
   } as unknown as ProfileRepository;
-  return { listLimit: () => listLimit, recorded, repository };
+  return {
+    listLimit: () => listLimit,
+    recorded,
+    recordedStreak,
+    repository,
+    softDeleted,
+  };
 }
 
 describe("sweepSourceChecks", () => {
@@ -99,7 +142,13 @@ describe("sweepSourceChecks", () => {
       repository: fake.repository,
     });
 
-    expect(summary).toEqual({ changed: 0, checked: 1, failed: 0, skipped: 0 });
+    expect(summary).toEqual({
+      changed: 0,
+      checked: 1,
+      failed: 0,
+      skipped: 0,
+      withdrawn: 0,
+    });
     expect(fake.recorded).toHaveLength(1);
     expect(fake.recorded[0]?.id).toBe("p1");
     expect(fake.recorded[0]?.contentHash).toBe(hash);
@@ -117,7 +166,13 @@ describe("sweepSourceChecks", () => {
       repository: fake.repository,
     });
 
-    expect(summary).toEqual({ changed: 1, checked: 1, failed: 0, skipped: 0 });
+    expect(summary).toEqual({
+      changed: 1,
+      checked: 1,
+      failed: 0,
+      skipped: 0,
+      withdrawn: 0,
+    });
     expect(fake.recorded[0]?.contentHash).toBe(newGist.contentHash);
   });
 
@@ -169,6 +224,7 @@ describe("sweepSourceChecks", () => {
         checked: 1,
         failed: 0,
         skipped: 1,
+        withdrawn: 0,
       });
     }
   });
@@ -192,6 +248,7 @@ describe("sweepSourceChecks", () => {
         checked: 1,
         failed: 1,
         skipped: 0,
+        withdrawn: 0,
       });
     }
   });
@@ -215,7 +272,13 @@ describe("sweepSourceChecks", () => {
     });
 
     expect(fake.recorded.map((r) => r.id)).toEqual(["p2"]);
-    expect(summary).toEqual({ changed: 0, checked: 2, failed: 0, skipped: 1 });
+    expect(summary).toEqual({
+      changed: 0,
+      checked: 2,
+      failed: 0,
+      skipped: 1,
+      withdrawn: 0,
+    });
   });
 
   test("one failing row does not abort the sweep", async () => {
@@ -260,7 +323,13 @@ describe("sweepSourceChecks", () => {
     expect(fake.recorded).toHaveLength(3);
     expect(fake.recorded.map((r) => r.id)).toEqual(["p1", "p2", "p3"]);
     expect(fake.recorded[1]?.error).toBe("not_found");
-    expect(summary).toEqual({ changed: 2, checked: 3, failed: 1, skipped: 0 });
+    expect(summary).toEqual({
+      changed: 2,
+      checked: 3,
+      failed: 1,
+      skipped: 0,
+      withdrawn: 0,
+    });
   });
 
   test("a stored source URL that cannot be parsed costs one row, not the sweep", async () => {
@@ -280,7 +349,13 @@ describe("sweepSourceChecks", () => {
     expect(fake.recorded.map((r) => r.id)).toEqual(["p1", "p2"]);
     expect(fake.recorded[0]?.error).toBe("unreachable");
     expect(fake.recorded[1]?.contentHash).toBe(hash);
-    expect(summary).toEqual({ changed: 0, checked: 2, failed: 1, skipped: 0 });
+    expect(summary).toEqual({
+      changed: 0,
+      checked: 2,
+      failed: 1,
+      skipped: 0,
+      withdrawn: 0,
+    });
   });
 
   test("passes its resolved limit and defaults to DEFAULT_SWEEP_LIMIT", async () => {
@@ -317,5 +392,102 @@ describe("sweepSourceChecks", () => {
       repository: fake.repository,
     });
     expect(fake.recorded[0]?.checkedAt).toBe(now);
+  });
+
+  test("a 404 at or below the threshold does not withdraw the row", async () => {
+    const hash = sha256(YAML_A);
+    const fake = fakeRepository([
+      { contentHash: hash, id: "p1", notFoundStreak: 1, sourceUrl: SOURCE },
+    ]);
+
+    const summary = await sweepSourceChecks({
+      fetchGist: httpFailingFetchGist(404),
+      repository: fake.repository,
+      // Explicitly small so the test does not need 28 fake sweeps.
+      withdrawAfterNotFound: 3,
+    });
+
+    expect(fake.recorded[0]?.error).toBe("not_found");
+    // Post-increment streak is 2, still below the injected threshold of 3.
+    expect(fake.recordedStreak.p1).toBe(2);
+    expect(fake.softDeleted).toEqual([]);
+    expect(summary).toEqual({
+      changed: 0,
+      checked: 1,
+      failed: 1,
+      skipped: 0,
+      withdrawn: 0,
+    });
+  });
+
+  test("crossing the not-found threshold withdraws via the shared soft-delete", async () => {
+    const hash = sha256(YAML_A);
+    const fake = fakeRepository([
+      { contentHash: hash, id: "p1", notFoundStreak: 2, sourceUrl: SOURCE },
+    ]);
+
+    const summary = await sweepSourceChecks({
+      fetchGist: httpFailingFetchGist(404),
+      repository: fake.repository,
+      withdrawAfterNotFound: 3,
+    });
+
+    expect(fake.recorded[0]?.error).toBe("not_found");
+    // The post-increment streak (3) meets the threshold, so the row converges
+    // to the withdrawn state through the same soft-delete path an explicit
+    // unpublish uses.
+    expect(fake.recordedStreak.p1).toBe(3);
+    expect(fake.softDeleted).toEqual(["p1"]);
+    expect(summary).toEqual({
+      changed: 0,
+      checked: 1,
+      failed: 1,
+      skipped: 0,
+      withdrawn: 1,
+    });
+  });
+
+  test("a non-404 failure never withdraws, and resets the not-found run", async () => {
+    const hash = sha256(YAML_A);
+    for (const status of [410, 422, 451]) {
+      const fake = fakeRepository([
+        { contentHash: hash, id: "p1", notFoundStreak: 27, sourceUrl: SOURCE },
+      ]);
+      const summary = await sweepSourceChecks({
+        fetchGist: httpFailingFetchGist(status),
+        repository: fake.repository,
+        withdrawAfterNotFound: 28,
+      });
+
+      // `unreachable` is not `not_found`: it reset the streak to 0, so even a
+      // near-threshold row is never withdrawn on a non-404 answer.
+      expect(fake.recorded[0]?.error).toBe("unreachable");
+      expect(fake.recordedStreak.p1).toBe(0);
+      expect(fake.softDeleted).toEqual([]);
+      expect(summary.withdrawn).toBe(0);
+    }
+  });
+
+  test("production default withdraws at WITHDRAW_NOT_FOUND_THRESHOLD", async () => {
+    const hash = sha256(YAML_A);
+    const fake = fakeRepository([
+      {
+        contentHash: hash,
+        id: "p1",
+        notFoundStreak: WITHDRAW_NOT_FOUND_THRESHOLD - 1,
+        sourceUrl: SOURCE,
+      },
+    ]);
+    // Absent an override, the sweep must withdraw exactly when the streak
+    // crosses the constant production actually uses — not a hardcoded value
+    // that drifts out of sync with `WITHDRAW_NOT_FOUND_THRESHOLD`.
+    const summary = await sweepSourceChecks({
+      fetchGist: httpFailingFetchGist(404),
+      repository: fake.repository,
+    });
+
+    expect(fake.recorded[0]?.error).toBe("not_found");
+    expect(fake.softDeleted).toEqual(["p1"]);
+    expect(summary.withdrawn).toBe(1);
   });
 });

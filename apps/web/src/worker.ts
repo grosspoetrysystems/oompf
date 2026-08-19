@@ -49,7 +49,7 @@ export default {
       repository: createProfileRepository(createNeonDatabase(url)),
     });
     console.warn(
-      `source sweep (${controller.cron}): checked ${summary.checked}, changed ${summary.changed}, failed ${summary.failed}, skipped ${summary.skipped}`
+      `source sweep (${controller.cron}): checked ${summary.checked}, changed ${summary.changed}, failed ${summary.failed}, skipped ${summary.skipped}, withdrawn ${summary.withdrawn}`
     );
   },
 };
