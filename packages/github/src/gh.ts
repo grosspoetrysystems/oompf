@@ -161,6 +161,23 @@ export interface CreatedGist {
   readonly url: string;
 }
 
+/** Content update for an existing public profile Gist. */
+export interface UpdatePublicProfileGistInput {
+  /** Exact replacement contents, sent as JSON over stdin. */
+  readonly content: string;
+  /** Existing profile filename; all other Gist files remain untouched. */
+  readonly filename: string;
+  /** Existing Gist id owned by the authenticated GitHub user. */
+  readonly gistId: string;
+}
+
+/** Coordinates returned after patching a public profile Gist. */
+export interface UpdatedGist {
+  readonly gistId: string;
+  readonly htmlUrl: string;
+  readonly revision: string | null;
+}
+
 /**
  * Publish `input` as a **public** Gist via `gh gist create --public`.
  *
@@ -222,6 +239,92 @@ export async function createPublicProfileGist(
 }
 
 /** Find the first `gist.github.com` URL in `gh`'s stdout, or `null`. */
+
+/**
+ * Patch one file in an existing public Gist through `gh api`.
+ *
+ * The helper never creates a new Gist: preserving the source URL is what
+ * preserves the stable OOMPF profile identity during `upgrade`.
+ */
+export async function updatePublicProfileGist(
+  input: UpdatePublicProfileGistInput,
+  options?: GhOptions
+): Promise<UpdatedGist> {
+  const ghCommand = options?.ghCommand ?? DEFAULT_GH_COMMAND;
+  const runner = options?.runner ?? nodeCommandRunner;
+  const body = JSON.stringify({
+    files: {
+      [input.filename]: { content: input.content },
+    },
+  });
+
+  let result: CommandResult;
+  try {
+    result = await runner({
+      args: [
+        "api",
+        "--method",
+        "PATCH",
+        `gists/${input.gistId}`,
+        "--input",
+        "-",
+      ],
+      command: ghCommand,
+      stdin: body,
+    });
+  } catch (error) {
+    if (isMissingExecutable(error)) {
+      throw new Error(
+        `GitHub CLI (\`${ghCommand}\`) was not found on your PATH. Install it from https://cli.github.com/ and run \`gh auth login\`.`
+      );
+    }
+    throw error;
+  }
+
+  if (result.exitCode !== 0) {
+    const detail = result.stderr.trim() || `exit code ${result.exitCode}`;
+    throw new Error(`GitHub CLI failed to update the public Gist: ${detail}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    throw new Error(
+      "GitHub CLI returned invalid JSON after updating the public Gist."
+    );
+  }
+  if (
+    parsed === null ||
+    typeof parsed !== "object" ||
+    Array.isArray(parsed) ||
+    !("id" in parsed) ||
+    typeof parsed.id !== "string" ||
+    !("html_url" in parsed) ||
+    typeof parsed.html_url !== "string"
+  ) {
+    throw new Error(
+      "GitHub CLI response after updating the public Gist was incomplete."
+    );
+  }
+  const history =
+    "history" in parsed && Array.isArray(parsed.history) ? parsed.history : [];
+  const first = history[0];
+  const revision =
+    first !== null &&
+    typeof first === "object" &&
+    !Array.isArray(first) &&
+    "version" in first &&
+    typeof first.version === "string"
+      ? first.version
+      : null;
+  return {
+    gistId: parsed.id,
+    htmlUrl: parsed.html_url,
+    revision,
+  };
+}
+
 function extractGistUrl(stdout: string): string | null {
   const match = stdout.match(/https?:\/\/gist\.github\.com\/\S+/);
   if (match === null) {
