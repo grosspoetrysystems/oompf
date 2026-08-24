@@ -59,16 +59,6 @@ export const MODEL_CATALOG: ModelCatalog = {
       successor: null,
       tier: "frontier",
     },
-    {
-      deployment: "hosted",
-      docsUrl: "https://docs.anthropic.com/en/docs/about-claude/models",
-      id: "anthropic/claude-haiku-4",
-      providerId: "anthropic",
-      reasoning: "standard",
-      roles: ["chat", "coding"],
-      successor: null,
-      tier: "economy",
-    },
   ],
   revision: "gps-150-1",
 };
