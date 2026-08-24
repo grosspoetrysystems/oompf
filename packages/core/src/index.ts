@@ -36,10 +36,10 @@ export {
   extractMetadata,
 } from "./metadata.ts";
 export type {
+  CatalogRole,
   DeploymentClass,
   ModelCatalog,
   ModelCatalogEntry,
-  ModelRole,
   ModelTier,
   ReasoningClass,
 } from "./model-catalog.ts";

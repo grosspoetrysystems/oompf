@@ -34,7 +34,7 @@
 
 ```ts
 export type ModelTier = "balanced" | "economy" | "frontier";
-export type ModelRole = "chat" | "coding" | "planning" | "review";
+export type CatalogRole = "chat" | "coding" | "planning" | "review";
 export type ReasoningClass = "none" | "reasoning" | "standard";
 export type DeploymentClass = "hosted" | "open-weight";
 
@@ -44,7 +44,7 @@ export interface ModelCatalogEntry {
   readonly id: string;
   readonly providerId: string;
   readonly reasoning: ReasoningClass;
-  readonly roles: readonly ModelRole[];
+  readonly roles: readonly CatalogRole[];
   readonly successor: string | null;
   readonly tier: ModelTier;
 }
