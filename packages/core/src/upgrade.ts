@@ -148,6 +148,11 @@ function replacementFor(
 }
 
 type NodePath = readonly (number | string)[];
+interface TextReplacement {
+  readonly end: number;
+  readonly start: number;
+  readonly value: string;
+}
 type SetNode = (path: NodePath, value: string) => void;
 
 function replaceArray(
@@ -279,10 +284,26 @@ function replaceRetryChains(
         `chain[${index}]`,
         catalog,
         plan,
+
         setNode
       );
     }
   }
+}
+function applyReplacements(
+  source: string,
+  replacements: readonly TextReplacement[]
+): string {
+  let output = source;
+  for (const replacement of [...replacements].sort(
+    (left, right) => right.start - left.start
+  )) {
+    output =
+      output.slice(0, replacement.start) +
+      replacement.value +
+      output.slice(replacement.end);
+  }
+  return output;
 }
 
 /**
@@ -300,8 +321,24 @@ export function proposeUpgrade(
   }
 
   const plan: MutablePlan = { changes: [], unchanged: [] };
+  const replacements: TextReplacement[] = [];
   const setNode: SetNode = (path, value) => {
-    document.setIn(path, value);
+    const node = document.getIn(path, true);
+    if (
+      node === null ||
+      typeof node !== "object" ||
+      !("range" in node) ||
+      !Array.isArray(node.range) ||
+      typeof node.range[0] !== "number" ||
+      typeof node.range[1] !== "number"
+    ) {
+      throw new Error("Profile YAML model selector has no source range.");
+    }
+    replacements.push({
+      end: node.range[1],
+      start: node.range[0],
+      value,
+    });
   };
   replaceModelRoles(parsed, catalog, plan, setNode);
   replaceEnabledModels(parsed, catalog, plan, setNode);
@@ -311,6 +348,6 @@ export function proposeUpgrade(
     catalogRevision: catalog.revision,
     changes: plan.changes,
     unchanged: plan.unchanged,
-    yaml: document.toString(),
+    yaml: applyReplacements(yaml, replacements),
   };
 }

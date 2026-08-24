@@ -123,13 +123,14 @@ describe("proposeUpgrade", () => {
     ]);
   });
 
-  test("preserves author comments while replacing model nodes", () => {
+  test("preserves comments and unrelated scalar formatting", () => {
     const plan = proposeUpgrade(
-      "# profile note\nmodelRoles:\n  planner: vendor/old # keep this note\n",
+      "# profile note\nnumber: 001\nmodelRoles:\n  planner: vendor/old # keep this note\n",
       CATALOG
     );
 
     expect(plan.yaml).toContain("# profile note");
+    expect(plan.yaml).toContain("number: 001");
     expect(plan.yaml).toContain("# keep this note");
     expect(plan.yaml).toContain("vendor/new");
   });
