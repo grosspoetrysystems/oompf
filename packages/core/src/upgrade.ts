@@ -1,4 +1,4 @@
-import { parse, stringify } from "yaml";
+import { parseDocument } from "yaml";
 
 import { isRecord } from "./guards.ts";
 import type { ModelCatalog, ModelRole } from "./model-catalog.ts";
@@ -147,43 +147,64 @@ function replacementFor(
   return to;
 }
 
+type NodePath = readonly (number | string)[];
+type SetNode = (path: NodePath, value: string) => void;
+
 function replaceArray(
   values: unknown[],
-  path: string,
+  displayPath: string,
+  nodePath: NodePath,
   role: string | null,
   catalog: ModelCatalog,
-  plan: MutablePlan
+  plan: MutablePlan,
+  setNode: SetNode
 ): void {
   for (let index = 0; index < values.length; index++) {
     const value = values[index];
     if (typeof value !== "string") {
       continue;
     }
-    values[index] = replacementFor(
+    const next = replacementFor(
       value,
-      `${path}[${index}]`,
+      `${displayPath}[${index}]`,
       role,
       catalog,
       plan
     );
+    if (next !== value) {
+      setNode([...nodePath, index], next);
+    }
   }
 }
 
 function replaceModelRoles(
   document: Record<string, unknown>,
   catalog: ModelCatalog,
-  plan: MutablePlan
+  plan: MutablePlan,
+  setNode: SetNode
 ): void {
   const modelRoles = document.modelRoles;
   if (!isRecord(modelRoles)) {
     return;
   }
   for (const [role, assigned] of Object.entries(modelRoles)) {
-    const path = `modelRoles.${role}`;
+    const displayPath = `modelRoles.${role}`;
+    const nodePath = ["modelRoles", role];
     if (typeof assigned === "string") {
-      modelRoles[role] = replacementFor(assigned, path, role, catalog, plan);
+      const next = replacementFor(assigned, displayPath, role, catalog, plan);
+      if (next !== assigned) {
+        setNode(nodePath, next);
+      }
     } else if (Array.isArray(assigned)) {
-      replaceArray(assigned, path, role, catalog, plan);
+      replaceArray(
+        assigned,
+        displayPath,
+        nodePath,
+        role,
+        catalog,
+        plan,
+        setNode
+      );
     }
   }
 }
@@ -191,17 +212,27 @@ function replaceModelRoles(
 function replaceEnabledModels(
   document: Record<string, unknown>,
   catalog: ModelCatalog,
-  plan: MutablePlan
+  plan: MutablePlan,
+  setNode: SetNode
 ): void {
   if (Array.isArray(document.enabledModels)) {
-    replaceArray(document.enabledModels, "enabledModels", null, catalog, plan);
+    replaceArray(
+      document.enabledModels,
+      "enabledModels",
+      ["enabledModels"],
+      null,
+      catalog,
+      plan,
+      setNode
+    );
   }
 }
 
 function replaceRetryChains(
   document: Record<string, unknown>,
   catalog: ModelCatalog,
-  plan: MutablePlan
+  plan: MutablePlan,
+  setNode: SetNode
 ): void {
   if (!isRecord(document.retry)) {
     return;
@@ -213,9 +244,11 @@ function replaceRetryChains(
         replaceArray(
           value,
           `retry.fallbackChains.${role}`,
+          ["retry", "fallbackChains", role],
           role,
           catalog,
-          plan
+          plan,
+          setNode
         );
       }
     }
@@ -225,7 +258,15 @@ function replaceRetryChains(
     return;
   }
   if (chains.every((value) => typeof value === "string")) {
-    replaceArray(chains, "retry.fallbackChains", "default", catalog, plan);
+    replaceArray(
+      chains,
+      "retry.fallbackChains",
+      ["retry", "fallbackChains"],
+      "default",
+      catalog,
+      plan,
+      setNode
+    );
     return;
   }
   for (let index = 0; index < chains.length; index++) {
@@ -234,9 +275,11 @@ function replaceRetryChains(
       replaceArray(
         value,
         `retry.fallbackChains[${index}]`,
+        ["retry", "fallbackChains", index],
         `chain[${index}]`,
         catalog,
-        plan
+        plan,
+        setNode
       );
     }
   }
@@ -250,20 +293,24 @@ export function proposeUpgrade(
   yaml: string,
   catalog: ModelCatalog
 ): UpgradePlan {
-  const parsed = parse(yaml);
+  const document = parseDocument(yaml, { keepSourceTokens: true });
+  const parsed = document.toJS();
   if (!isRecord(parsed)) {
     throw new Error("Profile YAML must have a mapping root.");
   }
 
   const plan: MutablePlan = { changes: [], unchanged: [] };
-  replaceModelRoles(parsed, catalog, plan);
-  replaceEnabledModels(parsed, catalog, plan);
-  replaceRetryChains(parsed, catalog, plan);
+  const setNode: SetNode = (path, value) => {
+    document.setIn(path, value);
+  };
+  replaceModelRoles(parsed, catalog, plan, setNode);
+  replaceEnabledModels(parsed, catalog, plan, setNode);
+  replaceRetryChains(parsed, catalog, plan, setNode);
 
   return {
     catalogRevision: catalog.revision,
     changes: plan.changes,
     unchanged: plan.unchanged,
-    yaml: stringify(parsed),
+    yaml: document.toString(),
   };
 }
