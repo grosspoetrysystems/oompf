@@ -1,7 +1,7 @@
 import { parseDocument } from "yaml";
 
 import { isRecord } from "./guards.ts";
-import type { ModelCatalog, ModelRole } from "./model-catalog.ts";
+import type { CatalogRole, ModelCatalog } from "./model-catalog.ts";
 
 /** Thinking suffixes that belong to the model selector's execution settings. */
 const THINKING_LEVELS: Record<string, true> = {
@@ -34,7 +34,7 @@ function splitThinkingSuffix(model: string): {
 }
 
 /** Map common profile role labels to the catalog's broader role-fit classes. */
-const ROLE_TO_CATALOG_ROLE: Record<string, ModelRole> = {
+const ROLE_TO_CATALOG_ROLE: Record<string, CatalogRole> = {
   chat: "chat",
   coder: "coding",
   coding: "coding",

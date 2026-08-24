@@ -8,7 +8,7 @@
  */
 
 export type ModelTier = "balanced" | "economy" | "frontier";
-export type ModelRole = "chat" | "coding" | "planning" | "review";
+export type CatalogRole = "chat" | "coding" | "planning" | "review";
 export type ReasoningClass = "none" | "reasoning" | "standard";
 export type DeploymentClass = "hosted" | "open-weight";
 
@@ -19,7 +19,7 @@ export interface ModelCatalogEntry {
   readonly id: string;
   readonly providerId: string;
   readonly reasoning: ReasoningClass;
-  readonly roles: readonly ModelRole[];
+  readonly roles: readonly CatalogRole[];
   readonly successor: string | null;
   readonly tier: ModelTier;
 }
@@ -36,6 +36,8 @@ export interface ModelCatalog {
  * so a proposed change remains attributable and reproducible.
  */
 export const MODEL_CATALOG: ModelCatalog = {
+  // `anthropic/claude-opus-4` and `anthropic/claude-opus-4.8` are present in
+  // the public OpenRouter model list; the successor is explicit, not inferred.
   models: [
     {
       deployment: "hosted",
