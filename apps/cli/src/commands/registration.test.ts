@@ -4,9 +4,9 @@ import { CLI_VERSION } from "../index.ts";
 import { apiFetch, runCli } from "../test-helpers.ts";
 
 describe("cli registration", () => {
-  test("registers all four commands in help output", async () => {
+  test("registers all five commands in help output", async () => {
     const { out } = await runCli({ httpFetch: apiFetch() }, ["--help"]);
-    for (const command of ["publish", "add", "inspect", "search"]) {
+    for (const command of ["publish", "add", "inspect", "search", "upgrade"]) {
       expect(out).toContain(command);
     }
   });
