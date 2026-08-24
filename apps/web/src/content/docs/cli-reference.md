@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-summary: Syntax, examples, output, and failure modes for oompf publish, inspect, search, and add.
+summary: Syntax, examples, output, and failure modes for oompf publish, inspect, search, add, and upgrade.
 section: Reference
 order: 1
 ---
@@ -18,8 +18,10 @@ It targets `https://oompf.run` by default; set `OOMPF_BASE_URL` (for example
 stable error envelope on failure — a machine-readable `code`, a human
 `message`, and optional value-free `details`.
 
-The CLI is a thin client over the canonical `/api/v1` routes. Response shapes are
-described by [`/openapi.json`](/openapi.json) and the published JSON Schemas.
+The CLI uses the canonical `/api/v1` routes for indexed metadata and registration.
+`upgrade` also patches the owned source Gist through GitHub after confirmation.
+Response shapes are described by [`/openapi.json`](/openapi.json) and the
+published JSON Schemas.
 
 ## `oompf publish`
 
@@ -94,6 +96,36 @@ oompf add https://oompf.run/p/<id>
 - **Failure modes:** `not_found`, unreachable source, validation failure, or a
   fingerprint mismatch.
 
+## `oompf upgrade`
+
+Review and optionally apply explicit model successors to an indexed profile.
+Preview is read-only; the command changes a source only after confirmation.
+
+```bash
+oompf upgrade https://oompf.run/p/<id>
+oompf upgrade prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d --yes
+```
+
+- **Syntax:** `oompf upgrade <oompf-url-or-id>`.
+- **Preview:** the default behavior fetches the source Gist's current head,
+  reports the catalog revision, and shows each explicit model successor plus
+  unchanged selectors and reasons. Preview performs no writes; `--json` is
+  suitable for automation.
+- **Confirmation:** use `--yes` for a non-interactive confirmed update. The
+  command verifies GitHub ownership, validates the transformed YAML, patches the
+  existing public Gist in place, and re-registers the same source URL. The
+  `/p/<id>` identity therefore stays stable while its revision and fingerprint
+  change.
+- **Safety:** the indexed pinned revision is provenance only; the current Gist
+  head is the patch input. A head change during review aborts instead of
+  overwriting the newer edit. Unknown models, missing successors, and
+  incompatible slots remain unchanged.
+- **Failure modes:** `invalid_ref`, `unverifiable_artifact`, `unowned_gist`,
+  `head_changed`, `invalid_artifact`, `blocking_secrets`, GitHub patch failure,
+  or `index_update_failed`. If the Gist patch succeeds but registration fails,
+  the command reports the partial state and never claims success.
+
+
 ## Corresponding API routes
 
 | Command | Canonical route | Compatibility alias |
@@ -101,6 +133,7 @@ oompf add https://oompf.run/p/<id>
 | `publish` | `POST /api/v1/profiles` | `POST /api/profiles` |
 | `inspect` | `GET /api/v1/profiles/:id` | `GET /api/profiles/:id` |
 | `search` | `GET /api/v1/search` | `GET /api/search` |
+| `upgrade` | `GET /api/v1/profiles/:id`, `POST /api/v1/profiles`, and owned GitHub Gist `PATCH` | `GET/POST /api/profiles...` |
 | mappings | `GET /api/v1/mappings/providers`, `GET /api/v1/mappings/models/:provider` | `GET /api/mappings/...` |
 
 The complete `omp` command surface and runtime behavior are documented by OMP
