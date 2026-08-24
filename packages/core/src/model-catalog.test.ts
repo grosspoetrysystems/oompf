@@ -31,7 +31,7 @@ describe("model catalog", () => {
       providerId: "anthropic",
       reasoning: "reasoning",
       roles: ["coding", "planning", "review"],
-      successor: "anthropic/claude-opus-4-8",
+      successor: "anthropic/claude-opus-4.8",
       tier: "frontier",
     });
     expect(findCatalogModel("unknown/model")).toBeNull();
