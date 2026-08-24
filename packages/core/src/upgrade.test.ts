@@ -135,6 +135,15 @@ describe("proposeUpgrade", () => {
     expect(plan.yaml).toContain("vendor/new");
   });
 
+  test("does not reject fallback-chain successors by their chain key", () => {
+    const plan = proposeUpgrade(
+      "retry:\n  fallbackChains:\n    review:\n      - vendor/old\n",
+      CATALOG
+    );
+
+    expect(plan.changes[0]?.to).toBe("vendor/new");
+  });
+
   test("preserves max thinking suffixes for non-display-catalog models", () => {
     const plan = proposeUpgrade(
       "modelRoles:\n  planner: vendor/old:max\n",
