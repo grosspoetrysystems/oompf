@@ -172,7 +172,7 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
         } catch (error) {
           throw new CommandError(
             "index_update_failed",
-            `The Gist was updated but OOMPF could not refresh its index. Retry upgrade to repair the index: ${error instanceof Error ? error.message : String(error)}`
+            `The Gist was updated but OOMPF could not refresh its index. Re-register the unchanged source URL after the index recovers; this command will not patch the Gist again. Details: ${error instanceof Error ? error.message : String(error)}`
           );
         }
         return c.ok({ ...output, updatedRevision: updated.revision });
