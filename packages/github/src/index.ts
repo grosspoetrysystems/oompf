@@ -17,10 +17,13 @@ export type {
   CreatePublicProfileGistInput,
   GhOptions,
   GithubIdentity,
+  UpdatedGist,
+  UpdatePublicProfileGistInput,
 } from "./gh.ts";
 export {
   createPublicProfileGist,
   getGithubIdentity,
+  updatePublicProfileGist,
 } from "./gh.ts";
 export type {
   FetchPublicGistOptions,

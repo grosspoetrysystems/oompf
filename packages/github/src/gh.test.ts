@@ -6,6 +6,7 @@ import {
   type CommandRunner,
   createPublicProfileGist,
   getGithubIdentity,
+  updatePublicProfileGist,
 } from "./gh.ts";
 
 const GIST_ID = "a".repeat(32);
@@ -161,6 +162,45 @@ describe("createPublicProfileGist", () => {
       command: "gh",
       stdin: INPUT.content,
     });
+  });
+
+  test("patches one file in an existing Gist and parses its current revision", async () => {
+    const { runner, calls } = stubRunner({
+      exitCode: 0,
+      stderr: "",
+      stdout: JSON.stringify({
+        history: [{ version: "b".repeat(40) }],
+        html_url: GIST_URL,
+        id: GIST_ID,
+      }),
+    });
+    await expect(
+      updatePublicProfileGist(
+        {
+          content: "modelRoles:\n  planner: anthropic/claude-opus-4-8\n",
+          filename: INPUT.filename,
+          gistId: GIST_ID,
+        },
+        { runner }
+      )
+    ).resolves.toEqual({
+      gistId: GIST_ID,
+      htmlUrl: GIST_URL,
+      revision: "b".repeat(40),
+    });
+    expect(calls).toEqual([
+      {
+        args: ["api", "--method", "PATCH", `gists/${GIST_ID}`, "--input", "-"],
+        command: "gh",
+        stdin: JSON.stringify({
+          files: {
+            [INPUT.filename]: {
+              content: "modelRoles:\n  planner: anthropic/claude-opus-4-8\n",
+            },
+          },
+        }),
+      },
+    ]);
   });
 
   test("strips a bare Gist URL without an owner segment", async () => {
