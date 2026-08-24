@@ -111,7 +111,7 @@ describe("upgrade", () => {
     expect(result.changes).toHaveLength(1);
     expect(result.changes[0]).toMatchObject({
       from: "anthropic/claude-opus-4:high",
-      to: "anthropic/claude-opus-4-8:high",
+      to: "anthropic/claude-opus-4.8:high",
     });
     expect(result.updatedRevision).toBeNull();
     expect(deps.calls).toEqual([]);
@@ -135,7 +135,7 @@ describe("upgrade", () => {
     expect(result.oompfUrl).toBe(OOMPF_URL);
     expect(result.updatedRevision).toBe("e".repeat(40));
     expect(patch?.stdin).toContain("keep-me");
-    expect(patch?.stdin).toContain("claude-opus-4-8:high");
+    expect(patch?.stdin).toContain("claude-opus-4.8:high");
   });
 
   test("noninteractive mode previews without writing", async () => {
@@ -149,7 +149,7 @@ describe("upgrade", () => {
   test("an already-current profile is a no-op even with confirmation", async () => {
     const current = CURRENT_YAML.replace(
       "anthropic/claude-opus-4:high",
-      "anthropic/claude-opus-4-8:high"
+      "anthropic/claude-opus-4.8:high"
     );
     const deps = upgradeDeps({}, current);
     const { code, out } = await runCli(deps, [

@@ -13,13 +13,13 @@ const CATALOG: ModelCatalog = {
       providerId: "anthropic",
       reasoning: "reasoning",
       roles: ["planning", "coding"],
-      successor: "anthropic/claude-opus-4-8",
+      successor: "anthropic/claude-opus-4.8",
       tier: "frontier",
     },
     {
       deployment: "hosted",
       docsUrl: null,
-      id: "anthropic/claude-opus-4-8",
+      id: "anthropic/claude-opus-4.8",
       providerId: "anthropic",
       reasoning: "reasoning",
       roles: ["planning", "coding"],
@@ -35,6 +35,26 @@ const CATALOG: ModelCatalog = {
       roles: ["chat"],
       successor: null,
       tier: "balanced",
+    },
+    {
+      deployment: "hosted",
+      docsUrl: null,
+      id: "vendor/old",
+      providerId: "vendor",
+      reasoning: "reasoning",
+      roles: ["planning"],
+      successor: "vendor/new",
+      tier: "frontier",
+    },
+    {
+      deployment: "hosted",
+      docsUrl: null,
+      id: "vendor/new",
+      providerId: "vendor",
+      reasoning: "reasoning",
+      roles: ["planning"],
+      successor: null,
+      tier: "frontier",
     },
   ],
   revision: "test-1",
@@ -66,14 +86,14 @@ describe("proposeUpgrade", () => {
 
     expect(plan.catalogRevision).toBe("test-1");
     expect(plan.changes).toHaveLength(4);
-    expect(document.modelRoles.planner).toBe("anthropic/claude-opus-4-8:high");
+    expect(document.modelRoles.planner).toBe("anthropic/claude-opus-4.8:high");
     expect(document.modelRoles.fallback).toEqual([
-      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-4.8",
       "@local",
     ]);
-    expect(document.enabledModels).toEqual(["anthropic/claude-opus-4-8"]);
+    expect(document.enabledModels).toEqual(["anthropic/claude-opus-4.8"]);
     expect(document.retry.fallbackChains.default).toEqual([
-      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-4.8",
       "google/gemini-2.5-pro",
     ]);
     expect(document.advisor).toEqual({ enabled: true });
@@ -101,6 +121,15 @@ describe("proposeUpgrade", () => {
         role: "unknown",
       },
     ]);
+  });
+
+  test("preserves max thinking suffixes for non-display-catalog models", () => {
+    const plan = proposeUpgrade(
+      "modelRoles:\n  planner: vendor/old:max\n",
+      CATALOG
+    );
+
+    expect(plan.changes[0]?.to).toBe("vendor/new:max");
   });
 
   test("is a no-op when no recognized model location exists", () => {

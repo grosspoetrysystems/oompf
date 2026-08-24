@@ -2,7 +2,36 @@ import { parse, stringify } from "yaml";
 
 import { isRecord } from "./guards.ts";
 import type { ModelCatalog, ModelRole } from "./model-catalog.ts";
-import { parseModelSelectorDisplay } from "./provider-links.ts";
+
+/** Thinking suffixes that belong to the model selector's execution settings. */
+const THINKING_LEVELS: Record<string, true> = {
+  auto: true,
+  high: true,
+  inherit: true,
+  low: true,
+  max: true,
+  medium: true,
+  minimal: true,
+  off: true,
+  xhigh: true,
+};
+
+function splitThinkingSuffix(model: string): {
+  readonly modelSelector: string;
+  readonly thinkingLevel: string | null;
+} {
+  const colon = model.lastIndexOf(":");
+  if (colon <= 0) {
+    return { modelSelector: model, thinkingLevel: null };
+  }
+  const suffix = model.slice(colon + 1);
+  return Object.hasOwn(THINKING_LEVELS, suffix)
+    ? {
+        modelSelector: model.slice(0, colon),
+        thinkingLevel: suffix,
+      }
+    : { modelSelector: model, thinkingLevel: null };
+}
 
 /** Map common profile role labels to the catalog's broader role-fit classes. */
 const ROLE_TO_CATALOG_ROLE: Record<string, ModelRole> = {
@@ -61,7 +90,7 @@ function replacementFor(
     return model;
   }
 
-  const parsed = parseModelSelectorDisplay(model);
+  const parsed = splitThinkingSuffix(model);
   const current = catalog.models.find(
     (entry) => entry.id === parsed.modelSelector
   );
