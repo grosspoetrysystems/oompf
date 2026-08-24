@@ -250,7 +250,7 @@ function replaceRetryChains(
           value,
           `retry.fallbackChains.${role}`,
           ["retry", "fallbackChains", role],
-          role,
+          null,
           catalog,
           plan,
           setNode
@@ -267,7 +267,7 @@ function replaceRetryChains(
       chains,
       "retry.fallbackChains",
       ["retry", "fallbackChains"],
-      "default",
+      null,
       catalog,
       plan,
       setNode
@@ -281,10 +281,9 @@ function replaceRetryChains(
         value,
         `retry.fallbackChains[${index}]`,
         ["retry", "fallbackChains", index],
-        `chain[${index}]`,
+        null,
         catalog,
         plan,
-
         setNode
       );
     }
