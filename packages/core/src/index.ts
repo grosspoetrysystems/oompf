@@ -36,6 +36,15 @@ export {
   extractMetadata,
 } from "./metadata.ts";
 export type {
+  DeploymentClass,
+  ModelCatalog,
+  ModelCatalogEntry,
+  ModelRole,
+  ModelTier,
+  ReasoningClass,
+} from "./model-catalog.ts";
+export { findCatalogModel, MODEL_CATALOG } from "./model-catalog.ts";
+export type {
   DiscoveredProfile,
   OmpProfileOptions,
   ResolvedProfileConfig,
