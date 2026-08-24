@@ -138,6 +138,49 @@ describe("upgrade", () => {
     expect(patch?.stdin).toContain("claude-opus-4.8:high");
   });
 
+  test("refuses to patch when the current head changes during review", async () => {
+    let fetches = 0;
+    const deps = upgradeDeps({
+      gistFetch: async () => {
+        fetches++;
+        const content =
+          fetches === 1
+            ? CURRENT_YAML
+            : CURRENT_YAML.replace(
+                "newAuthorField: keep-me",
+                "newAuthorField: changed"
+              );
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({
+              files: {
+                "work.yml": {
+                  content,
+                  filename: "work.yml",
+                  raw_url: null,
+                },
+              },
+              history: [{ version: CURRENT_REVISION }],
+              html_url: GIST_HTML,
+              id: GIST_ID,
+              owner: { login: "octocat" },
+            }),
+        };
+      },
+    });
+    const { code } = await runCli(deps, [
+      "upgrade",
+      OOMPF_URL,
+      "--yes",
+      "--json",
+    ]);
+
+    expect(code).toBeGreaterThan(0);
+    expect(deps.calls).toEqual([]);
+  });
+
   test("noninteractive mode previews without writing", async () => {
     const deps = upgradeDeps();
     const { code } = await runCli(deps, ["upgrade", OOMPF_URL]);
