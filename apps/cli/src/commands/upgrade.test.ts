@@ -21,7 +21,8 @@ newAuthorField: keep-me
 `;
 
 function upgradeDeps(
-  overrides: Partial<CliDeps> = {}
+  overrides: Partial<CliDeps> = {},
+  currentYaml = CURRENT_YAML
 ): CliDeps & { calls: CommandInput[] } {
   const calls: CommandInput[] = [];
   const runner = async (input: CommandInput): Promise<CommandResult> => {
@@ -53,7 +54,7 @@ function upgradeDeps(
       JSON.stringify({
         files: {
           "work.yml": {
-            content: CURRENT_YAML,
+            content: currentYaml,
             filename: "work.yml",
             raw_url: null,
           },
@@ -135,5 +136,36 @@ describe("upgrade", () => {
     expect(result.updatedRevision).toBe("e".repeat(40));
     expect(patch?.stdin).toContain("keep-me");
     expect(patch?.stdin).toContain("claude-opus-4-8:high");
+  });
+
+  test("noninteractive mode previews without writing", async () => {
+    const deps = upgradeDeps();
+    const { code } = await runCli(deps, ["upgrade", OOMPF_URL]);
+
+    expect(code).toBeUndefined();
+    expect(deps.calls).toEqual([]);
+  });
+
+  test("an already-current profile is a no-op even with confirmation", async () => {
+    const current = CURRENT_YAML.replace(
+      "anthropic/claude-opus-4:high",
+      "anthropic/claude-opus-4-8:high"
+    );
+    const deps = upgradeDeps({}, current);
+    const { code, out } = await runCli(deps, [
+      "upgrade",
+      OOMPF_URL,
+      "--yes",
+      "--json",
+    ]);
+    const result = JSON.parse(out) as {
+      changes: readonly unknown[];
+      updatedRevision: string | null;
+    };
+
+    expect(code).toBeUndefined();
+    expect(result.changes).toEqual([]);
+    expect(result.updatedRevision).toBeNull();
+    expect(deps.calls).toEqual([]);
   });
 });
