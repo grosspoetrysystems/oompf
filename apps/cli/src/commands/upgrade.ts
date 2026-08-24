@@ -120,6 +120,10 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
         }
 
         const latest = await fetchCurrent();
+        // The second fetch closes the review-time race. GitHub's Gist PATCH
+        // endpoint does not expose a reliable If-Match precondition, so a
+        // concurrent edit after this check remains an unavoidable last-mile
+        // race; the command never pretends the API is transactional.
         if (latest.contentHash !== current.contentHash) {
           throw new CommandError(
             "head_changed",

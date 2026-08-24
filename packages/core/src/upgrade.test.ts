@@ -123,6 +123,17 @@ describe("proposeUpgrade", () => {
     ]);
   });
 
+  test("preserves author comments while replacing model nodes", () => {
+    const plan = proposeUpgrade(
+      "# profile note\nmodelRoles:\n  planner: vendor/old # keep this note\n",
+      CATALOG
+    );
+
+    expect(plan.yaml).toContain("# profile note");
+    expect(plan.yaml).toContain("# keep this note");
+    expect(plan.yaml).toContain("vendor/new");
+  });
+
   test("preserves max thinking suffixes for non-display-catalog models", () => {
     const plan = proposeUpgrade(
       "modelRoles:\n  planner: vendor/old:max\n",
