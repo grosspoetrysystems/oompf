@@ -44,6 +44,37 @@ export const publishOutput = z.object({
   warnings: z.array(z.string()),
 });
 
+/** `upgrade` result: a reviewed model diff and optional new Gist revision. */
+export const upgradeOutput = z.object({
+  catalogRevision: z.string(),
+  changes: z.array(
+    z.object({
+      from: z.string(),
+      path: z.string(),
+      reason: z.literal("successor"),
+      role: z.string().nullable(),
+      to: z.string(),
+    })
+  ),
+  currentRevision: z.string(),
+  oompfUrl: z.string(),
+  unchanged: z.array(
+    z.object({
+      model: z.string(),
+      path: z.string(),
+      reason: z.enum([
+        "already_current",
+        "no_successor",
+        "slot_mismatch",
+        "unavailable",
+        "unclassified",
+      ]),
+      role: z.string().nullable(),
+    })
+  ),
+  updatedRevision: z.string().nullable(),
+});
+
 /** A single machine-local prerequisite the installed profile needs. */
 const prerequisite = z.object({
   kind: z.enum(["provider", "environment", "project-overlay", "extension"]),

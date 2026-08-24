@@ -1,12 +1,13 @@
 #!/usr/bin/env node
+
 /**
  * OOMPF CLI entrypoint (binary name: `oompf`).
  *
- * Builds the Incur router CLI, wiring the four commands (`publish`, `add`,
- * `inspect`, `search`) against injectable seams. {@link createCli} takes an
- * optional {@link CliDeps} bundle so focused tests can drive every command with
- * fake `gh`/Gist/HTTP/`omp`/filesystem implementations; production omits it and
- * gets the real Bun/Node-backed seams.
+ * Builds the Incur router CLI, wiring the five commands (`publish`, `add`,
+ * `inspect`, `search`, `upgrade`) against injectable seams. {@link createCli}
+ * takes an optional {@link CliDeps} bundle so focused tests can drive every
+ * command with fake `gh`/Gist/HTTP/`omp`/filesystem implementations; production
+ * omits it and gets the real Bun/Node-backed seams.
  */
 
 import { Cli } from "incur";
@@ -15,6 +16,7 @@ import { registerAdd } from "./commands/add.ts";
 import { registerInspect } from "./commands/inspect.ts";
 import { registerPublish } from "./commands/publish.ts";
 import { registerSearch } from "./commands/search.ts";
+import { registerUpgrade } from "./commands/upgrade.ts";
 import { type CliDeps, resolveDeps } from "./deps.ts";
 
 /**
@@ -40,6 +42,7 @@ export function createCli(deps: CliDeps = {}) {
   registerAdd(cli, resolved);
   registerInspect(cli, resolved);
   registerSearch(cli, resolved);
+  registerUpgrade(cli, resolved);
   return cli;
 }
 
