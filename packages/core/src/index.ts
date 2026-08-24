@@ -79,6 +79,12 @@ export {
 } from "./provider-links.ts";
 export type { SpawnInput, SpawnResult } from "./spawn.ts";
 export { spawnCapture } from "./spawn.ts";
+export type {
+  UpgradeChange,
+  UpgradePlan,
+  UpgradeUnchanged,
+} from "./upgrade.ts";
+export { proposeUpgrade } from "./upgrade.ts";
 export type { ArtifactValidation, SecretFinding } from "./validation.ts";
 export {
   DEFAULT_MAX_BYTES,
