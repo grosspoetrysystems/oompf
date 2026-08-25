@@ -84,7 +84,7 @@ oompf add https://oompf.run/p/<id>
 For an OOMPF URL or id, `add` fetches the exact Gist revision that OOMPF indexed,
 re-validates it, and refuses to write the profile unless its SHA-256 fingerprint
 matches the index. The installed source cannot silently follow later Gist edits.
-Direct Gist references are supported separately, but have no indexed fingerprint
-to verify.
+Direct Gist references are inspection-only; `add` rejects them because they have
+no indexed revision or fingerprint to verify.
 
 Next: read [OMP profiles](/docs/omp-profiles) and the [Profile format](/docs/profile-format).

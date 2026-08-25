@@ -155,9 +155,9 @@ export function apiFetch(
 }
 
 /** A full-enough persisted profile record for metadata responses. */
-export function profileRecord(): Record<string, unknown> {
+export function profileRecord(content = CONTENT): Record<string, unknown> {
   return {
-    contentHash: sha256(CONTENT),
+    contentHash: sha256(content),
     createdAt: "2026-08-08T00:00:00.000Z",
     facts: {
       aliases: ["@fast"],

@@ -104,7 +104,7 @@ export const inspectOutput = z.object({
   aliases: z.array(z.string()).describe("Named model aliases (@-prefixed)"),
   errors: z.array(z.string()),
   hash: z.string(),
-  installCommand: z.string(),
+  installCommand: z.string().optional(),
   metadata: profileMetadataOutput,
   models: z.array(z.string()),
   name: z.string(),

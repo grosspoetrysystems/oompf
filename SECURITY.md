@@ -26,7 +26,10 @@ Also in scope: anything letting an indexed profile execute code during publish, 
 
 **OMP itself.** OOMPF describes the profile format and installs files. Runtime behaviour belongs to [OMP](https://github.com/can1357/oh-my-pi); report runtime vulnerabilities there.
 
-**The canonical source.** Profiles live in public GitHub Gists. Availability, authorship, and account security are GitHub's domain. OOMPF records the source URL, revision, and a SHA-256 of the exact bytes it indexed so you can verify what you received.
+**The canonical source.** Profiles live in public GitHub Gists. Availability,
+authorship, and account security are GitHub's domain. OOMPF records the source
+URL, revision, and SHA-256 of exact indexed bytes; `oompf add` requires that
+indexed provenance and verifies the same bytes before installing.
 
 ## Supported versions
 
