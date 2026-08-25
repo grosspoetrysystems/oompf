@@ -195,3 +195,11 @@ the boundaries:
   at the SQL layer — instead of the former `FEATURED_QUERY` substring search
   over `source_url`. A blank search query routes to the same recent listing, so
   an empty query surfaces the index instead of returning nothing.
+
+## Related runtime design
+
+The boundary between verified OOMPF profile distribution and live OMP role
+steering is documented in
+[`docs/superpowers/specs/2026-08-25-omp-role-steering-and-swap-design.md`](superpowers/specs/2026-08-25-omp-role-steering-and-swap-design.md).
+Warm role changes and task-agent routing belong to OMP; whole-profile handoff
+remains a cold relaunch flow.
