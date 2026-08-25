@@ -8,7 +8,7 @@ index, and anyone can reinstall it as a native OMP profile:
 
 ```text
 oompf publish <profile>   → public Gist → indexed → https://oompf.run/p/<id>
-oompf add <url>           → installs a native OMP profile
+oompf add <oompf-url>      → installs a verified native OMP profile
 omp --profile <name>      → run it
 ```
 
@@ -97,8 +97,9 @@ Nothing is registered if local validation fails.
 
 ### `oompf add <ref> [--name <name>]`
 
-Install a shared profile as a native OMP profile. The reference may be an OOMPF
-URL or id, a public Gist URL, or a bare Gist id.
+Install a shared profile as a native OMP profile. The reference must be an
+OOMPF URL or profile id. Direct Gist URLs and ids are rejected because they
+have no indexed revision or fingerprint to verify.
 
 ```bash
 oompf add https://oompf.run/p/prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d
@@ -114,13 +115,14 @@ Output: the installed `name`, the `path` written, the artifact `hash`, the
 
 Failure modes:
 
+- `unverifiable_artifact` — the reference is not an indexed OOMPF profile, or
+  the indexed profile has no pinned revision.
 - `invalid_artifact` — the fetched artifact failed structural validation.
 - `invalid_name` — the derived (or `--name`) profile name violates OMP's naming
   rules; pass an explicit valid `--name`.
 - `target_exists` — a profile with that name already has a config; OOMPF refuses
   to overwrite it.
 - `network_error` — the index or Gist source could not be reached.
-- The Gist is missing or private, or the reference is not a supported Gist/URL.
 
 ### `oompf inspect <ref>`
 
@@ -131,9 +133,10 @@ oompf inspect https://oompf.run/p/prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d
 ```
 
 An OOMPF reference is answered from the index; a Gist reference is fetched and
-validated live. Output is metadata only — models, providers, aliases, the
-structural verdict, provenance, and the install command. The canonical artifact
-content is never emitted.
+validated live for inspection only. OOMPF output includes the verified install
+command; direct Gist output does not offer an install command. The output is
+metadata only — models, providers, aliases, the structural verdict, and
+provenance. The canonical artifact content is never emitted.
 
 Failure modes: `not_found` for an unknown indexed id; `network_error` when the
 index is unreachable; Gist fetch errors when the source is missing, private, or

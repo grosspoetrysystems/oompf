@@ -4,8 +4,8 @@
  * The reference may be an OOMPF URL/id or a public Gist URL/id. An OOMPF ref is
  * answered from the index metadata; a Gist ref is fetched and validated live.
  * Only displayable metadata — source, revision/hash, structural verdict, facts,
- * and the install command — is printed. The canonical artifact content is never
- * emitted.
+ * and the OOMPF install command — is printed. The canonical artifact content is
+ * never emitted.
  */
 
 import { validateArtifact } from "@oompf/core";
@@ -84,35 +84,26 @@ export function registerInspect(cli: Cli.Cli, deps: ResolvedDeps): void {
         });
         const validation = validateArtifact({ yaml: gist.content });
         const facts = validation.facts;
-        return c.ok(
-          {
-            aliases: facts ? [...facts.aliases] : [],
-            errors: [...validation.errors],
-            hash: gist.contentHash,
-            installCommand: `oompf add ${c.args.ref}`,
-            metadata: {
-              ...validation.metadata,
-              links: [...validation.metadata.links],
-              tags: [...validation.metadata.tags],
-            },
-            models: facts ? [...facts.models] : [],
-            name: filenameStem(gist.filename),
-            ompVersion: null,
-            owner: gist.owner,
-            providers: facts ? [...facts.providers] : [],
-            revision: gist.revision,
-            source: gist.htmlUrl,
-            sourceType: "gist",
-            structural: validation.structural,
-            warnings: [...validation.warnings],
+        return c.ok({
+          aliases: facts ? [...facts.aliases] : [],
+          errors: [...validation.errors],
+          hash: gist.contentHash,
+          metadata: {
+            ...validation.metadata,
+            links: [...validation.metadata.links],
+            tags: [...validation.metadata.tags],
           },
-          {
-            cta: {
-              commands: [{ command: `oompf add ${c.args.ref}` }],
-              description: "Install it with:",
-            },
-          }
-        );
+          models: facts ? [...facts.models] : [],
+          name: filenameStem(gist.filename),
+          ompVersion: null,
+          owner: gist.owner,
+          providers: facts ? [...facts.providers] : [],
+          revision: gist.revision,
+          source: gist.htmlUrl,
+          sourceType: "gist",
+          structural: validation.structural,
+          warnings: [...validation.warnings],
+        });
       } catch (error) {
         return toCliError(c.error, error);
       }

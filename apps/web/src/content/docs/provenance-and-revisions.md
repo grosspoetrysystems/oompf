@@ -63,9 +63,9 @@ changing under you can never silently change what the index says it contained.
 - **Idempotence.** Re-registering an unchanged source resolves to the same id and
   leaves the record untouched.
 
-Direct Gist URLs and ids remain supported, but they have no OOMPF index record to
-verify against. They are fetched and structurally validated without claiming
-indexed provenance.
+Direct Gist URLs and ids remain supported for inspection only. They have no
+OOMPF index record to verify against, so `oompf add` rejects them rather than
+installing unpinned bytes.
 
 The full values are available in the expanded provenance section of each profile
 page and in the [profile metadata API](/docs/cli-reference).

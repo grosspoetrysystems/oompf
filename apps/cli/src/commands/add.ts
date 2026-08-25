@@ -2,8 +2,9 @@
  * `oompf add <ref> [--name <name>]` — install a shared profile as a native OMP
  * profile.
  *
- * The reference may be an OOMPF URL/id, a public Gist URL, or a bare Gist id.
- * The canonical YAML is fetched and validated before anything is written. The
+ * The reference must be an OOMPF URL or profile id. OOMPF resolves the
+ * canonical Gist revision and verifies its fingerprint before anything is
+ * written. The
  * local name defaults to `<github-owner>-<profile-name>` (overridable with
  * `--name`) and is checked against OMP's own naming rules. The install target
  * directory is resolved by asking OMP itself (`omp --profile <name> config
@@ -32,14 +33,14 @@ function filenameStem(filename: string): string {
 export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
   cli.command("add", {
     args: z.object({
-      ref: z.string().describe("OOMPF URL/id, public Gist URL, or Gist id"),
+      ref: z.string().describe("OOMPF URL or profile id"),
     }),
     description: "Install a shared profile as a native OMP profile",
     env: cliEnv,
     examples: [
       {
-        args: { ref: "https://gist.github.com/octocat/abc123" },
-        description: "Install a profile from a public Gist",
+        args: { ref: "https://oompf.run/p/prof_0123" },
+        description: "Install a profile with pinned verification",
       },
       {
         args: { ref: "https://oompf.run/p/prof_0123" },
@@ -60,6 +61,14 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
     output: addOutput,
     async run(c) {
       try {
+        const oompfId = parseOompfRef(c.args.ref);
+        if (oompfId === null) {
+          throw new CommandError(
+            "unverifiable_artifact",
+            "Install requires an OOMPF URL or profile id so OOMPF can verify the pinned revision and fingerprint."
+          );
+        }
+
         // Resolve the agent runtime once: an explicitly pinned binary wins;
         // otherwise probe the installed runtimes.
         const ompCommand =
@@ -70,8 +79,7 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
             })
           ).command;
 
-        // 1. Resolve the canonical Gist source (directly or via an OOMPF id).
-        const oompfId = parseOompfRef(c.args.ref);
+        // 1. Resolve the canonical Gist source from the OOMPF id.
         let sourceUrl = c.args.ref;
         let fetchUrl = sourceUrl;
         let expectedHash: string | null = null;

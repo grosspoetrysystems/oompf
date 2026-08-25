@@ -39,6 +39,17 @@ describe("inspect", () => {
     // Metadata only — the raw YAML body is never emitted.
     expect(out).not.toContain("symbolPreset");
   });
+  test("does not offer an unverified install for a direct Gist ref", async () => {
+    const { out, code } = await runCli(inspectDeps(), [
+      "inspect",
+      GIST_HTML,
+      "--json",
+    ]);
+    const result = JSON.parse(out);
+    expect(code).toBeUndefined();
+    expect(result.installCommand).toBeUndefined();
+    expect(result.cta).toBeUndefined();
+  });
 
   test("answers an OOMPF ref from the index metadata", async () => {
     const { out, code } = await runCli(inspectDeps(), [

@@ -34,9 +34,9 @@ function addDeps(overrides: Partial<CliDeps> = {}) {
 }
 
 describe("add", () => {
-  test("installs from a Gist URL to the OMP-resolved target", async () => {
+  test("installs from an OOMPF ref to the OMP-resolved target", async () => {
     const { deps, store } = addDeps();
-    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL, "--json"]);
     const result = JSON.parse(out);
     expect(code).toBeUndefined();
     expect(result.name).toBe("octocat-work");
@@ -54,7 +54,7 @@ describe("add", () => {
     const { deps } = addDeps();
     const { out, code } = await runCli(deps, [
       "add",
-      GIST_HTML,
+      OOMPF_URL,
       "--name",
       "custom",
       "--json",
@@ -124,16 +124,25 @@ describe("add", () => {
     expect(store.writes).toHaveLength(0);
   });
 
-  test("accepts a bare Gist id", async () => {
-    const { deps } = addDeps();
-    const { code } = await runCli(deps, ["add", GIST_ID, "--json"]);
-    expect(code).toBeUndefined();
+  test("rejects a bare Gist id without indexed provenance", async () => {
+    const { deps, store } = addDeps();
+    const { out, code } = await runCli(deps, ["add", GIST_ID, "--json"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("unverifiable_artifact");
+    expect(store.writes).toHaveLength(0);
+  });
+  test("rejects a direct Gist URL without indexed provenance", async () => {
+    const { deps, store } = addDeps();
+    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    expect(code).toBeGreaterThan(0);
+    expect(out).toContain("unverifiable_artifact");
+    expect(store.writes).toHaveLength(0);
   });
 
   test("refuses an existing target without writing", async () => {
     const store = memoryFs({ [`${AGENT_DIR}/config.yml`]: "old" });
     const { deps } = addDeps({ fs: store.fs });
-    const { out, code } = await runCli(deps, ["add", GIST_HTML]);
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("target_exists");
     expect(store.writes).toHaveLength(0);
@@ -147,10 +156,14 @@ describe("add", () => {
   });
 
   test("refuses to install a structurally invalid artifact", async () => {
+    const content = "- not: a mapping\n";
     const { deps, store } = addDeps({
-      gistFetch: gistFetch("- not: a mapping\n"),
+      gistFetch: gistFetch(content),
+      httpFetch: apiFetch({
+        metadata: jsonResponse(200, profileRecord(content)),
+      }),
     });
-    const { out, code } = await runCli(deps, ["add", GIST_HTML]);
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("invalid_artifact");
     expect(store.writes).toHaveLength(0);
@@ -158,10 +171,14 @@ describe("add", () => {
 
   test("refuses to install an artifact with high-confidence secrets", async () => {
     const secret = "a-real-looking-token-value";
+    const content = `${CONTENT}apiKey: ${secret}\n`;
     const { deps, store } = addDeps({
-      gistFetch: gistFetch(`${CONTENT}apiKey: ${secret}\n`),
+      gistFetch: gistFetch(content),
+      httpFetch: apiFetch({
+        metadata: jsonResponse(200, profileRecord(content)),
+      }),
     });
-    const { out, code } = await runCli(deps, ["add", GIST_HTML]);
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("blocking_secrets");
     expect(store.writes).toHaveLength(0);
@@ -170,10 +187,14 @@ describe("add", () => {
   });
 
   test("installs an artifact with a low-confidence finding, surfacing a warning", async () => {
+    const content = `${CONTENT}password: "${"${DB_PASSWORD}"}"\n`;
     const { deps, store } = addDeps({
-      gistFetch: gistFetch(`${CONTENT}password: "${"${DB_PASSWORD}"}"\n`),
+      gistFetch: gistFetch(content),
+      httpFetch: apiFetch({
+        metadata: jsonResponse(200, profileRecord(content)),
+      }),
     });
-    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL, "--json"]);
     expect(code).toBeUndefined();
     expect(store.writes).toHaveLength(1);
     const result = JSON.parse(out);
@@ -196,7 +217,7 @@ describe("add", () => {
 
   test("surfaces the profile's prerequisites in JSON and human output", async () => {
     const { deps, store } = addDeps();
-    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL, "--json"]);
     expect(code).toBeUndefined();
     expect(store.writes).toHaveLength(1);
     const result = JSON.parse(out);
@@ -211,26 +232,30 @@ describe("add", () => {
       },
     ]);
 
-    const human = await runCli(addDeps().deps, ["add", GIST_HTML]);
+    const human = await runCli(addDeps().deps, ["add", OOMPF_URL]);
     expect(human.code).toBeUndefined();
     expect(human.out).toContain("prerequisites");
     expect(human.out).toContain("anthropic");
   });
 
   test("adds no prerequisite noise for a profile without prerequisites", async () => {
-    const none = gistFetch("symbolPreset: default\n");
-    const { deps, store } = addDeps({ gistFetch: none });
-    const { out, code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    const content = "symbolPreset: default\n";
+    const none = gistFetch(content);
+    const metadata = apiFetch({
+      metadata: jsonResponse(200, profileRecord(content)),
+    });
+    const { deps, store } = addDeps({ gistFetch: none, httpFetch: metadata });
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL, "--json"]);
     expect(code).toBeUndefined();
     expect(store.writes).toHaveLength(1);
     const result = JSON.parse(out);
     expect(result.prerequisites).toBeUndefined();
     expect(out).not.toContain("prerequisite");
 
-    const human = await runCli(addDeps({ gistFetch: none }).deps, [
-      "add",
-      GIST_HTML,
-    ]);
+    const human = await runCli(
+      addDeps({ gistFetch: none, httpFetch: metadata }).deps,
+      ["add", OOMPF_URL]
+    );
     expect(human.code).toBeUndefined();
     expect(human.out).not.toContain("prerequisite");
   });
@@ -262,7 +287,7 @@ describe("add", () => {
     });
     const { out, code } = await runCli(deps, [
       "add",
-      GIST_HTML,
+      OOMPF_URL,
       "--agent",
       "pi",
       "--json",
@@ -279,7 +304,7 @@ describe("add", () => {
         throw new AgentRuntimeUnavailableError("No agent runtime installed.");
       },
     });
-    const { out, code } = await runCli(deps, ["add", GIST_HTML]);
+    const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
     expect(code).toBeGreaterThan(0);
     expect(out).toContain("agent_not_found");
     expect(out).not.toContain("ENOENT");
@@ -299,7 +324,7 @@ describe("add", () => {
         return `/omp/profiles/${name}/agent`;
       },
     });
-    const { code } = await runCli(deps, ["add", GIST_HTML, "--json"]);
+    const { code } = await runCli(deps, ["add", OOMPF_URL, "--json"]);
     expect(code).toBeUndefined();
     expect(probed).toBe(false);
   });
@@ -309,12 +334,12 @@ describe("add", () => {
   // for a command that does not exist. The run command must stay discoverable
   // as the `command` field instead.
   test("never advises a non-existent oompf omp command", async () => {
-    const json = await runCli(addDeps().deps, ["add", GIST_HTML, "--json"]);
+    const json = await runCli(addDeps().deps, ["add", OOMPF_URL, "--json"]);
     expect(json.code).toBeUndefined();
     expect(json.out).not.toContain("oompf omp");
     expect(JSON.parse(json.out).command).toBe("omp --profile octocat-work");
 
-    const human = await runCli(addDeps().deps, ["add", GIST_HTML]);
+    const human = await runCli(addDeps().deps, ["add", OOMPF_URL]);
     expect(human.code).toBeUndefined();
     expect(human.out).not.toContain("oompf omp");
     expect(human.out).toContain("omp --profile octocat-work");
