@@ -198,8 +198,8 @@ the boundaries:
 
 ## Related runtime design
 
-The boundary between verified OOMPF profile distribution and live OMP role
-steering is documented in
+The boundary between verified OOMPF profile distribution and live OMP
+model-alias steering is documented in
 [`docs/superpowers/specs/2026-08-25-omp-role-steering-and-swap-design.md`](superpowers/specs/2026-08-25-omp-role-steering-and-swap-design.md).
-Warm role changes and task-agent routing belong to OMP; whole-profile handoff
+Warm alias changes and task-agent routing belong to OMP; whole-profile handoff
 remains a cold relaunch flow.
