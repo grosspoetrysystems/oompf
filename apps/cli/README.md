@@ -70,16 +70,22 @@ OOMPF_BASE_URL=http://localhost:4321 oompf search anthropic
 ### `oompf publish [profile]`
 
 Resolve a local OMP profile (pass the name, or omit it when exactly one profile
-is unambiguous), validate and secret-scan its `config.yml`, create a public
-one-file Gist, and register its metadata with the index.
+is unambiguous), validate and secret-scan its `config.yml`, publish it as a
+public one-file Gist, and register its metadata with the index.
 
 ```bash
 oompf publish work
 ```
 
 Output: the `githubUrl`, the canonical `oompfUrl` (`https://oompf.run/p/<id>`),
-a copyable `addCommand`, the artifact `hash`, the structural verdict, and any
-warnings.
+a copyable `addCommand`, the artifact `hash`, whether this `publication` was
+`created` or `updated`, the structural verdict, and any warnings.
+
+Publishing the same profile again patches the Gist it was first published to
+rather than creating another, so a link already shared keeps working and shows
+the new bytes. The profile-to-Gist mapping is a plain JSON file at
+`~/.oompf/publications.json`; delete it and the next publish starts a new
+identity. Pass `--new` to publish a separate Gist deliberately.
 
 Failure modes:
 
@@ -89,6 +95,9 @@ Failure modes:
 - `invalid_artifact` — the profile failed structural validation.
 - `blocking_secrets` — high-confidence secrets were detected in the config;
   nothing is published. Remove them and retry.
+- `missing_gist` / `unowned_gist` — the remembered Gist was deleted, made
+  private, or now belongs to another account; publish refuses rather than
+  forking a second identity.
 - GitHub authentication or Gist-creation failure (e.g. `gh` not installed or
   not authenticated), or registration failure against the index
   (`network_error`, or the server's own code such as `validation_failed`).

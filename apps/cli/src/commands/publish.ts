@@ -3,12 +3,19 @@
  * register it with the OOMPF index.
  *
  * The command resolves a named profile through `@oompf/core`, validates and
- * scans its canonical `config.yml`, verifies `gh` authentication, creates a
- * public one-file Gist through `@oompf/github`, registers the Gist with the web
- * API, and prints the GitHub URL, OOMPF URL, hash, and a copyable add command.
- * It never publishes credentials, project overlays, or unrelated files: only
- * the single selected config artifact is sent, and high-confidence secrets
- * abort the publish before anything leaves the machine.
+ * scans its canonical `config.yml`, verifies `gh` authentication, publishes the
+ * artifact through `@oompf/github`, registers it with the web API, and prints
+ * the GitHub URL, OOMPF URL, hash, and a copyable add command. It never
+ * publishes credentials, project overlays, or unrelated files: only the single
+ * selected config artifact is sent, and high-confidence secrets abort the
+ * publish before anything leaves the machine.
+ *
+ * Publishing a profile that was published before patches that same Gist rather
+ * than creating another one, so the `/p/<id>` its author already shared keeps
+ * serving current bytes. The prior Gist comes from the local publication store;
+ * a Gist that has since been deleted or transferred is reported instead of
+ * being silently forked into a second identity, and `--new` opts out
+ * deliberately.
  */
 
 import {
@@ -17,12 +24,24 @@ import {
   validateArtifact,
   validateProfileName,
 } from "@oompf/core";
-import { createPublicProfileGist, getGithubIdentity } from "@oompf/github";
+import {
+  createPublicProfileGist,
+  fetchPublicGist,
+  type GistSource,
+  getGithubIdentity,
+  type UpdatedGist,
+  updatePublicProfileGist,
+} from "@oompf/github";
 import { type Cli, z } from "incur";
 
 import { registerProfile } from "../api.ts";
 import { CommandError, type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, publishOutput } from "../output.ts";
+import {
+  type Publication,
+  readPublication,
+  writePublication,
+} from "../publications.ts";
 
 /** Narrow a discovered profile to one that carries a publishable config. */
 function hasConfig(
@@ -34,6 +53,42 @@ function hasConfig(
 /** Concatenate the base URL and a site-relative path from the register call. */
 function toOompfUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/**
+ * Patch the Gist a profile was previously published to, refusing anything that
+ * would quietly hand the author a different public identity: a Gist that is
+ * gone (deleted or made private) and one that the authenticated user does not
+ * own are both reported, never forked.
+ */
+async function patchPriorGist(
+  deps: ResolvedDeps,
+  prior: Publication,
+  yaml: string,
+  login: string
+): Promise<UpdatedGist> {
+  let current: GistSource;
+  try {
+    current = await fetchPublicGist(
+      `https://api.github.com/gists/${prior.gistId}`,
+      { fetch: deps.gistFetch }
+    );
+  } catch (error) {
+    throw new CommandError(
+      "missing_gist",
+      `The Gist this profile was published to (${prior.gistId}) is unreachable — it may have been deleted or made private. Publish a separate new one with --new. Details: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  if (current.owner?.toLowerCase() !== login.toLowerCase()) {
+    throw new CommandError(
+      "unowned_gist",
+      `The Gist this profile was published to (${prior.gistId}) is owned by ${current.owner ?? "nobody"}, not ${login}. Refusing to patch it; publish a separate new one with --new.`
+    );
+  }
+  return await updatePublicProfileGist(
+    { content: yaml, filename: prior.filename, gistId: prior.gistId },
+    { ghCommand: deps.ghCommand, runner: deps.runner }
+  );
 }
 
 /** Register the `publish` command on the given CLI. */
@@ -57,6 +112,12 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
         .enum(["omp", "pi"])
         .optional()
         .describe("Agent runtime to use (default: omp)"),
+      new: z
+        .boolean()
+        .optional()
+        .describe(
+          "Publish a separate new Gist instead of updating the one this profile was published to"
+        ),
     }),
     output: publishOutput,
     async run(c) {
@@ -164,28 +225,45 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
         }
 
         // 3. Verify GitHub authentication before creating anything.
-        await getGithubIdentity({
+        const identity = await getGithubIdentity({
           ghCommand: deps.ghCommand,
           runner: deps.runner,
         });
 
-        // 4. Create the public one-file Gist.
-        const gist = await createPublicProfileGist(
-          {
-            content: yaml,
-            description: `OMP profile "${name}" shared via OOMPF`,
-            filename: `${name}.yml`,
-          },
-          { ghCommand: deps.ghCommand, runner: deps.runner }
-        );
+        // 4. Publish: patch the Gist this profile already owns, or create one.
+        const prior =
+          c.options.new === true
+            ? null
+            : await readPublication(deps.fs, deps.publicationsPath, name);
+        const gist = prior
+          ? await patchPriorGist(deps, prior, yaml, identity.login)
+          : await createPublicProfileGist(
+              {
+                content: yaml,
+                description: `OMP profile "${name}" shared via OOMPF`,
+                filename: `${name}.yml`,
+              },
+              { ghCommand: deps.ghCommand, runner: deps.runner }
+            );
 
         // The YAML setupVersion is a config schema marker, not the installed
         // OMP runtime version. Register only explicitly supplied metadata.
+        // Replaying the recorded source URL is what keeps `/p/<id>` stable.
         const registration = await registerProfile(
           c.env.OOMPF_BASE_URL,
-          { source: gist.htmlUrl },
+          { source: prior ? prior.source : gist.htmlUrl },
           deps.httpFetch
         );
+
+        // Remember the identity only once the index has accepted it, so a
+        // failed registration cannot strand the profile on an unindexed Gist.
+        if (prior === null) {
+          await writePublication(deps.fs, deps.publicationsPath, name, {
+            filename: `${name}.yml`,
+            gistId: gist.gistId,
+            source: gist.htmlUrl,
+          });
+        }
 
         const oompfUrl = toOompfUrl(c.env.OOMPF_BASE_URL, registration.url);
         const addCommand = `oompf add ${oompfUrl}`;
@@ -203,7 +281,8 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
             },
             oompfUrl,
             profile: name,
-            revision: null,
+            publication: prior ? ("updated" as const) : ("created" as const),
+            revision: "revision" in gist ? gist.revision : null,
             structural: registration.validation.structural,
             warnings: [
               ...validation.warnings,
@@ -213,7 +292,9 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
           {
             cta: {
               commands: [{ command: addCommand }],
-              description: `Your link: ${oompfUrl}\nShare it — anyone who has it installs the profile with:`,
+              description: prior
+                ? `Updated in place — the link you already shared is unchanged: ${oompfUrl}\nAnyone who has it installs the new bytes with:`
+                : `Your link: ${oompfUrl}\nShare it — anyone who has it installs the profile with:`,
             },
           }
         );

@@ -17,6 +17,7 @@ export const STEM = "work";
 export const GIST_ID = "0123456789abcdef0123456789abcdef";
 export const GIST_HTML = `https://gist.github.com/${OWNER}/${GIST_ID}`;
 export const REVISION = "abcabcabcabcabcabcabcabcabcabcabcabcabca";
+export const PATCHED_REVISION = "bcdbcdbcdbcdbcdbcdbcdbcdbcdbcdbcdbcdbcdb";
 export const PROFILE_ID = "prof_0123456789abcdef0123456789abcdef";
 export const BASE_URL = "https://oompf.test";
 export const OOMPF_URL = `${BASE_URL}/p/${PROFILE_ID}`;
@@ -59,7 +60,7 @@ export function gistFetch(content = CONTENT) {
   };
 }
 
-/** A `gh` command runner returning a successful auth + Gist creation. */
+/** A `gh` command runner returning a successful auth, Gist creation, and patch. */
 export function ghRunner(
   overrides: Partial<{ authExit: number; gistUrl: string }> = {}
 ): CommandRunner {
@@ -72,6 +73,17 @@ export function ghRunner(
     }
     if (args[0] === "gist" && args[1] === "create") {
       return { exitCode: 0, stderr: "", stdout: `${gistUrl}\n` };
+    }
+    if (args[0] === "api" && args[1] === "--method") {
+      return {
+        exitCode: 0,
+        stderr: "",
+        stdout: JSON.stringify({
+          history: [{ version: PATCHED_REVISION }],
+          html_url: GIST_HTML,
+          id: GIST_ID,
+        }),
+      };
     }
     return { exitCode: 1, stderr: "unexpected command", stdout: "" };
   };

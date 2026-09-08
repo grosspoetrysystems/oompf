@@ -189,6 +189,7 @@ export async function runLocalSmoke(): Promise<SmokeSummary> {
       fs: store.fs,
       gistFetch: gistFetch(PROFILE_YAML),
       httpFetch,
+      publicationsPath: "/omp/.oompf/publications.json",
       resolveAgentRuntime: async () => ({
         command: "omp",
         runtime: "omp" as const,

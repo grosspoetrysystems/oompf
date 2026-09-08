@@ -10,9 +10,11 @@ import {
   GIST_HTML,
   GIST_ID,
   ghRunner,
+  gistFetch,
   jsonResponse,
   memoryFs,
   OOMPF_URL,
+  PATCHED_REVISION,
   runCli,
 } from "../test-helpers.ts";
 
@@ -20,18 +22,29 @@ const CONFIG_PATH = "/omp/profiles/work/agent/config.yml";
 const AGENT_DIR = "/omp/profiles/work/agent";
 const PLAY_CONFIG_PATH = "/omp/profiles/play/agent/config.yml";
 const PLAY_AGENT_DIR = "/omp/profiles/play/agent";
+const PUBLICATIONS = "/home/alice/.oompf/publications.json";
+const PRIOR = JSON.stringify({
+  work: { filename: "work.yml", gistId: GIST_ID, source: GIST_HTML },
+});
 
-function publishDeps(overrides: Partial<CliDeps> = {}): CliDeps {
-  const { fs } = memoryFs({
+function publishDeps(
+  overrides: Partial<CliDeps> = {},
+  seed: Record<string, string> = {}
+): CliDeps & { files: Map<string, string> } {
+  const { files, fs } = memoryFs({
     [CONFIG_PATH]: CONTENT,
     [PLAY_CONFIG_PATH]: CONTENT,
+    ...seed,
   });
   return {
     discoverProfiles: async () => [
       { agentDir: AGENT_DIR, configPath: CONFIG_PATH, name: "work" },
     ],
+    files,
     fs,
+    gistFetch: gistFetch(),
     httpFetch: apiFetch(),
+    publicationsPath: PUBLICATIONS,
     resolveAgentRuntime: async () => ({
       command: "omp",
       runtime: "omp" as const,
@@ -437,5 +450,112 @@ describe("publish", () => {
     const { code } = await runCli(deps, ["publish", "work", "--json"]);
     expect(code).toBeUndefined();
     expect(probed).toBe(false);
+  });
+
+  test("records the published Gist so the identity can be reused", async () => {
+    const deps = publishDeps();
+    const { code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBeUndefined();
+    expect(JSON.parse(deps.files.get(PUBLICATIONS) ?? "{}")).toEqual({
+      work: { filename: "work.yml", gistId: GIST_ID, source: GIST_HTML },
+    });
+  });
+
+  test("a repeat publish patches the same Gist and keeps the same link", async () => {
+    const ghCalls: string[][] = [];
+    const deps = publishDeps(
+      {
+        httpFetch: apiFetch({
+          register: (body) => {
+            expect(JSON.parse(body).source).toBe(GIST_HTML);
+            return jsonResponse(200, {
+              id: "prof_0123456789abcdef0123456789abcdef",
+              source: GIST_HTML,
+              url: "/p/prof_0123456789abcdef0123456789abcdef",
+              validation: {
+                errors: [],
+                level: "structural",
+                structural: "valid",
+                warnings: [],
+              },
+            });
+          },
+        }),
+        runner: async (input) => {
+          ghCalls.push([...input.args]);
+          return await ghRunner()(input);
+        },
+      },
+      { [PUBLICATIONS]: PRIOR }
+    );
+
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBeUndefined();
+    const result = JSON.parse(out);
+    expect(result.publication).toBe("updated");
+    expect(result.oompfUrl).toBe(OOMPF_URL);
+    expect(result.revision).toBe(PATCHED_REVISION);
+    expect(ghCalls.some((args) => args[0] === "gist")).toBe(false);
+    expect(
+      ghCalls.some(
+        (args) => args[1] === "--method" && args[3] === `gists/${GIST_ID}`
+      )
+    ).toBe(true);
+  });
+
+  test("--new publishes a separate Gist despite a recorded identity", async () => {
+    const deps = publishDeps({}, { [PUBLICATIONS]: PRIOR });
+    const { out, code } = await runCli(deps, [
+      "publish",
+      "work",
+      "--new",
+      "--json",
+    ]);
+    expect(code).toBeUndefined();
+    expect(JSON.parse(out).publication).toBe("created");
+  });
+
+  test("refuses to fork when the recorded Gist is gone", async () => {
+    const deps = publishDeps(
+      { gistFetch: async () => jsonResponse(404, "not found") },
+      { [PUBLICATIONS]: PRIOR }
+    );
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBe(1);
+    expect(out).toContain("missing_gist");
+  });
+
+  test("refuses to fork when the recorded Gist belongs to someone else", async () => {
+    const deps = publishDeps(
+      {
+        gistFetch: async () =>
+          jsonResponse(
+            200,
+            JSON.stringify({
+              files: {
+                "work.yml": {
+                  content: CONTENT,
+                  filename: "work.yml",
+                  raw_url: null,
+                },
+              },
+              history: [{ version: PATCHED_REVISION }],
+              html_url: GIST_HTML,
+              owner: { login: "someone-else" },
+            })
+          ),
+      },
+      { [PUBLICATIONS]: PRIOR }
+    );
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBe(1);
+    expect(out).toContain("unowned_gist");
+  });
+
+  test("an unreadable publication store degrades to a new publication", async () => {
+    const deps = publishDeps({}, { [PUBLICATIONS]: "{ not json" });
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBeUndefined();
+    expect(JSON.parse(out).publication).toBe("created");
   });
 });
