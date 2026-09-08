@@ -898,9 +898,11 @@ a.tag {
   text-underline-offset: 0.18em;
 }
 
-/* Install is the loudest thing on the page: it is why people are here. */
+/* The loudest panel on its page: install is why readers open a profile, and
+   publishing is why they open the home page. */
 
-.install {
+.install,
+.publish-cta {
   padding: 1rem 1.1rem 1.1rem;
   margin-bottom: 1.1rem;
   background: linear-gradient(
@@ -918,6 +920,10 @@ a.tag {
   align-items: stretch;
 }
 
+.copy-row + .copy-row {
+  margin-top: 0.5rem;
+}
+
 .copy-row code {
   flex: 1;
   padding: 0.6rem 0.75rem;
@@ -928,6 +934,12 @@ a.tag {
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+}
+
+/* No copy button here, so the command has to stay readable when it wraps. */
+.publish-cta .copy-row code {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .copy-row code::before {

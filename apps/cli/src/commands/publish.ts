@@ -213,7 +213,7 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
           {
             cta: {
               commands: [{ command: addCommand }],
-              description: "Install it with:",
+              description: `Your link: ${oompfUrl}\nShare it — anyone who has it installs the profile with:`,
             },
           }
         );

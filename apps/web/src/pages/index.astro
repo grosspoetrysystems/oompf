@@ -1,9 +1,10 @@
 ---
 /**
  * OOMPF home. The hero states the whole product as a transcript — publish,
- * index, install, run — because that loop is the thesis. Below it the index
- * itself is the content: one ledger row per profile, shaped like OMP's own
- * output, plus the documentation entry points a first-time visitor needs.
+ * index, install, run — because that loop is the thesis. Publishing leads:
+ * a link of your own is worth something at any index size, browsing is not.
+ * The index ledger follows, one row per profile shaped like OMP's own output,
+ * then the documentation entry points a first-time visitor needs.
  *
  * Rendered on the Worker; the repository comes from the Cloudflare runtime env
  * and degrades to a directed notice when the binding is unavailable.
@@ -120,7 +121,7 @@ const docsRail = [
               class="out"
             >  <span class="ok">✓</span> gist      gist.github.com/alice/cfcdad13…</span><span
               class="out"
-            >  <span class="ok">✓</span> indexed   oompf.run/p/prof_00e08f39…</span><span class="cmd">oompf add https://oompf.run/p/prof_00e08f39…</span><span
+            >  <span class="ok">✓</span> your link oompf.run/p/prof_00e08f39… — share it</span><span class="cmd">oompf add https://oompf.run/p/prof_00e08f39…</span><span
               class="out"
             >  <span class="ok">✓</span> installed ~/.omp/profiles/alice-daily-driver</span><span class="cmd">omp --profile alice-daily-driver<span
                 class="cursor"
@@ -200,6 +201,22 @@ const docsRail = [
           </div>
         </aside>
       </div>
+    </section>
+
+    <section aria-labelledby="publish-label" class="publish-cta">
+      <span class="section-eyebrow" id="publish-label">Publish yours</span>
+      <div class="copy-row">
+        <code>npm install -g @grosspoetrysystems/oompf</code>
+      </div>
+      <div class="copy-row">
+        <code>oompf publish &lt;profile&gt;</code>
+      </div>
+      <p class="section-note">
+        Two commands and your profile has a permanent link with its models,
+        providers, and prerequisites rendered — yours to paste anywhere. The
+        YAML stays on GitHub as a public Gist; OOMPF indexes the facts.{" "}
+        <a href="/docs/publishing-a-profile">How publishing works</a>
+      </p>
     </section>
 
     <section class="section">
