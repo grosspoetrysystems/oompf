@@ -38,6 +38,24 @@ interactive terminal; `--json`, CI, and piped execution return
 
 The command prints the canonical profile URL, `https://oompf.run/p/<id>`.
 
+## Publishing the same profile again
+
+A second `oompf publish work` updates the Gist the first one created instead of
+making another: the file is patched in place, the same source URL is
+re-registered, and the `/p/<id>` link you already shared keeps working with the
+new bytes and a new revision. Publish output reports `publication: updated` so
+an update is distinguishable from a first publication.
+
+The Gist a profile was published to is remembered locally in
+`~/.oompf/publications.json`, keyed by native profile name. Delete the file or
+an entry and the next publish starts a new identity — the previous link keeps
+serving the bytes it already had. Pass `--new` to publish a separate profile
+from the same source deliberately.
+
+If the remembered Gist has been deleted, made private, or transferred to another
+account, publish reports `missing_gist` or `unowned_gist` rather than quietly
+creating a second identity.
+
 ## A profile that is already a Gist
 
 If the YAML is already in a public Gist, skip the CLI: paste the Gist URL into
@@ -49,8 +67,8 @@ Gist; it never creates one, and it cannot read a local profile.
 - OOMPF does not invent an OMP runtime version. If your profile carries a config
   marker such as `setupVersion`, it stays a config marker and is not reported as
   the OMP version.
-- Each successful invocation creates a new public Gist. OOMPF does not remember
-  a previous publication for the local profile.
+- A first publication creates one new public Gist; republishing the same profile
+  patches that Gist instead of creating another.
 - The canonical artifact always lives at its Gist. OOMPF stores no YAML bytes.
 
 See [Installing a profile](/docs/installing-a-profile) and

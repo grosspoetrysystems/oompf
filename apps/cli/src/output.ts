@@ -39,6 +39,9 @@ export const publishOutput = z.object({
   metadata: profileMetadataOutput,
   oompfUrl: z.string().describe("Canonical OOMPF profile URL"),
   profile: z.string().describe("Local OMP profile that was published"),
+  publication: z
+    .enum(["created", "updated"])
+    .describe("Whether this publish created a new Gist or updated a prior one"),
   revision: z.string().nullable().describe("Pinned Gist revision, when known"),
   structural: z.enum(["valid", "invalid"]),
   warnings: z.array(z.string()),

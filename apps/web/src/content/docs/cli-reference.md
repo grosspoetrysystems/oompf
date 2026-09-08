@@ -35,7 +35,12 @@ oompf publish work
 - **Agent runtime:** `--agent <omp|pi>` selects the runtime binary (default
   `omp`). When omitted, the sole installed runtime is used automatically; OMP
   wins when both are installed.
-- **Output:** the canonical profile URL, `https://oompf.run/p/<id>`.
+- **Output:** the canonical profile URL, `https://oompf.run/p/<id>`, and
+  `publication: created | updated`.
+- **Repeat publish:** publishing the same profile again patches the Gist it was
+  first published to, so `/p/<id>` stays stable while the revision and
+  fingerprint change. The mapping lives in `~/.oompf/publications.json`; `--new`
+  publishes a separate Gist instead.
 - **Omitted input:** When the name is omitted, OOMPF automatically uses the sole
   publishable profile. With multiple profiles it opens a selector only in an
   interactive terminal; `--json`, CI, and piped execution return
@@ -44,7 +49,9 @@ oompf publish work
   `missing_config`, `no_profile`, `ambiguous_profile`, and
   `selection_cancelled`, plus structural validation and blocking-secret errors.
 - **Remote failure modes:** GitHub authentication/creation failure, or
-  registration failure. Nothing is registered if local validation fails.
+  registration failure; `missing_gist` or `unowned_gist` when the remembered
+  Gist is gone or belongs to another account. Nothing is registered if local
+  validation fails.
 
 ## `oompf inspect`
 

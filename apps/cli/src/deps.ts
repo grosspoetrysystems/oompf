@@ -8,6 +8,8 @@
  */
 
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 import {
   AgentRuntimeUnavailableError,
@@ -106,6 +108,8 @@ export interface CliDeps {
   readonly ompCommand?: string;
   /** Interactive native-profile selection seam (publish). */
   readonly profileSelector?: ProfileSelector;
+  /** Local publication store path; defaults to `~/.oompf/publications.json`. */
+  readonly publicationsPath?: string;
   /** Agent-runtime resolver seam (probes omp/pi when no binary is pinned). */
   readonly resolveAgentRuntime?: typeof resolveAgentRuntime;
   /** Install-target resolver seam (add). */
@@ -157,6 +161,8 @@ export function resolveDeps(deps: CliDeps = {}) {
     httpFetch: deps.httpFetch ?? defaultHttpFetch,
     ompCommand: deps.ompCommand,
     profileSelector: deps.profileSelector ?? defaultProfileSelector,
+    publicationsPath:
+      deps.publicationsPath ?? join(homedir(), ".oompf", "publications.json"),
     resolveAgentRuntime: deps.resolveAgentRuntime ?? resolveAgentRuntime,
     resolveInstallTarget: deps.resolveInstallTarget ?? resolveInstallTarget,
     resolveProfileConfig: deps.resolveProfileConfig ?? resolveProfileConfig,
