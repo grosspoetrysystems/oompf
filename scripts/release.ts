@@ -283,7 +283,10 @@ async function main() {
 
   try {
     await git("add", MANIFEST);
-    await git("commit", "--quiet", "-m", `chore(cli): release ${next}`);
+    // Scopeless: commitlint's `scope-linear-key` rule only admits a `GPS-<n>`
+    // scope, so the older `chore(cli):` form is now rejected by the hook and
+    // the release stops after the manifest is already bumped.
+    await git("commit", "--quiet", "-m", `chore: release ${next}`);
   } catch (error) {
     await restore();
     process.stderr.write(`${(error as Error).message}\n`);
