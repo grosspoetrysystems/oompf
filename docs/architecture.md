@@ -79,8 +79,8 @@ scripts           local wrappers + smoke tooling
 - **`packages/github` splits into two halves with different portability.** The
   fetch helpers (`gists.ts`) are Worker-safe: they touch only the injectable
   `fetch` seam and never spawn a process, so the web Worker can fetch a public
-  Gist. The publish path (`gh.ts`) shells out to the `gh` CLI to create a Gist,
-  so it is **CLI-only** and must never be imported by Worker code. The Worker
+  Gist. The publish path (`gh.ts`) shells out to the `gh` CLI to create or patch
+  a Gist, so it is **CLI-only** and must never be imported by Worker code. The Worker
   avoids pulling it in by importing the Worker-safe half from the
   `@oompf/github/gists` subpath rather than the package barrel, which re-exports
   both halves.

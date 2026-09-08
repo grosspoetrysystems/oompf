@@ -34,7 +34,7 @@ import {
 } from "@oompf/github";
 import { type Cli, z } from "incur";
 
-import { registerProfile } from "../api.ts";
+import { type RegisterResponse, registerProfile } from "../api.ts";
 import { CommandError, type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, publishOutput } from "../output.ts";
 import {
@@ -249,11 +249,24 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
         // The YAML setupVersion is a config schema marker, not the installed
         // OMP runtime version. Register only explicitly supplied metadata.
         // Replaying the recorded source URL is what keeps `/p/<id>` stable.
-        const registration = await registerProfile(
-          c.env.OOMPF_BASE_URL,
-          { source: prior ? prior.source : gist.htmlUrl },
-          deps.httpFetch
-        );
+        let registration: RegisterResponse;
+        try {
+          registration = await registerProfile(
+            c.env.OOMPF_BASE_URL,
+            { source: prior ? prior.source : gist.htmlUrl },
+            deps.httpFetch
+          );
+        } catch (error) {
+          if (prior === null) {
+            throw error;
+          }
+          // The Gist already carries the new bytes; only the index is behind.
+          // Say so, and name the source URL the author can re-register.
+          throw new CommandError(
+            "index_update_failed",
+            `The Gist was updated but OOMPF could not refresh its index. Publish again once the index recovers, or register ${prior.source} directly; the Gist is already current. Details: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
 
         // Remember the identity only once the index has accepted it, so a
         // failed registration cannot strand the profile on an unindexed Gist.
