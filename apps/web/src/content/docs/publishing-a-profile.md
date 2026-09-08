@@ -38,6 +38,12 @@ interactive terminal; `--json`, CI, and piped execution return
 
 The command prints the canonical profile URL, `https://oompf.run/p/<id>`.
 
+## A profile that is already a Gist
+
+If the YAML is already in a public Gist, skip the CLI: paste the Gist URL into
+[Register a Gist](/register). That path indexes the metadata of an existing
+Gist; it never creates one, and it cannot read a local profile.
+
 ## Notes
 
 - OOMPF does not invent an OMP runtime version. If your profile carries a config

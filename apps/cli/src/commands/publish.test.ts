@@ -121,9 +121,11 @@ describe("publish", () => {
     expect(sent.ompVersion).toBeUndefined();
   });
 
-  test("human output includes a copyable install command", async () => {
+  test("human output presents the link as the thing to share", async () => {
     const { out, code } = await runCli(publishDeps(), ["publish", "work"]);
     expect(code).toBeUndefined();
+    expect(out).toContain(`Your link: ${OOMPF_URL}`);
+    expect(out).toContain("Share it");
     expect(out).toContain(`oompf add ${OOMPF_URL}`);
     expect(out).not.toContain("oompf oompf");
   });
