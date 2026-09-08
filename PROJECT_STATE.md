@@ -30,16 +30,18 @@ OOMPF is the public, metadata-only index for sharing OMP profiles. Done means a 
 - GPS-150: deterministic model catalog, pure planner, current-head Gist patching, `oompf upgrade <OOMPF ref>`, stable identity re-registration.
 - CLI reference now documents `upgrade` and its API/GitHub flow.
 - GPS-137: bare-Gist installs refused; `oompf add` requires an OOMPF reference, so every install path is pinned and fingerprint-checked. SECURITY.md and the install docs now match the only path that exists.
+- GPS-142: Workers Logs enabled (unsampled, invocation logs on) and `logUnexpectedError` behind `toErrorEnvelope`, `index.astro` and `p/[id].astro`, so a 5xx leaves a credential-scrubbed record instead of only a request count.
+- GPS-86: every public surface describes the released flow. The index ledger renders the canonical `oompf add https://oompf.run/p/<id>` through the shared `canonicalProfileUrl`; the nav CTA reads "Register a Gist"; both READMEs document `upgrade`; the root README separates global from `bunx`/`npx`.
+- `cli-v0.3.0`: `@grosspoetrysystems/oompf@0.3.0` published, the first release carrying `upgrade` and the bare-Gist install refusal.
 
 ### Current production facts
 
-- Latest `main`: `f18f57a` (PR #17, GPS-137).
-- Latest deploy: run `32848995114` succeeded for that revision.
+- Latest `main`: `5a8f7bc` (`chore: release 0.3.0`), which merged PR #19 (GPS-142 + GPS-86).
+- Latest deploy: run `34283625836` succeeded; Worker version `7d050ac2-829c-48ed-a5d6-5059160067f0`. Deploy smoke 13/13 against `https://oompf.run`.
+- Published CLI: `0.3.0`, via tag `cli-v0.3.0` and the trusted-publishing workflow (run `34283471584`). Verified against `@latest`: `--help` lists `upgrade`, and `add https://gist.github.com/...` refuses with `unverifiable_artifact`.
 - Nine indexed profiles were last observed with `checkFailures: 0`, `lastCheckError: null`, and no withdrawals.
-- No open pull requests.
-- Committed locally but not on `main`: GPS-142 observability (`4e1beb1`). Unpushed, undeployed, so Workers Logs is still off in production.
-- Uncommitted in the worktree: GPS-86 guidance alignment (gate-green).
-- Published CLI is `0.2.1`, cut before GPS-150 and GPS-137. `bunx @grosspoetrysystems/oompf@0.2.1 --help` lists only add/inspect/publish/search: no `upgrade`, and its `add` still installs bare Gists. Every surface that documents `upgrade` or the bare-Gist refusal is ahead of the release.
+- No open pull requests. Worktree clean apart from this file.
+- Unverified: that the Workers Logs stream is populating. It needs the Cloudflare dashboard; this machine has no Cloudflare auth (`wrangler whoami` fails).
 
 ## Key decisions
 
@@ -49,19 +51,25 @@ OOMPF is the public, metadata-only index for sharing OMP profiles. Done means a 
 - GPS-151 already captures the deferred dynamic catalog/index pattern; do not file a duplicate ticket.
 - Gist patching has an unavoidable final race after the second head check because GitHub Gist PATCH lacks a reliable If-Match precondition; this is documented in code.
 - GPS-142 observability is platform-native: Workers Logs plus one shared logger. No analytics vendor, no log pipeline, no publish counter — invocation logs count traffic and registrations, and the index itself is the permanent record of who published. 4xx `IndexError`s stay out of the log; they are the API working as documented. Logged detail is scrubbed of URL credentials because the Neon driver quotes the connection string in its own errors.
-- GPS-82 ("preserve publication identity on repeat publish") is Done in Linear but absent from the code: `apps/cli/src/commands/publish.ts:173` always calls `createPublicProfileGist`, so a repeat publish creates a new Gist and a new `/p/<id>`. No surface claims otherwise, and `oompf upgrade` is the documented way to change a published profile in place. Reconcile the ticket rather than the docs.
+- GPS-82 was marked Done in Linear with no implementing code: `apps/cli/src/commands/publish.ts:173` always calls `createPublicProfileGist`, so a repeat publish creates a new Gist and a new `/p/<id>`. Reopened to Backlog at High on 2026-09-08 with the real scope; the docs were never wrong, only the ticket. GPS-150's `updatePublicProfileGist` is the mechanism it should reuse.
+- `scripts/release.ts` committed `chore(cli): release <v>`, which commitlint's `scope-linear-key` rule now rejects — the release would have died after bumping the manifest. It commits scopeless as of `69020a0`.
+- Releases are cut from `main`, and `main` is checked out in the sibling worktree at `~/Local/gps/oompf`, which currently holds unrelated uncommitted work. `cli-v0.3.0` was therefore cut by running the script's own sequence by hand from a clean worktree at the same commit. Prefer clearing that worktree over repeating the manual path.
 
 ## Next action
 
-1. **Push and deploy GPS-142.** Committed on `oompf-latest`, gate-green, not deployed: `observability.logs` (unsampled, invocation logs on) in `apps/web/wrangler.jsonc`, and `logUnexpectedError` in `apps/web/src/lib/services/index-profile.ts` called from `toErrorEnvelope`, `index.astro` and `p/[id].astro` — the three places that replaced a failure with a generic envelope or a reassuring page. Verified locally: an unconfigured database leaves `unexpected error: IndexError: ...` in the server log for all three surfaces, and `wrangler deploy --dry-run` accepts the config. After deploy, confirm the Workers Logs stream shows invocation logs, then count publishes there or from the index itself.
-2. **Cut `cli-v0.3.0` from `main`.** This is GPS-86's last acceptance criterion — "every displayed `oompf` command works with the latest published npm release" — and it cannot be met by editing text: `upgrade` and the bare-Gist refusal exist only in `main`. `bun run release` refuses to run off `main`, by design.
-3. **GPS-86 guidance alignment, done except that release.** Changed: `index.astro` renders the real canonical install command per row (was `oompf add oompf.run/p/prof_1b7c9e…`, unusable), shared through a new `canonicalProfileUrl` in `apps/web/src/lib/profile-view.ts` so the listing and the profile page cannot drift; the empty state and the `/register` page name the Gist route as the lower-level path into the index and point at `oompf publish <profile-name>`; the nav CTA now says "Register a Gist" rather than "Publish"; both READMEs document `upgrade`; the root README splits global from `bunx`/`npx`. The eleven docs pages needed no changes — they were already native-name-first with the canonical OOMPF URL as the only install reference. GPS-130 (lead the entry surfaces with publishing) remains open and untouched.
-4. GPS-133 is outreach, not code: a docs paragraph offered upstream to OMP. GPS-131 needs a genuinely cold machine and cannot be done from this worktree.
-5. Keep GPS-150/151 dynamic catalog observations deferred until real usage or model churn justifies the service.
+1. **Confirm Workers Logs in the Cloudflare dashboard.** Everything else about GPS-142 is verified; this is the one fact only the UI can give. Then count publishes there or straight from the index.
+2. **GPS-130: lead the entry surfaces with publishing.** Untouched. GPS-86 only made the labels honest — the homepage still leads with a listing, and the ticket argues browse value is near zero at this supply.
+3. **GPS-131: verify `oompf publish` from a cold machine.** Needs a fresh `gh auth`, no prior publication, Node rather than Bun. Not doable from this worktree, and now more worthwhile because `0.3.0` is what a stranger installs.
+4. GPS-133 is outreach, not code: a docs paragraph offered upstream to OMP.
+5. GPS-82 is reopened and ready to pick up: local profile-to-Gist mapping, then route repeat publish through GPS-150's patch path.
+6. Keep GPS-150/151 dynamic catalog observations deferred until real usage or model churn justifies the service.
 
 ## Map
 
 - GPS-137: https://linear.app/grosspoetrysystems/issue/GPS-137/bare-gist-installs-write-unverified-bytes
+- GPS-82 (reopened): https://linear.app/grosspoetrysystems/issue/GPS-82/preserve-publication-identity-on-repeat-publish-of-the-same-native
+- GPS-130: https://linear.app/grosspoetrysystems/issue/GPS-130/lead-the-entry-surfaces-with-publishing-not-browsing
+- GPS-131: https://linear.app/grosspoetrysystems/issue/GPS-131/verify-oompf-publish-is-one-command-from-a-cold-machine
 - GPS-142: https://linear.app/grosspoetrysystems/issue/GPS-142/no-way-to-tell-nobody-came-from-it-is-throwing
 - GPS-133: https://linear.app/grosspoetrysystems/issue/GPS-133/offer-oompf-as-a-reference-to-upstream-omp
 - GPS-86: https://linear.app/grosspoetrysystems/issue/GPS-86/align-public-guidance-with-the-profile-first-publish-and-install-flow
