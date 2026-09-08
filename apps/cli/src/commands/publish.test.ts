@@ -557,5 +557,23 @@ describe("publish", () => {
     const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
     expect(code).toBeUndefined();
     expect(JSON.parse(out).publication).toBe("created");
+    expect(JSON.parse(deps.files.get(PUBLICATIONS) ?? "")).toEqual({
+      work: { filename: "work.yml", gistId: GIST_ID, source: GIST_HTML },
+    });
+  });
+
+  test("a patched Gist with a failed re-index says the Gist is already current", async () => {
+    const deps = publishDeps(
+      {
+        httpFetch: apiFetch({
+          register: () => jsonResponse(503, { error: { message: "down" } }),
+        }),
+      },
+      { [PUBLICATIONS]: PRIOR }
+    );
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBe(1);
+    expect(out).toContain("index_update_failed");
+    expect(out).toContain(GIST_HTML);
   });
 });
