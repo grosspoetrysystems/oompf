@@ -28,7 +28,7 @@ https://oompf.run/p/<id>
 
 | Path | Contents |
 | --- | --- |
-| `apps/cli` | The `oompf` CLI — `publish`, `add`, `inspect`, `search`. Ships as the npm package `@grosspoetrysystems/oompf`. |
+| `apps/cli` | The `oompf` CLI — `publish`, `add`, `inspect`, `search`, `upgrade`. Ships as the npm package `@grosspoetrysystems/oompf`. |
 | `apps/web` | Astro web app deployed to Cloudflare Workers — profile pages, docs, and the `/api/v1` index. |
 | `packages/core` | Profile discovery, YAML parsing, validation, facts, metadata, provider links, and content hashing. |
 | `packages/github` | GitHub CLI (`gh`) integration and public Gist fetching. |
@@ -67,23 +67,33 @@ CI. `.env.local` is ignored and must never be committed.
 
 ### Use the published CLI
 
+Install it globally, onto your `PATH`:
+
 ```bash
-npm install -g @grosspoetrysystems/oompf   # onto PATH
-bunx @grosspoetrysystems/oompf@latest      # per invocation
+npm install -g @grosspoetrysystems/oompf
+```
+
+Or run it per invocation, installing nothing:
+
+```bash
+bunx @grosspoetrysystems/oompf@latest --help
+npx @grosspoetrysystems/oompf@latest --help
 ```
 
 The package name is scoped; the command is plain `oompf`. Requires Node 22+ or
-Bun. Install it globally or via `bunx` — not as a project dependency, since a
-`PATH` command in `node_modules/.bin` is not on your `PATH`, and npm rejects the
-install inside this repository's `workspace:` specifiers.
+Bun. Install it globally or run it with `bunx`/`npx` — not as a project
+dependency, since a `PATH` command in `node_modules/.bin` is not on your
+`PATH`, and npm rejects the install inside this repository's `workspace:`
+specifiers.
 
 ### Run the CLI from source
 
 ```bash
-bun apps/cli/src/index.ts publish <profile>
+bun apps/cli/src/index.ts publish <profile-name>
 bun apps/cli/src/index.ts inspect <ref>
 bun apps/cli/src/index.ts search [query]
-bun apps/cli/src/index.ts add <ref>
+bun apps/cli/src/index.ts add <oompf-ref>
+bun apps/cli/src/index.ts upgrade <oompf-ref>
 ```
 
 Publishing uses the authenticated GitHub CLI account to create a public Gist.

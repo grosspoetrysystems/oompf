@@ -9,6 +9,7 @@
  * and degrades to a directed notice when the binding is unavailable.
  */
 import Base from "../layouts/Base.astro";
+import { canonicalProfileUrl } from "../lib/profile-view.ts";
 import {
   type AppLocals,
   type CompactProfile,
@@ -70,10 +71,8 @@ function nextPageHref(cursor: string, query: string): string {
   return `/?${params.toString()}`;
 }
 
-/** Shorten an opaque profile id for display; the page carries the full one. */
-function shortId(id: string): string {
-  return id.length > 16 ? `${id.slice(0, 14)}…` : id;
-}
+/** The site origin backing every displayed install command. */
+const siteOrigin = Astro.site?.origin ?? null;
 
 const docsRail = [
   {
@@ -210,7 +209,7 @@ const docsRail = [
         ) : profiles.length === 0 ? (
           <p class="empty">
             {q === ""
-              ? "Nothing indexed yet. Publish a profile with oompf publish, or register a public Gist URL."
+              ? "Nothing indexed yet. Publish a native OMP profile with oompf publish, or register a public Gist URL if the profile already lives in one."
               : `No profile matches “${q}”. Search a model selector, a provider, or a profile name.`}
           </p>
         ) : (
@@ -254,7 +253,7 @@ const docsRail = [
                   <div>
                     <span class="ledger-key">install</span>
                     <span class="ledger-cmd">
-                      oompf add oompf.run/p/{shortId(profile.id)}
+                      oompf add {canonicalProfileUrl(profile.id, siteOrigin)}
                     </span>
                   </div>
                 </span>
