@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { resolveModelDisplay, resolveProviderLink } from "@oompf/core";
 import type { ProfileRecord } from "@oompf/database";
-import { buildProfileView } from "./profile-view.ts";
+import { buildProfileView, canonicalProfileUrl } from "./profile-view.ts";
 
 function profileRecord(): ProfileRecord {
   return {
@@ -78,6 +78,35 @@ function buildView() {
     siteOrigin: "https://oompf.run",
   });
 }
+
+describe("canonical install reference", () => {
+  const ID = "prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d";
+
+  test("is an absolute /p/<id> URL, the only form `oompf add` accepts", () => {
+    expect(canonicalProfileUrl(ID, "https://oompf.run")).toBe(
+      `https://oompf.run/p/${ID}`
+    );
+  });
+
+  test("falls back to the public origin when the site origin is absent", () => {
+    expect(canonicalProfileUrl(ID, null)).toBe(`https://oompf.run/p/${ID}`);
+    expect(canonicalProfileUrl(ID, "")).toBe(`https://oompf.run/p/${ID}`);
+    expect(canonicalProfileUrl(ID)).toBe(`https://oompf.run/p/${ID}`);
+  });
+
+  test("never doubles the separator against a trailing-slash origin", () => {
+    expect(canonicalProfileUrl(ID, "http://localhost:4321/")).toBe(
+      `http://localhost:4321/p/${ID}`
+    );
+  });
+
+  test("backs the install command shown on a profile page", () => {
+    const view = buildView();
+
+    expect(view.installCommand).toBe(`oompf add ${view.profileUrl}`);
+    expect(view.profileUrl).toMatch(/^https?:\/\/[^/]+\/p\/prof_[0-9a-f]{32}$/);
+  });
+});
 
 describe("profile detail presentation", () => {
   test("separates thinking effort without splitting literal model tags", () => {

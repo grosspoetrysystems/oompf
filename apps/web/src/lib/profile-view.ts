@@ -195,6 +195,21 @@ function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
+/**
+ * The canonical `https://<origin>/p/<id>` URL for a profile id — the only
+ * reference `oompf add` accepts. Shared with the index listing so a displayed
+ * install command is the same string on every surface.
+ */
+export function canonicalProfileUrl(
+  id: string,
+  siteOrigin?: string | null
+): string {
+  const origin = trimTrailingSlash(
+    siteOrigin && siteOrigin.length > 0 ? siteOrigin : CANONICAL_ORIGIN
+  );
+  return `${origin}/p/${id}`;
+}
+
 /** True when a URL is a safe `http(s)` target (rows may predate the guard). */
 function isHttpUrl(url: string): boolean {
   let protocol: string;
@@ -362,12 +377,7 @@ export function buildProfileView(
   record: ProfileRecord,
   deps: ProfileViewDeps
 ): ProfileView {
-  const origin = trimTrailingSlash(
-    deps.siteOrigin && deps.siteOrigin.length > 0
-      ? deps.siteOrigin
-      : CANONICAL_ORIGIN
-  );
-  const profileUrl = `${origin}/p/${record.id}`;
+  const profileUrl = canonicalProfileUrl(record.id, deps.siteOrigin);
 
   const metadata = readMetadata(record);
   const facts = record.facts;

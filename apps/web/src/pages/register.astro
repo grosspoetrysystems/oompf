@@ -1,7 +1,10 @@
 ---
 /**
- * Register page: a small public-Gist URL form that POSTs to `/api/profiles`
- * and renders the resulting profile link (or an actionable error). v0 accepts
+ * Register page: the lower-level route into the index for a profile that
+ * already lives in a public Gist. The primary path is `oompf publish
+ * <profile-name>`, which creates the Gist and registers it in one step; this
+ * form only takes the Gist reference and POSTs it to `/api/profiles`, then
+ * renders the resulting OOMPF reference (or an actionable error). v0 accepts
  * public Gists only.
  */
 import Base from "../layouts/Base.astro";
@@ -9,14 +12,20 @@ import Base from "../layouts/Base.astro";
 export const prerender = false;
 ---
 
-<Base title="Register a profile — OOMPF">
+<Base title="Register a Gist — OOMPF">
   <div class="wrap">
     <section class="hero">
-      <h1>Register a profile</h1>
+      <h1>Register a Gist</h1>
       <p class="lede">
-        Paste the public GitHub Gist that holds your OMP profile. OOMPF fetches
-        the canonical YAML, validates it structurally, and indexes its facts. In
-        v0 only <strong>public Gists</strong> are accepted.
+        Already have your OMP profile in a public GitHub Gist? Paste it here and
+        OOMPF fetches the canonical YAML, validates it structurally, and indexes
+        its facts. In v0 only <strong>public Gists</strong> are accepted.
+      </p>
+      <p class="lede">
+        Starting from a profile on your machine instead?{" "}
+        <code>oompf publish &lt;profile-name&gt;</code>
+        creates the Gist and registers it in one step — see{" "}
+        <a href="/docs/publishing-a-profile">Publishing a profile</a>.
       </p>
     </section>
 
@@ -37,9 +46,12 @@ export const prerender = false;
         </div>
         <p class="field-hint">
           Accepts <code>gist.github.com</code> URLs (optionally pinned to a
-          revision) or a bare Gist ID. The Gist must contain exactly one
+          revision) or a bare Gist ID. The Gist must contain exactly one{" "}
           <code>&lt;name&gt;.yml</code>
-          profile file.
+          profile file. A Gist reference is a source, not an OOMPF reference:
+          registering returns the{" "}
+          <code>/p/&lt;id&gt;</code>
+          URL that <code>oompf add</code> installs from.
         </p>
         <div class="result" hidden id="result"></div>
       </form>

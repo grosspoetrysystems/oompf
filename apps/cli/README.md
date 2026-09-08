@@ -1,15 +1,15 @@
 # oompf
 
-`oompf` publishes, inspects, searches, and installs OMP (Oh My Pi) agent
-profiles through the OOMPF index at [oompf.run](https://oompf.run).
+`oompf` publishes, inspects, searches, installs, and upgrades OMP (Oh My Pi)
+agent profiles through the OOMPF index at [oompf.run](https://oompf.run).
 
 A local profile becomes a public GitHub Gist, its metadata is registered in the
 index, and anyone can reinstall it as a native OMP profile:
 
 ```text
-oompf publish <profile>   → public Gist → indexed → https://oompf.run/p/<id>
-oompf add <oompf-url>      → installs a verified native OMP profile
-omp --profile <name>      → run it
+oompf publish <profile-name>  → public Gist → indexed → https://oompf.run/p/<id>
+oompf add <oompf-url>         → installs a verified native OMP profile
+omp --profile <name>          → run it
 ```
 
 The canonical profile artifact always stays at its public Gist; OOMPF persists
@@ -155,6 +155,41 @@ record per match (id, name, owner, models, providers, revision, structural
 verdict, source, and canonical URL).
 
 Failure mode: `network_error` when the index is unreachable.
+
+### `oompf upgrade <ref> [--yes]`
+
+Review, and optionally apply, model upgrades for a profile you published. The
+reference must be an OOMPF URL or profile id; the Gist must be owned by your
+authenticated `gh` account.
+
+```bash
+oompf upgrade https://oompf.run/p/prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d
+```
+
+The plan is computed from the Gist's current head rather than the indexed
+pinned revision, printed for review, and applied only after confirmation
+(`--yes` skips the prompt). Applying patches the same Gist in place and
+re-registers the unchanged source URL, so the `/p/<id>` reference stays stable
+while its revision and fingerprint change. Successors come from a
+code-reviewed catalog; an unclassified model is reported unchanged rather than
+guessed at.
+
+Output: the `catalogRevision`, the `currentRevision` and `updatedRevision`, the
+`changes` applied per role, anything left `unchanged` with a reason, and the
+`oompfUrl`.
+
+Failure modes:
+
+- `invalid_ref` — the reference is not an OOMPF URL or profile id.
+- `unverifiable_artifact` — the indexed profile has no source Gist.
+- `unowned_gist` — the Gist belongs to another account, or `gh` is not
+  authenticated.
+- `head_changed` — the Gist moved during review; nothing is patched.
+- `invalid_artifact` / `blocking_secrets` — the upgraded YAML failed validation
+  or tripped the secret scan; nothing is patched.
+- `index_update_failed` — the Gist was patched but the index could not be
+  refreshed; re-register the unchanged source URL rather than re-running the
+  patch.
 
 ## JSON output and errors
 

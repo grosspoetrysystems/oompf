@@ -23,9 +23,11 @@ import {
   IndexError,
   indexPublicGist,
   listFeaturedProfiles,
+  logUnexpectedError,
   resolveRateLimiter,
   searchIndexedProfiles,
   toCompactProfile,
+  toErrorEnvelope,
   toRegisterResponse,
 } from "./index-profile.ts";
 
@@ -784,6 +786,71 @@ describe("resolveRateLimiter", () => {
         simple: { limit: 5, period: 60 },
       },
     ]);
+  });
+});
+
+describe("production error visibility", () => {
+  test("logs the detail a 500 envelope withholds, minus credentials", () => {
+    const error = new Error(
+      "connect failed: postgres://indexer:hunter2@db.neon.tech/oompf?sslmode=require&password=swordfish"
+    );
+    const log = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { status, body } = toErrorEnvelope(error);
+      expect(status).toBe(500);
+      expect(body.error.code).toBe("internal_error");
+      const logged = log.mock.calls.flat().join(" ");
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(logged).toContain("connect failed");
+      expect(logged).not.toContain("hunter2");
+      expect(logged).toContain("//***:***@");
+      expect(logged).not.toContain("swordfish");
+      expect(logged).toContain("password=***");
+      expect(logged).toContain("sslmode=require");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  test("logs a 5xx IndexError, since a misconfigured index is still ours", () => {
+    const log = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      logUnexpectedError(
+        new IndexError("server_misconfigured", 500, "No database binding.")
+      );
+      expect(log).toHaveBeenCalledTimes(1);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  test("stays quiet for a 4xx IndexError, which is the API working", () => {
+    const log = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { status } = toErrorEnvelope(
+        new IndexError("invalid_source", 400, "Not a Gist URL.")
+      );
+      expect(status).toBe(400);
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  test("wrangler.jsonc keeps Workers Logs on, unsampled", async () => {
+    // Nothing in the request path reads this, so a dropped `observability`
+    // block would blind production with every unit test still green.
+    // A computed specifier keeps tsc out of .jsonc resolution; Bun parses
+    // JSONC natively at runtime.
+    const configPath = new URL("../../../wrangler.jsonc", import.meta.url)
+      .pathname;
+    const config = (await import(configPath)) as {
+      default: { observability?: unknown };
+    };
+    expect(config.default.observability).toEqual({
+      enabled: true,
+      logs: { head_sampling_rate: 1, invocation_logs: true },
+    });
   });
 });
 

@@ -470,11 +470,47 @@ export interface ErrorEnvelope {
   };
 }
 
+/**
+ * Credentials, scrubbed before anything is logged: the Neon driver quotes the
+ * connection string in its own parse error, and a log is not a place to keep
+ * one. Both carriers are covered — `//user:pass@host` and a
+ * `?password=`/`token=`/`key=`/`secret=` query parameter.
+ */
+const CREDENTIALS: readonly (readonly [RegExp, string])[] = [
+  [/\/\/[^\s/@]*:[^\s/@]*@/g, "//***:***@"],
+  [/([?&](?:password|token|key|secret)=)[^&\s]*/gi, "$1***"],
+];
+
+/**
+ * Record a failure the response deliberately hides. Every caller replaces the
+ * detail with a generic envelope or a reassuring page, so without this a
+ * production 5xx leaves nothing behind but a request count. Workers Logs
+ * (`observability` in `wrangler.jsonc`) keeps it beside the invocation's own
+ * method, path and status.
+ *
+ * A 4xx {@link IndexError} is the API working as documented and stays out of
+ * the log; the callers pass every error and let this decide.
+ */
+export function logUnexpectedError(error: unknown): void {
+  if (error instanceof IndexError && error.status < 500) {
+    return;
+  }
+  let detail =
+    error instanceof Error
+      ? (error.stack ?? `${error.name}: ${error.message}`)
+      : String(error);
+  for (const [pattern, replacement] of CREDENTIALS) {
+    detail = detail.replace(pattern, replacement);
+  }
+  console.error(`unexpected error: ${detail}`);
+}
+
 /** Map any thrown value to an HTTP status and error envelope body. */
 export function toErrorEnvelope(error: unknown): {
   status: number;
   body: ErrorEnvelope;
 } {
+  logUnexpectedError(error);
   if (error instanceof IndexError) {
     return {
       body: {
