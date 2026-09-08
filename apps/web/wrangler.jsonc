@@ -33,6 +33,21 @@
       }
     }
   ],
+  // Observability (GPS-142): Workers Logs is the whole production error and
+  // traffic story. `invocation_logs` records method, path, status and outcome
+  // per request, so first-party traffic and successful `POST /api/v1/profiles`
+  // registrations are countable in the dashboard without an analytics
+  // dependency; `console.error`/`console.warn` from the request and cron paths
+  // land beside their invocation. Sampling stays at 1 — this Worker's volume
+  // is nowhere near the free daily allowance, and a sampled log cannot answer
+  // "did anything throw?".
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1,
+      "invocation_logs": true
+    }
+  },
   // Source freshness (GPS-134): re-check indexed sources so a moved or deleted
   // Gist stops looking current. Runs inside the Worker, so there is no public
   // refresh endpoint and no shared secret to hold.

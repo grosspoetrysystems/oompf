@@ -18,6 +18,7 @@ import {
   type AppLocals,
   getProfileMetadata,
   IndexError,
+  logUnexpectedError,
   resolveRepository,
 } from "../../lib/services/index-profile.ts";
 
@@ -32,6 +33,7 @@ try {
   const repository = await resolveRepository(locals);
   record = await getProfileMetadata(repository, id);
 } catch (error) {
+  logUnexpectedError(error);
   if (error instanceof IndexError && error.code === "not_found") {
     Astro.response.status = 404;
     errorMessage = error.message;

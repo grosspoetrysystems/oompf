@@ -29,14 +29,15 @@ OOMPF is the public, metadata-only index for sharing OMP profiles. Done means a 
 - GPS-151: deterministic model-source design/spec recorded; dynamic observation service deferred.
 - GPS-150: deterministic model catalog, pure planner, current-head Gist patching, `oompf upgrade <OOMPF ref>`, stable identity re-registration.
 - CLI reference now documents `upgrade` and its API/GitHub flow.
+- GPS-137: bare-Gist installs refused; `oompf add` requires an OOMPF reference, so every install path is pinned and fingerprint-checked. SECURITY.md and the install docs now match the only path that exists.
 
 ### Current production facts
 
-- Latest `main`: `ad58c0f docs(GPS-150): document the upgrade command`.
-- Latest deploy: successful; Worker version `5ce217ec-9d4e-4e25-a8b8-7e725aab6b4a`.
-- Deploy smoke: 13/13 passed.
+- Latest `main`: `f18f57a` (PR #17, GPS-137).
+- Latest deploy: run `32848995114` succeeded for that revision.
 - Nine indexed profiles were last observed with `checkFailures: 0`, `lastCheckError: null`, and no withdrawals.
-- No open pull requests. Worktree clean.
+- No open pull requests.
+- Committed locally but not on `main`: GPS-142 observability. Unpushed, undeployed, so Workers Logs is still off in production.
 
 ## Key decisions
 
@@ -45,14 +46,14 @@ OOMPF is the public, metadata-only index for sharing OMP profiles. Done means a 
 - Current catalog only contains verified successor IDs. Real live profiles with unclassified providers/models remain unchanged.
 - GPS-151 already captures the deferred dynamic catalog/index pattern; do not file a duplicate ticket.
 - Gist patching has an unavoidable final race after the second head check because GitHub Gist PATCH lacks a reliable If-Match precondition; this is documented in code.
+- GPS-142 observability is platform-native: Workers Logs plus one shared logger. No analytics vendor, no log pipeline, no publish counter — invocation logs count traffic and registrations, and the index itself is the permanent record of who published. 4xx `IndexError`s stay out of the log; they are the API working as documented. Logged detail is scrubbed of URL credentials because the Neon driver quotes the connection string in its own errors.
 
 ## Next action
 
-1. **Choose GPS-137's trust policy before coding.** Recommended: refuse bare-Gist installs and require an OOMPF reference, because only OOMPF references have a pinned revision and fingerprint. The alternative is an explicit warning path, but it weakens the trust claim and must be documented on every install surface.
-2. Implement GPS-137 with the chosen policy, covering CLI output, direct-Gist behavior, docs, and security tests.
-3. Take GPS-142 observability next: value-free production error visibility plus first-party publish/read counts, using existing Cloudflare/Worker logging before adding a paid analytics dependency.
-4. Revisit GPS-133 + GPS-86 as a distribution/docs cluster: upstream OMP reference and consistent external guidance.
-5. Keep GPS-150/151 dynamic catalog observations deferred until real usage or model churn justifies the service.
+1. **Push and deploy GPS-142.** Committed on `oompf-latest`, gate-green, not deployed: `observability.logs` (unsampled, invocation logs on) in `apps/web/wrangler.jsonc`, and `logUnexpectedError` in `apps/web/src/lib/services/index-profile.ts` called from `toErrorEnvelope`, `index.astro` and `p/[id].astro` — the three places that replaced a failure with a generic envelope or a reassuring page. Verified locally: an unconfigured database leaves `unexpected error: IndexError: ...` in the server log for all three surfaces, and `wrangler deploy --dry-run` accepts the config. After deploy, confirm the Workers Logs stream shows invocation logs, then count publishes there or from the index itself.
+2. **In progress: GPS-86, align public guidance with the profile-first flow.** Unblocked — GPS-80, GPS-81 and GPS-82 are all Done, so profile-name-first publish, repeat-publish identity and pinned installs are settled behavior. GPS-130 (lead the entry surfaces with publishing) touches the same copy; treat them as one pass if it stays coherent. Out of scope per the ticket: new CLI behavior, docs information-architecture changes, removing supported alternative references.
+3. GPS-133 is outreach, not code: a docs paragraph offered upstream to OMP. GPS-131 needs a genuinely cold machine and cannot be done from this worktree.
+4. Keep GPS-150/151 dynamic catalog observations deferred until real usage or model churn justifies the service.
 
 ## Map
 

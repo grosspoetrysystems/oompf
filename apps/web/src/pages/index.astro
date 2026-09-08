@@ -14,6 +14,7 @@ import {
   type CompactProfile,
   IndexError,
   listFeaturedProfiles,
+  logUnexpectedError,
   resolveRepository,
   searchIndexedProfiles,
 } from "../lib/services/index-profile.ts";
@@ -48,6 +49,7 @@ try {
     nextCursor = page.nextCursor;
   }
 } catch (error) {
+  logUnexpectedError(error);
   dbError =
     error instanceof IndexError
       ? error.message
