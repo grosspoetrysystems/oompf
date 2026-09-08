@@ -41,7 +41,7 @@ OOMPF is the public, metadata-only index for sharing OMP profiles. Done means a 
 - Published CLI: `0.3.0`, via tag `cli-v0.3.0` and the trusted-publishing workflow (run `34283471584`). Verified against `@latest`: `--help` lists `upgrade`, and `add https://gist.github.com/...` refuses with `unverifiable_artifact`.
 - Nine indexed profiles were last observed with `checkFailures: 0`, `lastCheckError: null`, and no withdrawals.
 - No open pull requests. Worktree clean apart from this file.
-- Unverified: that the Workers Logs stream is populating. It needs the Cloudflare dashboard; this machine has no Cloudflare auth (`wrangler whoami` fails).
+- Workers Logs verified live, not just deployed: `GET /accounts/<id>/workers/scripts/oompf-web/settings` returns `observability.logs = { enabled: true, persist: true, invocation_logs: true, head_sampling_rate: 1 }`, and `wrangler tail oompf-web` showed one record per request carrying `url`, `status` and `outcome`. A 404 produced no `unexpected error:` line, which is the intended 4xx behavior.
 
 ## Key decisions
 
@@ -54,15 +54,16 @@ OOMPF is the public, metadata-only index for sharing OMP profiles. Done means a 
 - GPS-82 was marked Done in Linear with no implementing code: `apps/cli/src/commands/publish.ts:173` always calls `createPublicProfileGist`, so a repeat publish creates a new Gist and a new `/p/<id>`. Reopened to Backlog at High on 2026-09-08 with the real scope; the docs were never wrong, only the ticket. GPS-150's `updatePublicProfileGist` is the mechanism it should reuse.
 - `scripts/release.ts` committed `chore(cli): release <v>`, which commitlint's `scope-linear-key` rule now rejects — the release would have died after bumping the manifest. It commits scopeless as of `69020a0`.
 - Releases are cut from `main`, and `main` is checked out in the sibling worktree at `~/Local/gps/oompf`, which currently holds unrelated uncommitted work. `cli-v0.3.0` was therefore cut by running the script's own sequence by hand from a clean worktree at the same commit. Prefer clearing that worktree over repeating the manual path.
+- Local Cloudflare tooling needs two ambient variables unset. `CF_API_TOKEN` in this shell is not a Workers token (it 401s on script settings, tail creation, and observability alike), and `CF_ACCOUNT_ID` points at `4e5f4537...`, a different account from the one holding `oompf-web` (`c6acc25d...`). Every "authentication error" from wrangler traced to that account mismatch, not to a missing credential. Use `env -u CF_API_TOKEN -u CLOUDFLARE_API_TOKEN -u CF_ACCOUNT_ID` with `CLOUDFLARE_ACCOUNT_ID` set, on top of an OAuth login (`wrangler login`, credentials in `~/Library/Preferences/.wrangler/config/default.toml`).
+- The OAuth scope set covers `workers_tail:read` but not Workers Observability, so the retained-log query API stays 401 while script settings and live tail work. Read `observability` off the script settings endpoint instead of reaching for the telemetry API.
 
 ## Next action
 
-1. **Confirm Workers Logs in the Cloudflare dashboard.** Everything else about GPS-142 is verified; this is the one fact only the UI can give. Then count publishes there or straight from the index.
-2. **GPS-130: lead the entry surfaces with publishing.** Untouched. GPS-86 only made the labels honest — the homepage still leads with a listing, and the ticket argues browse value is near zero at this supply.
-3. **GPS-131: verify `oompf publish` from a cold machine.** Needs a fresh `gh auth`, no prior publication, Node rather than Bun. Not doable from this worktree, and now more worthwhile because `0.3.0` is what a stranger installs.
-4. GPS-133 is outreach, not code: a docs paragraph offered upstream to OMP.
-5. GPS-82 is reopened and ready to pick up: local profile-to-Gist mapping, then route repeat publish through GPS-150's patch path.
-6. Keep GPS-150/151 dynamic catalog observations deferred until real usage or model churn justifies the service.
+1. **GPS-130: lead the entry surfaces with publishing.** Untouched. GPS-86 only made the labels honest — the homepage still leads with a listing, and the ticket argues browse value is near zero at this supply.
+2. **GPS-131: verify `oompf publish` from a cold machine.** Needs a fresh `gh auth`, no prior publication, Node rather than Bun. Not doable from this worktree, and now more worthwhile because `0.3.0` is what a stranger installs.
+3. GPS-133 is outreach, not code: a docs paragraph offered upstream to OMP.
+4. GPS-82 is reopened and ready to pick up: local profile-to-Gist mapping, then route repeat publish through GPS-150's patch path.
+5. Keep GPS-150/151 dynamic catalog observations deferred until real usage or model churn justifies the service.
 
 ## Map
 
