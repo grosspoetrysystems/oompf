@@ -1,7 +1,11 @@
 # OOMPF
 
-OOMPF (Open OMP Format) is an open index for sharing, inspecting, searching, and
-installing reproducible [OMP](https://oh-my-pi.dev) (Oh My Pi) agent profiles.
+OOMPF is an open index for sharing, inspecting, searching, and installing
+reproducible [OMP](https://oh-my-pi.dev) (Oh My Pi) agent profiles. The name
+expands to Open OMP Format, and that format is aspirational: the artifact is
+OMP's own `config.yml`, and OOMPF's only addition to it is the namespaced
+`oompf:` metadata block. See
+[What OOMPF is, and is not](https://oompf.run/docs/what-is-oompf).
 
 Live site: [https://oompf.run](https://oompf.run)
 
