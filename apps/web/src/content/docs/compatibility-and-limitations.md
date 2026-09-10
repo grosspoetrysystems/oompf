@@ -30,7 +30,9 @@ semantics, follow the upstream OMP documentation.
 
 The profile reference documented here is versioned against the OMP behavior
 observed during documentation generation. Examples use native OMP YAML; upstream
-OMP is authoritative for field semantics.
+OMP is authoritative for field semantics — the [config-usage](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage)
+and [settings](https://github.com/can1357/oh-my-pi/blob/main/docs/settings) docs
+define the real behavior.
 
 ## Guarantees
 

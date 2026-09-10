@@ -23,6 +23,11 @@ The CLI uses the canonical `/api/v1` routes for indexed metadata and registratio
 Response shapes are described by [`/openapi.json`](/openapi.json) and the
 published JSON Schemas.
 
+OOMPF is an index over OMP profiles; the profile format itself belongs to OMP
+(Oh My Pi). Field semantics and the runtime come from
+[upstream OMP's documentation](https://github.com/can1357/oh-my-pi/tree/main/docs),
+and this CLI is one client of that format.
+
 ## `oompf publish`
 
 Publish a native OMP profile to a public Gist and register its metadata.

@@ -9,7 +9,12 @@
  * one paste, while source, revision, and fingerprint are always one click away.
  */
 
-import { resolveModelDisplay, resolveProviderLink } from "@oompf/core";
+import {
+  OMP_DOCS_TREE,
+  ompDocLink,
+  resolveModelDisplay,
+  resolveProviderLink,
+} from "@oompf/core";
 import type { ProfileRecord } from "@oompf/database";
 import Base from "../../layouts/Base.astro";
 import { buildProfileMeta } from "../../lib/profile-meta.ts";
@@ -63,6 +68,28 @@ const ogImage =
   meta === null
     ? undefined
     : new URL("/android-chrome-512x512.png", meta.url).href;
+
+const requireOmpLink = (key: string) => {
+  const link = ompDocLink(key);
+  if (link === null) {
+    throw new Error(`missing curated OMP doc link for section "${key}"`);
+  }
+  return link;
+};
+
+const SECTION_LINKS = {
+  advisor: requireOmpLink("advisor"),
+  context: requireOmpLink("context"),
+  disabledProviders: requireOmpLink("disabledProviders"),
+  extensions: requireOmpLink("extensions"),
+  fallbackChains: requireOmpLink("fallbackChains"),
+  hooks: requireOmpLink("hooks"),
+  install: requireOmpLink("profiles"),
+  modelRoles: requireOmpLink("modelRoles"),
+  models: requireOmpLink("models"),
+  providers: requireOmpLink("providers"),
+  settings: requireOmpLink("settings"),
+} as const;
 ---
 
 <Base
@@ -160,7 +187,7 @@ const ogImage =
           >
             {view.providers.length > 0 && (
               <div class="context-group">
-                <h2>Providers</h2>
+                <h2>Providers <a class="section-upstream" href={SECTION_LINKS.providers.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.providers.label} ↗</a></h2>
                 <div class="chip-row">
                   {view.providers.map((provider) =>
                     provider.url !== null ? (
@@ -250,7 +277,7 @@ const ogImage =
           </section>
 
           <section class="install" aria-labelledby="install-label">
-            <span class="section-eyebrow" id="install-label">Install</span>
+            <span class="section-eyebrow" id="install-label">Install <a class="section-upstream" href={SECTION_LINKS.install.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.install.label} ↗</a></span>
             <div class="copy-row">
               <code id="install-cmd">{view.installCommand}</code>
               <button
@@ -270,7 +297,7 @@ const ogImage =
           </section>
 
           <section class="detail-section" aria-labelledby="models-heading">
-            <h2 id="models-heading">Models</h2>
+            <h2 id="models-heading">Models <a class="section-upstream" href={SECTION_LINKS.models.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.models.label} ↗</a></h2>
             <p class="section-note">
               Friendly name first; exact selector beneath.{" "}
               <a href="/docs/models-and-providers">Model resolution</a>
@@ -314,11 +341,11 @@ const ogImage =
 
           {view.behavior.present && (
             <section class="detail-section" aria-labelledby="behavior-heading">
-              <h2 id="behavior-heading">Behavior</h2>
+              <h2 id="behavior-heading">Behavior <a class="section-upstream" href={SECTION_LINKS.settings.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.settings.label} ↗</a></h2>
               <div class="facts">
                 {view.behavior.modelRoles.length > 0 && (
                   <div class="fact">
-                    <h3>Model roles</h3>
+                    <h3>Model roles <a class="section-upstream" href={SECTION_LINKS.modelRoles.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.modelRoles.label} ↗</a></h3>
                     <ul>
                       {view.behavior.modelRoles.map((entry) => (
                         <li class="behavior-line">
@@ -342,7 +369,7 @@ const ogImage =
                 )}
                 {view.behavior.fallbackChains.length > 0 && (
                   <div class="fact">
-                    <h3>Fallback chains</h3>
+                    <h3>Fallback chains <a class="section-upstream" href={SECTION_LINKS.fallbackChains.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.fallbackChains.label} ↗</a></h3>
                     <ul>
                       {view.behavior.fallbackChains.map((chain) => (
                         <li class="behavior-line">
@@ -375,7 +402,7 @@ const ogImage =
                 )}
                 {view.behavior.advisor.length > 0 && (
                   <div class="fact">
-                    <h3>Advisor</h3>
+                    <h3>Advisor <a class="section-upstream" href={SECTION_LINKS.advisor.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.advisor.label} ↗</a></h3>
                     <dl class="setting-list">
                       {view.behavior.advisor.map((setting) => (
                         <>
@@ -388,7 +415,7 @@ const ogImage =
                 )}
                 {view.behavior.settings.length > 0 && (
                   <div class="fact">
-                    <h3>Settings</h3>
+                    <h3>Settings <a class="section-upstream" href={SECTION_LINKS.settings.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.settings.label} ↗</a></h3>
                     <dl class="setting-list">
                       {view.behavior.settings.map((setting) => (
                         <>
@@ -401,7 +428,7 @@ const ogImage =
                 )}
                 {view.behavior.hooks.length > 0 && (
                   <div class="fact">
-                    <h3>Hooks</h3>
+                    <h3>Hooks <a class="section-upstream" href={SECTION_LINKS.hooks.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.hooks.label} ↗</a></h3>
                     <ul>
                       {view.behavior.hooks.map((hook) => (
                         <li>{hook}</li>
@@ -411,7 +438,7 @@ const ogImage =
                 )}
                 {view.behavior.extensions.length > 0 && (
                   <div class="fact">
-                    <h3>Extensions</h3>
+                    <h3>Extensions <a class="section-upstream" href={SECTION_LINKS.extensions.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.extensions.label} ↗</a></h3>
                     <ul>
                       {view.behavior.extensions.map((extension) => (
                         <li>{extension}</li>
@@ -421,7 +448,7 @@ const ogImage =
                 )}
                 {view.behavior.disabledProviders.length > 0 && (
                   <div class="fact">
-                    <h3>Disabled providers</h3>
+                    <h3>Disabled providers <a class="section-upstream" href={SECTION_LINKS.disabledProviders.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.disabledProviders.label} ↗</a></h3>
                     <div class="chip-row">
                       {view.behavior.disabledProviders.map((provider) => (
                         <span class="tag">{provider}</span>
@@ -438,7 +465,7 @@ const ogImage =
               class="detail-section"
               aria-labelledby="requirements-heading"
             >
-              <h2 id="requirements-heading">Requirements</h2>
+              <h2 id="requirements-heading">Requirements <a class="section-upstream" href={SECTION_LINKS.context.href} rel="noopener noreferrer" target="_blank">{SECTION_LINKS.context.label} ↗</a></h2>
               <ul class="requirement-list">
                 {view.requirements.map((req) => (
                   <li class="requirement">

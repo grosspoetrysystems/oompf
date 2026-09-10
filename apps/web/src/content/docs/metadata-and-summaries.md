@@ -9,8 +9,10 @@ order: 3
 
 Authors can add an optional, namespaced `oompf` block to the canonical YAML to
 give a profile human context. The block is **not** native OMP configuration: OMP
-ignores it at runtime, so it never affects installation. OOMPF validates and
-indexes it separately from native OMP facts.
+ignores it at runtime, so it never affects installation. It is the one thing in
+this documentation OOMPF contributes rather than OMP — every other field belongs
+to the [OMP profile format](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage#profiles).
+OOMPF validates and indexes it separately from native OMP facts.
 
 ```yaml
 oompf:
