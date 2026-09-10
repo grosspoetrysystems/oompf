@@ -1,6 +1,6 @@
 {
   "name": "@grosspoetrysystems/oompf",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Publish, inspect, search, and install OMP (Oh My Pi) profiles from the OOMPF index.",
   "keywords": [
     "omp",
