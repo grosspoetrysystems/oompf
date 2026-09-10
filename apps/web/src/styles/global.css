@@ -1061,6 +1061,24 @@ a.tag {
   letter-spacing: 0.14em;
 }
 
+.section-upstream {
+  display: inline-block;
+  padding-left: 0.5rem;
+  margin-left: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+  text-decoration: none;
+  border-left: 1px solid var(--line);
+}
+
+.section-upstream:hover {
+  text-decoration: underline;
+}
+
 .fact ul {
   display: grid;
   gap: 0.2rem;

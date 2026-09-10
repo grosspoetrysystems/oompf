@@ -164,7 +164,7 @@ export const openApiDocument = {
   },
   info: {
     description:
-      "Canonical machine-readable API for the OOMPF public index of OMP profiles. Responses carry metadata only — never canonical artifact content. Unversioned /api/... routes are compatibility aliases that share these handlers.",
+      "Canonical machine-readable API for the OOMPF public index of OMP profiles. Responses carry metadata only — never canonical artifact content. Unversioned /api/... routes are compatibility aliases that share these handlers. The OMP (Oh My Pi) profile format is defined upstream at https://github.com/can1357/oh-my-pi/tree/main/docs.",
     title: "OOMPF API",
     version: OPENAPI_VERSION,
   },

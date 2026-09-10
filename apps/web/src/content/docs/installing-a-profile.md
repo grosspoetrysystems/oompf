@@ -36,6 +36,7 @@ A profile may **evidence** requirements it cannot itself provide — environment
 variables, extensions, or project overlays. OOMPF lists these as actionable
 requirements. Providers already represented by a model selector are **not**
 repeated as requirements. Configure any listed requirements in your local OMP
-environment before use.
+environment before use — see upstream on [context files](https://github.com/can1357/oh-my-pi/blob/main/docs/context-files)
+and [environment variables](https://github.com/can1357/oh-my-pi/blob/main/docs/environment-variables).
 
 See [Getting started](/docs/getting-started) for the end-to-end flow.

@@ -44,6 +44,14 @@ export type {
   ReasoningClass,
 } from "./model-catalog.ts";
 export { findCatalogModel, MODEL_CATALOG } from "./model-catalog.ts";
+export type { OmpDocLink } from "./omp-docs.ts";
+export {
+  OMP_DOCS,
+  OMP_DOCS_TREE,
+  OMP_REPO,
+  OMP_SITE,
+  ompDocLink,
+} from "./omp-docs.ts";
 export type {
   DiscoveredProfile,
   OmpProfileOptions,

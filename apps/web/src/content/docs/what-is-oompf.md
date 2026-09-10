@@ -15,9 +15,8 @@ anywhere `omp` runs.
 
 OOMPF is the **authority for sharing and understanding** profiles. OMP itself
 remains the authority for the runtime: the complete `omp` command surface and all
-execution behavior live with OMP. OOMPF documents only the profile concepts you
-need to share and use a configuration, and links to upstream OMP documentation for
-everything else.
+execution behavior live with OMP. Every surface here that explains a profile
+concept links upstream for the authoritative definition.
 
 ## What OOMPF stores
 
@@ -51,7 +50,10 @@ always the public Gist. For each registered profile OOMPF keeps:
 
 The name expands to Open OMP Format. There is no OOMPF format. What exists is:
 
-- the canonical artifact, an **OMP** `config.yml`, defined by OMP;
+- the canonical artifact, an **OMP** `config.yml`, defined by OMP — the
+  [profile layout](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage#profiles)
+  and [settings](https://github.com/can1357/oh-my-pi/blob/main/docs/settings#settings-catalog)
+  are OMP's to document; OOMPF links them rather than restating them.
 - exactly one convention OOMPF contributes inside that file — the namespaced
   [`oompf:` metadata block](/docs/metadata-and-summaries) carrying `summary`,
   `kind`, `tags`, and `links`, which the OMP runtime ignores;
@@ -95,3 +97,7 @@ live at [`/llms.txt`](/llms.txt) and [`/docs/llms.txt`](/docs/llms.txt), the API
 described by [`/openapi.json`](/openapi.json), and response shapes are published as
 JSON Schema. See [CLI reference](/docs/cli-reference) and the API reference for the
 canonical `/api/v1` routes.
+
+OMP lives at [omp.sh](https://omp.sh/); its documentation is the
+[`docs/` directory](https://github.com/can1357/oh-my-pi/tree/main/docs) of the
+[`can1357/oh-my-pi`](https://github.com/can1357/oh-my-pi) repository.

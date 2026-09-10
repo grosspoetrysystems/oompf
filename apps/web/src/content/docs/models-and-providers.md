@@ -22,12 +22,14 @@ is hidden behind an abstraction.
 ## Aliases are not models
 
 Values beginning with `@` — such as `@tiny` — are OMP **aliases**: runtime
-role shortcuts that resolve to a concrete model when `omp` runs. OOMPF excludes
-them from the concrete Models list. When an alias appears in a behavior mapping,
-OOMPF labels it as a role (for example, `tiny role`) and preserves the exact
-`@tiny` selector as supporting detail. Aliases are never classified as models or
-providers, and OOMPF does not repeat a profile-wide alias inventory on every
-profile page.
+role shortcuts that resolve to a concrete model when `omp` runs. OMP defines how
+aliases resolve; OOMPF only classifies them. The [`models.yml` format](https://github.com/can1357/oh-my-pi/blob/main/docs/models#model-and-provider-configuration-modelsyml-modelsyaml)
+and [provider credentials](https://github.com/can1357/oh-my-pi/blob/main/docs/providers#credentials-and-precedence)
+are documented upstream. OOMPF excludes aliases from the concrete Models list.
+When an alias appears in a behavior mapping, OOMPF labels it as a role (for
+example, `tiny role`) and preserves the exact `@tiny` selector as supporting
+detail. Aliases are never classified as models or providers, and OOMPF does not
+repeat a profile-wide alias inventory on every profile page.
 
 ## Curated links, never guessed
 

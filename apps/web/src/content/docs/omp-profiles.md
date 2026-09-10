@@ -15,17 +15,26 @@ portable: the same YAML installs the same configuration wherever `omp` runs.
 OOMPF indexes and explains profiles so they can be shared and understood. It does
 **not** re-implement or override OMP runtime behavior. For the authoritative and
 complete description of every field and command, follow the upstream OMP
-documentation linked from these pages.
+documentation: the [profile layout](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage#profiles),
+[models](https://github.com/can1357/oh-my-pi/blob/main/docs/models#model-and-provider-configuration-modelsyml-modelsyaml),
+and [settings](https://github.com/can1357/oh-my-pi/blob/main/docs/settings#settings-catalog)
+chapters linked from these pages.
 
 ## What a profile typically contains
 
 - **Models** — concrete `<provider>/<model>` selectors the setup uses.
+  ([upstream](https://github.com/can1357/oh-my-pi/blob/main/docs/models))
 - **Model roles** — which model fills a role (for example a primary vs. a small
   helper model).
 - **Fallback chains** — ordered lists tried when a model is unavailable.
+  ([upstream: retry and fallback](https://github.com/can1357/oh-my-pi/blob/main/docs/settings#retry-and-fallback))
 - **Providers** — inferred from the model selectors.
+  ([upstream](https://github.com/can1357/oh-my-pi/blob/main/docs/providers))
 - **Advisor** — advisor settings such as enablement and subagents.
+  ([upstream](https://github.com/can1357/oh-my-pi/blob/main/docs/advisor-watchdog))
 - **Hooks and extensions** — named integrations the setup loads.
+  ([hooks](https://github.com/can1357/oh-my-pi/blob/main/docs/hooks),
+  [extensions](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions))
 - **Aliases** — OMP shortcuts such as `@tiny` that resolve at runtime.
 
 ## Facts vs. metadata
