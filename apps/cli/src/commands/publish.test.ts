@@ -3,7 +3,7 @@ import {
   AgentRuntimeUnavailableError,
   OmpProfileNotFoundError,
 } from "@oompf/core";
-import type { CliDeps } from "../deps.ts";
+import type { CliDeps, HttpResponse } from "../deps.ts";
 import {
   apiFetch,
   CONTENT,
@@ -15,6 +15,7 @@ import {
   memoryFs,
   OOMPF_URL,
   PATCHED_REVISION,
+  profileRecord,
   runCli,
 } from "../test-helpers.ts";
 
@@ -56,6 +57,9 @@ function publishDeps(
       profile,
     }),
     runner: ghRunner(),
+    sleep: async () => {
+      // Retry backoff must not cost the suite real time.
+    },
     ...overrides,
   };
 }
@@ -74,6 +78,36 @@ function remoteCounters() {
     runner: async (...args: Parameters<NonNullable<CliDeps["runner"]>>) => {
       calls.runner += 1;
       return ghRunner()(...args);
+    },
+  };
+}
+
+/**
+ * An API seam whose indexed record only catches up with the published bytes on
+ * the nth read, standing in for GitHub serving a patched Gist's prior revision
+ * to the indexer.
+ */
+function stagedApi(freshOnRead: number) {
+  const counts = { metadataReads: 0, registers: 0 };
+  const base = apiFetch();
+  const stale = jsonResponse(200, profileRecord("model: previous\n"));
+  return {
+    counts,
+    fetch: async (
+      ...args: Parameters<NonNullable<CliDeps["httpFetch"]>>
+    ): Promise<HttpResponse> => {
+      const [url, init] = args;
+      const method = init?.method ?? "GET";
+      if (method === "POST") {
+        counts.registers += 1;
+      }
+      if (method === "GET" && /\/profiles\/[^/]+$/.test(url)) {
+        counts.metadataReads += 1;
+        if (counts.metadataReads < freshOnRead) {
+          return stale;
+        }
+      }
+      return await base(...args);
     },
   };
 }
@@ -575,5 +609,33 @@ describe("publish", () => {
     expect(code).toBe(1);
     expect(out).toContain("index_update_failed");
     expect(out).toContain(GIST_HTML);
+  });
+
+  test("a patched Gist the index never re-reads is reported, not called current", async () => {
+    const api = stagedApi(Number.POSITIVE_INFINITY);
+    const deps = publishDeps(
+      { httpFetch: api.fetch },
+      { [PUBLICATIONS]: PRIOR }
+    );
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBe(1);
+    expect(out).toContain("index_update_failed");
+    expect(out).not.toContain("Updated in place");
+    // Every attempt after the first re-registers the source before re-reading.
+    expect(api.counts.registers).toBeGreaterThan(1);
+  });
+
+  test("a patched Gist the index reads late still reports the shared link", async () => {
+    const api = stagedApi(3);
+    const deps = publishDeps(
+      { httpFetch: api.fetch },
+      { [PUBLICATIONS]: PRIOR }
+    );
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBeUndefined();
+    const result = JSON.parse(out);
+    expect(result.publication).toBe("updated");
+    expect(result.oompfUrl).toBe(OOMPF_URL);
+    expect(api.counts.metadataReads).toBe(3);
   });
 });

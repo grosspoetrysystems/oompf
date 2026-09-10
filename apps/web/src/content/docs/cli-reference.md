@@ -40,7 +40,10 @@ oompf publish work
 - **Repeat publish:** publishing the same profile again patches the Gist it was
   first published to, so `/p/<id>` stays stable while the revision and
   fingerprint change. The mapping lives in `~/.oompf/publications.json`; `--new`
-  publishes a separate Gist instead.
+  publishes a separate Gist instead. A patched Gist takes a few seconds to
+  become readable, so the command waits for the index to hold the bytes it just
+  wrote and reports `index_update_failed` rather than claiming a stale link is
+  current — the Gist is already patched, so publishing again resolves it.
 - **Omitted input:** When the name is omitted, OOMPF automatically uses the sole
   publishable profile. With multiple profiles it opens a selector only in an
   interactive terminal; `--json`, CI, and piped execution return
@@ -129,8 +132,10 @@ oompf upgrade prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d --yes
   incompatible slots remain unchanged.
 - **Failure modes:** `invalid_ref`, `unverifiable_artifact`, `unowned_gist`,
   `head_changed`, `invalid_artifact`, `blocking_secrets`, GitHub patch failure,
-  or `index_update_failed`. If the Gist patch succeeds but registration fails,
-  the command reports the partial state and never claims success.
+  or `index_update_failed`. If the Gist patch succeeds but the index does not
+  end up holding the patched bytes — registration failed, or it is still
+  serving the previous revision — the command reports the partial state and
+  never claims success.
 
 
 ## Corresponding API routes

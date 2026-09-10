@@ -16,6 +16,9 @@
  * a Gist that has since been deleted or transferred is reported instead of
  * being silently forked into a second identity, and `--new` opts out
  * deliberately.
+ *
+ * "Keeps serving current bytes" is checked, not assumed: a patched publish
+ * confirms the index stores the hash it just wrote before reporting success.
  */
 
 import {
@@ -34,7 +37,11 @@ import {
 } from "@oompf/github";
 import { type Cli, z } from "incur";
 
-import { type RegisterResponse, registerProfile } from "../api.ts";
+import {
+  confirmIndexedHash,
+  type RegisterResponse,
+  registerProfile,
+} from "../api.ts";
 import { CommandError, type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, publishOutput } from "../output.ts";
 import {
@@ -266,6 +273,19 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
             "index_update_failed",
             `The Gist was updated but OOMPF could not refresh its index. Publish again once the index recovers, or register ${prior.source} directly; the Gist is already current. Details: ${error instanceof Error ? error.message : String(error)}`
           );
+        }
+
+        // A 200 is not proof the index read the patched Gist; only the stored
+        // hash is.
+        if (prior) {
+          await confirmIndexedHash({
+            baseUrl: c.env.OOMPF_BASE_URL,
+            expectedHash: validation.hash,
+            fetchImpl: deps.httpFetch,
+            id: registration.id,
+            sleep: deps.sleep,
+            source: prior.source,
+          });
         }
 
         // Remember the identity only once the index has accepted it, so a

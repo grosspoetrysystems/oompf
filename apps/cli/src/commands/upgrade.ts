@@ -16,6 +16,7 @@ import {
 import { type Cli, z } from "incur";
 
 import {
+  confirmIndexedHash,
   fetchProfileMetadata,
   parseOompfRef,
   registerProfile,
@@ -175,6 +176,16 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
             `The Gist was updated but OOMPF could not refresh its index. Re-register the unchanged source URL after the index recovers; this command will not patch the Gist again. Details: ${error instanceof Error ? error.message : String(error)}`
           );
         }
+        // A 200 is not proof the index read the patched Gist; only the stored
+        // hash is. Same exposure as `publish`, same remedy.
+        await confirmIndexedHash({
+          baseUrl: c.env.OOMPF_BASE_URL,
+          expectedHash: validation.hash,
+          fetchImpl: deps.httpFetch,
+          id: record.id,
+          sleep: deps.sleep,
+          source: record.sourceUrl,
+        });
         return c.ok({ ...output, updatedRevision: updated.revision });
       } catch (error) {
         return toCliError(c.error, error);

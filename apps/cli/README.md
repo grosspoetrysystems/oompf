@@ -87,6 +87,11 @@ the new bytes. The profile-to-Gist mapping is a plain JSON file at
 `~/.oompf/publications.json`; delete it and the next publish starts a new
 identity. Pass `--new` to publish a separate Gist deliberately.
 
+A patched Gist takes a few seconds to become readable, so a repeat publish
+waits for the index to store the bytes it just wrote before reporting success.
+When it stays behind, the command says so instead of claiming the shared link
+is current; the Gist is already patched, so publishing again resolves it.
+
 Failure modes:
 
 - `no_profile` — no OMP profiles were found; pass an explicit name.
@@ -101,6 +106,8 @@ Failure modes:
 - GitHub authentication or Gist-creation failure (e.g. `gh` not installed or
   not authenticated), or registration failure against the index
   (`network_error`, or the server's own code such as `validation_failed`).
+- `index_update_failed` — the Gist was patched but the index is still serving
+  the previous bytes. Publish again; the Gist needs no further change.
 
 Nothing is registered if local validation fails.
 
@@ -196,9 +203,9 @@ Failure modes:
 - `head_changed` — the Gist moved during review; nothing is patched.
 - `invalid_artifact` / `blocking_secrets` — the upgraded YAML failed validation
   or tripped the secret scan; nothing is patched.
-- `index_update_failed` — the Gist was patched but the index could not be
-  refreshed; re-register the unchanged source URL rather than re-running the
-  patch.
+- `index_update_failed` — the Gist was patched but the index is still serving
+  the previous bytes. `upgrade` waits for it and reports rather than claiming
+  success; run the command again, and it will not patch the Gist twice.
 
 ## JSON output and errors
 

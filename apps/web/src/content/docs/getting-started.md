@@ -15,6 +15,7 @@ the index, and install it on another machine.
 - A working OMP install (`omp`) for producing and consuming profiles. `publish`
   and `add` ask OMP where profiles live rather than assuming a path.
 - A GitHub account with the GitHub CLI (`gh`) authenticated, for publishing.
+  Installing a published profile needs neither.
 - Node 22 or newer, or Bun.
 
 ## Install the CLI
