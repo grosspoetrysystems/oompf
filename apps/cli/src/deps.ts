@@ -118,6 +118,8 @@ export interface CliDeps {
   readonly resolveProfileConfig?: typeof resolveProfileConfig;
   /** `gh` command runner seam (auth check + Gist creation). */
   readonly runner?: CommandRunner;
+  /** Delay seam for bounded retries; defaults to a real timer. */
+  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 /** The global `fetch`, if the runtime provides one. */
@@ -151,6 +153,13 @@ export const defaultFs: FsSeam = {
   writeFile: (path, data, mode) => writeFile(path, data, { mode }),
 };
 
+/** Default delay seam. */
+const defaultSleep = (ms: number): Promise<void> => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, ms);
+  return promise;
+};
+
 /** Resolve a fully-defaulted seam bundle from partial {@link CliDeps}. */
 export function resolveDeps(deps: CliDeps = {}) {
   return {
@@ -167,6 +176,7 @@ export function resolveDeps(deps: CliDeps = {}) {
     resolveInstallTarget: deps.resolveInstallTarget ?? resolveInstallTarget,
     resolveProfileConfig: deps.resolveProfileConfig ?? resolveProfileConfig,
     runner: deps.runner,
+    sleep: deps.sleep ?? defaultSleep,
   } as const;
 }
 

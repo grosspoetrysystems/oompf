@@ -40,7 +40,10 @@ oompf publish work
 - **Repeat publish:** publishing the same profile again patches the Gist it was
   first published to, so `/p/<id>` stays stable while the revision and
   fingerprint change. The mapping lives in `~/.oompf/publications.json`; `--new`
-  publishes a separate Gist instead.
+  publishes a separate Gist instead. A patched Gist takes a few seconds to
+  become readable, so the command waits for the index to hold the bytes it just
+  wrote and reports `index_update_failed` rather than claiming a stale link is
+  current — the Gist is already patched, so publishing again resolves it.
 - **Omitted input:** When the name is omitted, OOMPF automatically uses the sole
   publishable profile. With multiple profiles it opens a selector only in an
   interactive terminal; `--json`, CI, and piped execution return

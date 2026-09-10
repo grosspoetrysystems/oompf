@@ -16,6 +16,9 @@
  * a Gist that has since been deleted or transferred is reported instead of
  * being silently forked into a second identity, and `--new` opts out
  * deliberately.
+ *
+ * "Keeps serving current bytes" is checked, not assumed: a patched publish
+ * confirms the index stores the hash it just wrote before reporting success.
  */
 
 import {
@@ -34,7 +37,11 @@ import {
 } from "@oompf/github";
 import { type Cli, z } from "incur";
 
-import { type RegisterResponse, registerProfile } from "../api.ts";
+import {
+  fetchProfileMetadata,
+  type RegisterResponse,
+  registerProfile,
+} from "../api.ts";
 import { CommandError, type ResolvedDeps, toCliError } from "../deps.ts";
 import { cliEnv, publishOutput } from "../output.ts";
 import {
@@ -88,6 +95,54 @@ async function patchPriorGist(
   return await updatePublicProfileGist(
     { content: yaml, filename: prior.filename, gistId: prior.gistId },
     { ghCommand: deps.ghCommand, runner: deps.runner }
+  );
+}
+
+/**
+ * Waits between re-registrations, in milliseconds.
+ *
+ * GitHub serves a patched Gist's prior revision to readers for a while after
+ * the PATCH returns. Measured on a real Gist: fresh after 5.8s once, still
+ * stale after 14.6s once, and stale for somewhere under 80s once. The schedule
+ * covers the first two outright and gives up rather than making the author
+ * wait for the third, which one more `publish` resolves.
+ */
+const INDEX_REFRESH_WAITS_MS = [1000, 2000, 4000, 8000, 15_000] as const;
+
+/**
+ * Prove the index is serving the bytes this publish just wrote.
+ *
+ * Registered a second after the PATCH, the indexer was served the pre-patch
+ * revision and stored its hash, metadata, facts, and revision under the same
+ * `/p/<id>` — while the command reported success. Nothing repairs that
+ * afterwards: the source sweep only stamps `sourceChangedAt`, and `add`
+ * installs from the pinned revision, so every later install silently receives
+ * the previous profile. Re-register until the indexed hash is the published
+ * one, and say so when it never is.
+ */
+async function confirmIndexRefreshed(
+  deps: ResolvedDeps,
+  baseUrl: string,
+  id: string,
+  source: string,
+  expectedHash: string
+): Promise<void> {
+  let indexed = "";
+  for (let attempt = 0; attempt <= INDEX_REFRESH_WAITS_MS.length; attempt++) {
+    const record = await fetchProfileMetadata(baseUrl, id, deps.httpFetch);
+    indexed = record.contentHash;
+    if (indexed === expectedHash) {
+      return;
+    }
+    const wait = INDEX_REFRESH_WAITS_MS[attempt];
+    if (wait !== undefined) {
+      await deps.sleep(wait);
+      await registerProfile(baseUrl, { source }, deps.httpFetch);
+    }
+  }
+  throw new CommandError(
+    "index_update_failed",
+    `The Gist was updated but OOMPF is still indexing ${indexed.slice(0, 12)} rather than the bytes just published (${expectedHash.slice(0, 12)}), so ${source} would keep serving the previous version. The Gist is already current: publish again in a minute.`
   );
 }
 
@@ -265,6 +320,18 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
           throw new CommandError(
             "index_update_failed",
             `The Gist was updated but OOMPF could not refresh its index. Publish again once the index recovers, or register ${prior.source} directly; the Gist is already current. Details: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+
+        // A 200 is not proof the index read the patched Gist; only the stored
+        // hash is.
+        if (prior) {
+          await confirmIndexRefreshed(
+            deps,
+            c.env.OOMPF_BASE_URL,
+            registration.id,
+            prior.source,
+            validation.hash
           );
         }
 
