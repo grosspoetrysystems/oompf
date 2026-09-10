@@ -158,6 +158,57 @@ export async function fetchProfileMetadata(
   return parseJson<ProfileRecord>(response, "not_found");
 }
 
+/**
+ * Waits between re-registrations, in milliseconds.
+ *
+ * GitHub serves a patched Gist's prior revision to readers for a while after
+ * the PATCH returns. Measured on a real Gist: fresh after 5.8s once, still
+ * stale after 14.6s once, and stale for somewhere under 80s once. The schedule
+ * covers the first two outright and gives up rather than making the author
+ * wait for the third, which one more run resolves.
+ */
+const INDEX_REFRESH_WAITS_MS = [1000, 2000, 4000, 8000, 15_000] as const;
+
+/**
+ * Prove the index is serving the bytes a patched Gist now holds.
+ *
+ * Registering a second after the PATCH gets the indexer the pre-patch
+ * revision, whose hash, metadata, facts, and revision it then stores under the
+ * same `/p/<id>` — while the command reports success. Nothing repairs that
+ * afterwards: the source sweep only stamps `sourceChangedAt`, and `add`
+ * installs from the pinned revision, so every later install silently receives
+ * the previous profile. Re-register until the indexed hash is the published
+ * one; a bare re-read would never heal it, since only a fresh registration
+ * makes the server fetch the Gist again.
+ */
+export async function confirmIndexedHash(options: {
+  readonly baseUrl: string;
+  readonly expectedHash: string;
+  readonly fetchImpl: HttpFetch;
+  readonly id: string;
+  readonly sleep: (ms: number) => Promise<void>;
+  readonly source: string;
+}): Promise<void> {
+  const { baseUrl, expectedHash, fetchImpl, id, sleep, source } = options;
+  let indexed = "";
+  for (let attempt = 0; attempt <= INDEX_REFRESH_WAITS_MS.length; attempt++) {
+    const record = await fetchProfileMetadata(baseUrl, id, fetchImpl);
+    indexed = record.contentHash;
+    if (indexed === expectedHash) {
+      return;
+    }
+    const wait = INDEX_REFRESH_WAITS_MS[attempt];
+    if (wait !== undefined) {
+      await sleep(wait);
+      await registerProfile(baseUrl, { source }, fetchImpl);
+    }
+  }
+  throw new CommandError(
+    "index_update_failed",
+    `The Gist was updated but OOMPF is still indexing ${indexed.slice(0, 12)} rather than the bytes just written (${expectedHash.slice(0, 12)}), so ${source} would keep serving the previous version. The Gist is already current: run this again in a minute.`
+  );
+}
+
 /** Free-text search over the OOMPF index. */
 export async function searchProfiles(
   baseUrl: string,

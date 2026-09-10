@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { sha256 } from "@oompf/core";
 import type { CommandInput, CommandResult, GistFetch } from "@oompf/github";
 
 import type { CliDeps } from "../deps.ts";
@@ -65,33 +66,53 @@ function upgradeDeps(
         owner: { login: "octocat" },
       }),
   });
+  // A correct index serves what the Gist now holds, so the metadata route
+  // follows the patch. Without that, confirmation can never converge.
   const metadata = profileRecord();
+  const base = apiFetch({
+    register: (body) => {
+      const parsed = JSON.parse(body) as { source?: string };
+      expect(parsed.source).toBe(GIST_HTML);
+      return jsonResponse(200, {
+        id: "prof_0123456789abcdef0123456789abcdef",
+        source: GIST_HTML,
+        url: "/p/prof_0123456789abcdef0123456789abcdef",
+        validation: {
+          errors: [],
+          level: "structural",
+          structural: "valid",
+          warnings: [],
+        },
+      });
+    },
+  });
   return {
     calls,
     gistFetch,
-    httpFetch: apiFetch({
-      metadata: jsonResponse(200, {
-        ...metadata,
-        revision: REVISION,
-        sourceUrl: GIST_HTML,
-      }),
-      register: (body) => {
-        const parsed = JSON.parse(body) as { source?: string };
-        expect(parsed.source).toBe(GIST_HTML);
+    httpFetch: async (url, init) => {
+      if ((init?.method ?? "GET") === "GET" && /\/profiles\/[^/]+$/.test(url)) {
+        const patch = calls.find((call) => call.args[1] === "--method");
+        const body =
+          patch?.stdin === undefined
+            ? null
+            : (JSON.parse(patch.stdin) as {
+                files: Record<string, { content: string }>;
+              });
+        const served =
+          body === null ? currentYaml : Object.values(body.files)[0]?.content;
         return jsonResponse(200, {
-          id: "prof_0123456789abcdef0123456789abcdef",
-          source: GIST_HTML,
-          url: "/p/prof_0123456789abcdef0123456789abcdef",
-          validation: {
-            errors: [],
-            level: "structural",
-            structural: "valid",
-            warnings: [],
-          },
+          ...metadata,
+          contentHash: sha256(served ?? currentYaml),
+          revision: REVISION,
+          sourceUrl: GIST_HTML,
         });
-      },
-    }),
+      }
+      return await base(url, init);
+    },
     runner,
+    sleep: async () => {
+      // Retry backoff must not cost the suite real time.
+    },
     ...overrides,
   };
 }
@@ -136,6 +157,26 @@ describe("upgrade", () => {
     expect(result.updatedRevision).toBe("e".repeat(40));
     expect(patch?.stdin).toContain("keep-me");
     expect(patch?.stdin).toContain("claude-opus-4.8:high");
+  });
+
+  test("an index still serving the pre-patch bytes is reported", async () => {
+    const deps = upgradeDeps({
+      httpFetch: apiFetch({
+        metadata: jsonResponse(200, {
+          ...profileRecord(),
+          revision: REVISION,
+          sourceUrl: GIST_HTML,
+        }),
+      }),
+    });
+    const { code, out } = await runCli(deps, [
+      "upgrade",
+      OOMPF_URL,
+      "--yes",
+      "--json",
+    ]);
+    expect(code).toBe(1);
+    expect(out).toContain("index_update_failed");
   });
 
   test("refuses to patch when the current head changes during review", async () => {

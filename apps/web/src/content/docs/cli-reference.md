@@ -132,8 +132,10 @@ oompf upgrade prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d --yes
   incompatible slots remain unchanged.
 - **Failure modes:** `invalid_ref`, `unverifiable_artifact`, `unowned_gist`,
   `head_changed`, `invalid_artifact`, `blocking_secrets`, GitHub patch failure,
-  or `index_update_failed`. If the Gist patch succeeds but registration fails,
-  the command reports the partial state and never claims success.
+  or `index_update_failed`. If the Gist patch succeeds but the index does not
+  end up holding the patched bytes — registration failed, or it is still
+  serving the previous revision — the command reports the partial state and
+  never claims success.
 
 
 ## Corresponding API routes

@@ -201,11 +201,9 @@ Failure modes:
 - `unowned_gist` — the Gist belongs to another account, or `gh` is not
   authenticated.
 - `head_changed` — the Gist moved during review; nothing is patched.
-- `invalid_artifact` / `blocking_secrets` — the upgraded YAML failed validation
-  or tripped the secret scan; nothing is patched.
-- `index_update_failed` — the Gist was patched but the index could not be
-  refreshed; re-register the unchanged source URL rather than re-running the
-  patch.
+- `index_update_failed` — the Gist was patched but the index is still serving
+  the previous bytes. `upgrade` waits for it and reports rather than claiming
+  success; run the command again, and it will not patch the Gist twice.
 
 ## JSON output and errors
 
