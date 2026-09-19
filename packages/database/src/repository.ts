@@ -509,7 +509,7 @@ export function createProfileRepository(
         )
       )
       .orderBy(...RECENT_ORDER)
-      .limit(take);
+      .limit(take + 1);
     return pageRows(rows, take);
   }
 
