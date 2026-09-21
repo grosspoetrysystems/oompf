@@ -15,7 +15,7 @@ export function isInteractiveProfileSession(
   options: InteractiveSessionOptions
 ): boolean {
   return (
-    options.ci !== undefined &&
+    options.ci === undefined &&
     options.stdinIsTTY === true &&
     options.stdoutIsTTY === true
   );
