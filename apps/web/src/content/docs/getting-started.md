@@ -13,7 +13,9 @@ the index, and install it on another machine.
 ## Prerequisites
 
 - A working OMP install (`omp`) for producing and consuming profiles. `publish`
-  and `add` ask OMP where profiles live rather than assuming a path.
+  and `add` ask OMP where profiles live rather than assuming a path. Installing
+  OMP itself is outside OOMPF's scope — [omp.sh](https://omp.sh/) is the
+  project home.
 - A GitHub account with the GitHub CLI (`gh`) authenticated, for publishing.
   Installing a published profile needs neither.
 - Node 22 or newer, or Bun.

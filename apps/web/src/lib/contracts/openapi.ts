@@ -11,6 +11,7 @@
  * than duplicated as paths. Served at `/openapi.json`.
  */
 
+import { OMP_DOCS_TREE } from "@oompf/core";
 import { errorSchema } from "./error-schema.ts";
 import { profileMappingsSchema } from "./profile-mappings-schema.ts";
 import { profileMetadataSchema } from "./profile-metadata-schema.ts";
@@ -163,8 +164,7 @@ export const openApiDocument = {
     },
   },
   info: {
-    description:
-      "Canonical machine-readable API for the OOMPF public index of OMP profiles. Responses carry metadata only — never canonical artifact content. Unversioned /api/... routes are compatibility aliases that share these handlers.",
+    description: `Canonical machine-readable API for the OOMPF public index of OMP profiles. Responses carry metadata only — never canonical artifact content. Unversioned /api/... routes are compatibility aliases that share these handlers. The OMP (Oh My Pi) profile format is defined upstream at ${OMP_DOCS_TREE}.`,
     title: "OOMPF API",
     version: OPENAPI_VERSION,
   },

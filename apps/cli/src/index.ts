@@ -10,6 +10,7 @@
  * omits it and gets the real Bun/Node-backed seams.
  */
 
+import { OMP_DOCS_TREE } from "@oompf/core";
 import { Cli } from "incur";
 import manifest from "../package.json" with { type: "json" };
 import { registerAdd } from "./commands/add.ts";
@@ -33,7 +34,8 @@ export const CLI_VERSION: string = manifest.version;
 export function createCli(deps: CliDeps = {}) {
   const resolved = resolveDeps(deps);
   const cli = Cli.create("oompf", {
-    description: "Share and install OMP profiles",
+    // OMP (Oh My Pi) owns the profile format; OOMPF indexes and shares it.
+    description: `Share and install OMP (Oh My Pi) profiles (the format is OMP's; OOMPF is the index). OMP docs: ${OMP_DOCS_TREE}`,
     // No auto-update network calls; the CLI is agent-oriented and deterministic.
     update: false,
     version: CLI_VERSION,

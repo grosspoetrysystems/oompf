@@ -7,6 +7,7 @@
  * The header marks the current section with `aria-current="page"` so navigation
  * state is announced, not only colored.
  */
+import { OMP_DOCS_TREE, OMP_SITE } from "@oompf/core";
 import "../styles/global.css";
 
 interface Props {
@@ -118,7 +119,14 @@ const inIndex = path === "/" || path.startsWith("/p/");
           </span>
           <p class="footer-note">
             An open index of OMP profiles. Every profile stays a public GitHub
-            Gist — OOMPF holds metadata, never your configuration.
+            Gist — OOMPF holds metadata, never your configuration. The profile
+            format is
+            <a href={OMP_SITE} rel="noopener noreferrer" target="_blank"
+              >OMP (Oh My Pi)</a
+            >'s, documented
+            <a href={OMP_DOCS_TREE} rel="noopener noreferrer" target="_blank"
+              >upstream</a
+            >.
           </p>
         </div>
         <div>

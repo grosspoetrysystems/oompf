@@ -9,6 +9,7 @@
  * Rendered on the Worker; the repository comes from the Cloudflare runtime env
  * and degrades to a directed notice when the binding is unavailable.
  */
+import { OMP_SITE } from "@oompf/core";
 import Base from "../layouts/Base.astro";
 import { canonicalProfileUrl } from "../lib/profile-view.ts";
 import {
@@ -131,7 +132,7 @@ const docsRail = [
         <aside class="pi-panel">
           <div class="pi-panel-bar">
             <span aria-hidden="true">◇</span>
-            <a href="https://omp.sh/" rel="noopener noreferrer" target="_blank"
+            <a href={OMP_SITE} rel="noopener noreferrer" target="_blank"
               >built for OMP (oh my pi) -- learn more ↗</a
             >
           </div>
