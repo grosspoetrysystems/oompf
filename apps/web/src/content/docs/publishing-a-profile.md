@@ -16,7 +16,7 @@ oompf publish work
 
 `work` is the profile's native name, the same name you use with
 `omp --profile work`. OOMPF asks OMP where the profile lives rather than taking
-a file path — see OMP's [configuration discovery](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage)
+a file path — see OMP's [configuration discovery](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage.md#configuration-discovery-and-resolution)
 for how profile roots are resolved.
 
 ## Omitted input

@@ -51,8 +51,8 @@ always the public Gist. For each registered profile OOMPF keeps:
 The name expands to Open OMP Format. There is no OOMPF format. What exists is:
 
 - the canonical artifact, an **OMP** `config.yml`, defined by OMP — the
-  [profile layout](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage#profiles)
-  and [settings](https://github.com/can1357/oh-my-pi/blob/main/docs/settings#settings-catalog)
+  [profile layout](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage.md#profiles)
+  and [settings](https://github.com/can1357/oh-my-pi/blob/main/docs/settings.md#settings-catalog)
   are OMP's to document; OOMPF links them rather than restating them.
 - exactly one convention OOMPF contributes inside that file — the namespaced
   [`oompf:` metadata block](/docs/metadata-and-summaries) carrying `summary`,
@@ -98,6 +98,6 @@ described by [`/openapi.json`](/openapi.json), and response shapes are published
 JSON Schema. See [CLI reference](/docs/cli-reference) and the API reference for the
 canonical `/api/v1` routes.
 
-OMP lives at [omp.sh](https://omp.sh/); its documentation is the
-[`docs/` directory](https://github.com/can1357/oh-my-pi/tree/main/docs) of the
-[`can1357/oh-my-pi`](https://github.com/can1357/oh-my-pi) repository.
+OMP lives at [omp.sh](https://omp.sh/); its documentation is maintained by
+upstream in the [profile documentation](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage.md#profiles).
+OOMPF links that canonical reference rather than copying it.

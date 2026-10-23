@@ -25,7 +25,7 @@ published JSON Schemas.
 
 OOMPF is an index over OMP profiles; the profile format itself belongs to OMP
 (Oh My Pi). Field semantics and the runtime come from
-[upstream OMP's documentation](https://github.com/can1357/oh-my-pi/tree/main/docs),
+[upstream OMP's profile documentation](https://github.com/can1357/oh-my-pi/blob/main/docs/config-usage.md#profiles),
 and this CLI is one client of that format.
 
 ## `oompf publish`
