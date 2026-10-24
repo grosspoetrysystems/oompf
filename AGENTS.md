@@ -71,12 +71,21 @@ The deploy workflow runs only for tested `main` revisions, applies migrations, a
 `main` is the integration branch. Do not rewrite published history or
 force-push.
 
-A commit message is **one line**. commitlint runs on the `commit-msg` hook and
-rejects a body or a footer outright, so reasoning belongs in the code, the PR, or
-the ticket — never the message. This is the rule agents break most often.
+An allowed commit message has exactly one conventional subject line followed
+only by the required DCO sign-off trailer block. Create it with `git commit -s`;
+`-s` appends a `Signed-off-by:` trailer using the configured Git identity:
+
+```bash
+git commit -s -m "fix(GPS-123): stop crashing"
+```
+
+The resulting message has this shape. Do not add a prose body or an unrelated
+footer:
 
 ```text
 <type>(<scope>): <subject>
+
+Signed-off-by: Full Name <email>
 ```
 
 | Rule | Value |
@@ -85,9 +94,9 @@ the ticket — never the message. This is the rule agents break most often.
 | Type case | lower-case (`Feat:` is rejected) |
 | Subject | lower-case start, no trailing period |
 | Header length | 100 characters maximum, including type and scope |
-| Body / footer | must be empty |
+| Body / footer | body must be empty; footer must contain one or more well-formed `Signed-off-by:` trailers only |
 | Scope | the Linear issue key the work belongs to (e.g. `GPS-123`); optional, but when present it must be a `GPS-<n>` key (enforced by commitlint). Omit only for untracked housekeeping |
-| Breaking change | `feat(api)!: ...` — the `!` marker, since a `BREAKING CHANGE:` footer is not allowed here |
+| Breaking change | `feat(GPS-123)!: ...` — use the `!` marker; a `BREAKING CHANGE:` footer is not allowed in a new commit |
 
 ### Types decide the released version
 

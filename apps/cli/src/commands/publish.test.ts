@@ -611,6 +611,72 @@ describe("publish", () => {
     expect(out).toContain(GIST_HTML);
   });
 
+  test("keeps an initial registration throttle actionable after patching", async () => {
+    const deps = publishDeps(
+      {
+        httpFetch: apiFetch({
+          register: () =>
+            jsonResponse(429, {
+              error: {
+                code: "rate_limited",
+                message: "Too many registration requests. Try again later.",
+              },
+            }),
+        }),
+      },
+      { [PUBLICATIONS]: PRIOR }
+    );
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBe(1);
+    expect(out).toContain("rate_limited");
+    expect(out).toContain("canonical Gist");
+    expect(out).toContain("previous pinned revision");
+    expect(out).not.toContain("index_update_failed");
+  });
+
+  test("reports a throttled confirmation separately from stale exhaustion", async () => {
+    let registrations = 0;
+    const deps = publishDeps(
+      {
+        httpFetch: apiFetch({
+          metadata: jsonResponse(200, {
+            ...profileRecord("model: previous\n"),
+            sourceUrl: GIST_HTML,
+          }),
+          register: () => {
+            registrations++;
+            return registrations === 2
+              ? jsonResponse(429, {
+                  error: {
+                    code: "rate_limited",
+                    message: "Too many registration requests. Try again later.",
+                  },
+                })
+              : jsonResponse(200, {
+                  id: "prof_0123456789abcdef0123456789abcdef",
+                  source: GIST_HTML,
+                  url: "/p/prof_0123456789abcdef0123456789abcdef",
+                  validation: {
+                    errors: [],
+                    level: "structural",
+                    structural: "valid",
+                    warnings: [],
+                  },
+                });
+          },
+        }),
+      },
+      { [PUBLICATIONS]: PRIOR }
+    );
+    const { out, code } = await runCli(deps, ["publish", "work", "--json"]);
+    expect(code).toBe(1);
+    expect(out).toContain("rate_limited");
+    expect(out).toContain("Try again later");
+    expect(out).toContain("/p/prof_0123456789abcdef0123456789abcdef");
+    expect(out).not.toContain("index_update_failed");
+    expect(registrations).toBe(2);
+  });
+
   test("a patched Gist the index never re-reads is reported, not called current", async () => {
     const api = stagedApi(Number.POSITIVE_INFINITY);
     const deps = publishDeps(
@@ -621,8 +687,10 @@ describe("publish", () => {
     expect(code).toBe(1);
     expect(out).toContain("index_update_failed");
     expect(out).not.toContain("Updated in place");
-    // Every attempt after the first re-registers the source before re-reading.
+    // One initial registration plus retries stays within the endpoint's
+    // five-request budget while proving that confirmation actually retried.
     expect(api.counts.registers).toBeGreaterThan(1);
+    expect(api.counts.registers).toBeLessThanOrEqual(5);
   });
 
   test("a patched Gist the index reads late still reports the shared link", async () => {

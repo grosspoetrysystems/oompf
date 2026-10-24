@@ -267,11 +267,17 @@ export function registerPublish(cli: Cli.Cli, deps: ResolvedDeps): void {
           if (prior === null) {
             throw error;
           }
-          // The Gist already carries the new bytes; only the index is behind.
-          // Say so, and name the source URL the author can re-register.
+          if (error instanceof CommandError && error.code === "rate_limited") {
+            throw new CommandError(
+              "rate_limited",
+              `The canonical Gist at ${prior.source} is current, but OOMPF index registration was rate-limited. The shared OOMPF URL may still serve the previous pinned revision. Wait at least a minute, then retry the original publish command. Details: ${error.message}`
+            );
+          }
+          // The canonical Gist already carries the new bytes; only the
+          // indexed profile may lag. Keep partial state and throttling clear.
           throw new CommandError(
             "index_update_failed",
-            `The Gist was updated but OOMPF could not refresh its index. Publish again once the index recovers, or register ${prior.source} directly; the Gist is already current. Details: ${error instanceof Error ? error.message : String(error)}`
+            `The canonical Gist at ${prior.source} is current, but OOMPF could not refresh its index. The shared OOMPF URL may still serve the previous pinned revision. Wait at least a minute, then retry the original publish command. Details: ${error instanceof Error ? error.message : String(error)}`
           );
         }
 

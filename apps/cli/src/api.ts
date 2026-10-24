@@ -163,11 +163,12 @@ export async function fetchProfileMetadata(
  *
  * GitHub serves a patched Gist's prior revision to readers for a while after
  * the PATCH returns. Measured on a real Gist: fresh after 5.8s once, still
- * stale after 14.6s once, and stale for somewhere under 80s once. The schedule
- * covers the first two outright and gives up rather than making the author
- * wait for the third, which one more run resolves.
+ * stale after 14.6s once, and stale for somewhere under 80s once. Four
+ * re-registrations cap one operation at five registration POSTs including the
+ * initial call. That per-operation cap does not guarantee the shared IP budget
+ * if an earlier command consumed it; a rate-limit failure remains actionable.
  */
-const INDEX_REFRESH_WAITS_MS = [1000, 2000, 4000, 8000, 15_000] as const;
+const INDEX_REFRESH_WAITS_MS = [2000, 4000, 8000, 15_000] as const;
 
 /**
  * Prove the index is serving the bytes a patched Gist now holds.
@@ -190,6 +191,7 @@ export async function confirmIndexedHash(options: {
   readonly source: string;
 }): Promise<void> {
   const { baseUrl, expectedHash, fetchImpl, id, sleep, source } = options;
+  const indexedUrl = joinUrl(baseUrl, `/p/${id}`);
   let indexed = "";
   for (let attempt = 0; attempt <= INDEX_REFRESH_WAITS_MS.length; attempt++) {
     const record = await fetchProfileMetadata(baseUrl, id, fetchImpl);
@@ -200,12 +202,22 @@ export async function confirmIndexedHash(options: {
     const wait = INDEX_REFRESH_WAITS_MS[attempt];
     if (wait !== undefined) {
       await sleep(wait);
-      await registerProfile(baseUrl, { source }, fetchImpl);
+      try {
+        await registerProfile(baseUrl, { source }, fetchImpl);
+      } catch (error) {
+        if (error instanceof CommandError && error.code === "rate_limited") {
+          throw new CommandError(
+            "rate_limited",
+            `The canonical Gist at ${source} is current, but confirmation of indexed profile ${indexedUrl} was rate-limited. Wait at least a minute, then retry the original command; the indexed profile may still serve its previous pinned revision. Details: ${error.message}`
+          );
+        }
+        throw error;
+      }
     }
   }
   throw new CommandError(
     "index_update_failed",
-    `The Gist was updated but OOMPF is still indexing ${indexed.slice(0, 12)} rather than the bytes just written (${expectedHash.slice(0, 12)}), so ${source} would keep serving the previous version. The Gist is already current: run this again in a minute.`
+    `The canonical Gist at ${source} is current, but indexed profile ${indexedUrl} still stores ${indexed.slice(0, 12)} rather than the bytes just written (${expectedHash.slice(0, 12)}); installs through that indexed URL would receive the previous pinned revision. Wait at least a minute, then retry the original command.`
   );
 }
 
