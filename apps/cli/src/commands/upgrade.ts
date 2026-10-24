@@ -1,9 +1,10 @@
 /**
  * `oompf upgrade <ref>` — review and optionally apply model-only successors.
  *
- * The command plans from the current owned Gist head, not the indexed pinned
- * revision. It patches that same Gist only after confirmation, then registers
- * the unchanged source URL so the stable OOMPF profile identity survives.
+ * The command plans from the current Gist head, not the indexed pinned
+ * revision. It patches that Gist only after confirmation and ownership checks,
+ * then registers the unchanged source URL so the stable OOMPF profile identity
+ * survives.
  */
 
 import { confirm, isCancel } from "@clack/prompts";
@@ -81,12 +82,6 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
             fetch: deps.gistFetch,
           });
         const current = await fetchCurrent();
-        if (current.owner === null) {
-          throw new CommandError(
-            "unowned_gist",
-            "The source Gist has no public owner and cannot be patched."
-          );
-        }
 
         const plan = proposeUpgrade(current.content, MODEL_CATALOG);
         const output = {
@@ -97,6 +92,8 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
           unchanged: [...plan.unchanged],
           updatedRevision: null as string | null,
         };
+        const needsIndexReconciliation =
+          current.contentHash !== record.contentHash;
 
         const shouldPrompt =
           c.options.yes !== true &&
@@ -109,7 +106,9 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
           const answer = await confirm({
             message:
               plan.changes.length === 0
-                ? "No model changes are proposed. Exit without writing?"
+                ? needsIndexReconciliation
+                  ? "The Gist is current but its OOMPF index is stale. Refresh the index without modifying the Gist?"
+                  : "No model changes are proposed. Exit without writing?"
                 : `Apply ${plan.changes.length} model change(s) to the current Gist?`,
           });
           if (isCancel(answer) || answer !== true) {
@@ -117,9 +116,55 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
           }
         }
         if (plan.changes.length === 0) {
+          if (!needsIndexReconciliation) {
+            return c.ok(output);
+          }
+          try {
+            await registerProfile(
+              c.env.OOMPF_BASE_URL,
+              { source: record.sourceUrl },
+              deps.httpFetch
+            );
+            await confirmIndexedHash({
+              baseUrl: c.env.OOMPF_BASE_URL,
+              expectedHash: current.contentHash,
+              fetchImpl: deps.httpFetch,
+              id: record.id,
+              sleep: deps.sleep,
+              source: record.sourceUrl,
+            });
+          } catch (error) {
+            if (
+              error instanceof CommandError &&
+              error.code === "rate_limited"
+            ) {
+              throw new CommandError(
+                "rate_limited",
+                `The canonical Gist at ${record.sourceUrl} is current, but index reconciliation for indexed profile ${output.oompfUrl} was rate-limited. Wait at least a minute, then retry the original upgrade command; this command will not patch the Gist. Details: ${error.message}`
+              );
+            }
+            if (
+              error instanceof CommandError &&
+              error.code === "index_update_failed"
+            ) {
+              throw error;
+            }
+            throw new CommandError(
+              "index_update_failed",
+              `The canonical Gist at ${record.sourceUrl} is current, but OOMPF could not reconcile indexed profile ${output.oompfUrl}; installs through it may still serve the previous pinned revision. Wait at least a minute, then retry the original upgrade command; this command will not patch the Gist again. Details: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
           return c.ok(output);
         }
 
+        // Public index reconciliation does not patch the Gist, so ownership
+        // is required only for the model-changing path below.
+        if (current.owner === null) {
+          throw new CommandError(
+            "unowned_gist",
+            "The source Gist has no public owner and cannot be patched."
+          );
+        }
         const latest = await fetchCurrent();
         // The second fetch closes the review-time race. GitHub's Gist PATCH
         // endpoint does not expose a reliable If-Match precondition, so a
@@ -171,9 +216,15 @@ export function registerUpgrade(cli: Cli.Cli, deps: ResolvedDeps): void {
             deps.httpFetch
           );
         } catch (error) {
+          if (error instanceof CommandError && error.code === "rate_limited") {
+            throw new CommandError(
+              "rate_limited",
+              `The canonical Gist at ${record.sourceUrl} is current, but registration of indexed profile ${output.oompfUrl} was rate-limited. The indexed profile may still serve the previous pinned revision. Wait at least a minute, then retry the original upgrade command; it will not patch the Gist twice. Details: ${error.message}`
+            );
+          }
           throw new CommandError(
             "index_update_failed",
-            `The Gist was updated but OOMPF could not refresh its index. Re-register the unchanged source URL after the index recovers; this command will not patch the Gist again. Details: ${error instanceof Error ? error.message : String(error)}`
+            `The canonical Gist at ${record.sourceUrl} is current, but OOMPF could not refresh indexed profile ${output.oompfUrl}; it may still serve the previous pinned revision. Wait at least a minute, then retry the original upgrade command; it will not patch the Gist twice. Details: ${error instanceof Error ? error.message : String(error)}`
           );
         }
         // A 200 is not proof the index read the patched Gist; only the stored

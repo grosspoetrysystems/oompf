@@ -87,10 +87,11 @@ the new bytes. The profile-to-Gist mapping is a plain JSON file at
 `~/.oompf/publications.json`; delete it and the next publish starts a new
 identity. Pass `--new` to publish a separate Gist deliberately.
 
-A patched Gist takes a few seconds to become readable, so a repeat publish
-waits for the index to store the bytes it just wrote before reporting success.
-When it stays behind, the command says so instead of claiming the shared link
-is current; the Gist is already patched, so publishing again resolves it.
+A patched Gist can take a while to become readable, so a repeat publish
+confirms that the index stores the bytes it just wrote before reporting success.
+If confirmation fails, the canonical Gist may already be current while the
+OOMPF link still installs the previous pinned revision. Wait at least a minute,
+then retry the original publish command.
 
 Failure modes:
 
@@ -106,8 +107,12 @@ Failure modes:
 - GitHub authentication or Gist-creation failure (e.g. `gh` not installed or
   not authenticated), or registration failure against the index
   (`network_error`, or the server's own code such as `validation_failed`).
-- `index_update_failed` — the Gist was patched but the index is still serving
-  the previous bytes. Publish again; the Gist needs no further change.
+- `rate_limited` — registration or confirmation was throttled. After a
+  successful patch, the Gist is already current but the indexed link may still
+  install the previous revision. Wait at least a minute, then retry.
+- `index_update_failed` — registration otherwise failed after a patch, or
+  confirmation exhausted without finding the expected hash. The patch was not
+  rolled back; wait at least a minute, then retry the original publish command.
 
 Nothing is registered if local validation fails.
 
@@ -174,9 +179,9 @@ Failure mode: `network_error` when the index is unreachable.
 
 ### `oompf upgrade <ref> [--yes]`
 
-Review, and optionally apply, model upgrades for a profile you published. The
-reference must be an OOMPF URL or profile id; the Gist must be owned by your
-authenticated `gh` account.
+Review, and optionally apply, model upgrades for an indexed profile. The
+reference must be an OOMPF URL or profile id. Applying model changes requires
+the Gist to be owned by your authenticated `gh` account.
 
 ```bash
 oompf upgrade https://oompf.run/p/prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d
@@ -190,9 +195,16 @@ while its revision and fingerprint change. Successors come from a
 code-reviewed catalog; an unclassified model is reported unchanged rather than
 guessed at.
 
+When no model changes remain but the current Gist hash differs from the index,
+`--yes` (or accepting the interactive refresh prompt) re-registers and confirms
+the current bytes without another Gist patch. Preview remains read-only; an
+already-current index needs no registration. Index-only recovery does not
+require Gist ownership because it does not modify the source.
+
 Output: the `catalogRevision`, the `currentRevision` and `updatedRevision`, the
 `changes` applied per role, anything left `unchanged` with a reason, and the
 `oompfUrl`.
+An index-only recovery leaves `updatedRevision` null.
 
 Failure modes:
 
@@ -203,9 +215,21 @@ Failure modes:
 - `head_changed` — the Gist moved during review; nothing is patched.
 - `invalid_artifact` / `blocking_secrets` — the upgraded YAML failed validation
   or tripped the secret scan; nothing is patched.
-- `index_update_failed` — the Gist was patched but the index is still serving
-  the previous bytes. `upgrade` waits for it and reports rather than claiming
-  success; run the command again, and it will not patch the Gist twice.
+- `rate_limited` — registration or confirmation was throttled. The canonical
+  Gist may already be current while the indexed link still installs the
+  previous revision. Wait at least a minute, then retry the original command.
+- `index_update_failed` — registration otherwise failed or confirmation
+  exhausted without finding the current hash. A successful source patch is not
+  rolled back. Wait at least a minute, then retry the original command; if no
+  further model changes are needed, the retry refreshes only the index.
+
+### Registration and confirmation limits
+
+Publish and confirmed upgrade use at most five registration requests per
+operation, including the initial registration and confirmation retries.
+The endpoint allows five requests per 60 seconds per client IP. Earlier
+operations or other clients sharing that IP can still consume the budget.
+
 
 ## JSON output and errors
 
