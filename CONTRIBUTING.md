@@ -134,17 +134,24 @@ Commit the generated SQL, the journal update, and the schema change together.
 Conventional commits, enforced by commitlint via lefthook:
 
 - `commit-msg` hook runs `bunx commitlint --edit`. The config requires a
-  conventional header (`feat(scope): ...`, `fix: ...`) of at most 100
-  characters, and enforces `body-empty` and `footer-empty` — a commit is a
-  single subject line, so put the reasoning in the code or the PR, not the
-  message.
+  one-line conventional subject (`feat(GPS-123): ...`, `fix: ...`) of at most
+  100 characters, an empty body, and one or more well-formed `Signed-off-by:`
+  trailers as the only footer content.
+- Create commits with `git commit -s`; `-s` appends the required sign-off
+  trailer. Do not add a prose body or an unrelated footer:
+
+  ```text
+  fix(GPS-123): stop crashing
+
+  Signed-off-by: Full Name <email>
+  ```
 - `pre-commit` hook runs `bunx ultracite fix` on staged files and stages fixes
   (`stage_fixed: true`).
 
 Prefixes follow `@commitlint/config-conventional`: `build`, `chore`, `ci`,
 `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. The
-workspace is organized so a change usually names its package as scope, e.g.
-`feat(core): ...`, `fix(database): ...`.
+optional scope is the Linear issue key, e.g. `feat(GPS-123): ...`; omit it
+only for untracked housekeeping.
 
 **The type is the release input**, not decoration. `bun run release` derives the
 next version from the commits since the last tag: `feat` is a minor, `fix` and
@@ -152,9 +159,9 @@ next version from the commits since the last tag: `feat` is a minor, `fix` and
 else releases nothing. A bug fix committed as `chore` will not ship; run
 `bun run release` to preview what the current history would produce.
 
-A breaking change is marked `feat(api)!: ...` in the header. The `BREAKING
-CHANGE:` footer from the specification is unavailable here, because the config
-enforces `footer-empty`.
+A breaking change is marked `feat(GPS-123)!: ...` in the header; the sign-off-only
+trailer block still follows it. A `BREAKING CHANGE:` footer is not allowed in a
+new commit because commitlint permits only `Signed-off-by:` footer trailers.
 
 ## Releasing the CLI
 
@@ -170,10 +177,14 @@ bun run release minor --yes  # override the derived bump
 The version is **derived from the commits**, not typed. `feat` is a minor, `fix`
 and `perf` are patches, and housekeeping (`chore`, `docs`, `ci`, `test`,
 `refactor`) is not a release at all - the script refuses rather than shipping a
-version with nothing in it. A breaking change (`feat!:` or a `BREAKING CHANGE:`
-footer) is a major once past 1.0; below 1.0 it is a minor, because there is no
-stability contract yet to break and jumping to 1.0.0 would claim one. Pass an
-explicit level to override any of this.
+version with nothing in it. The current commit form for a breaking change is
+`feat!:` (or another `!` marker). The release parser also honors a
+`BREAKING CHANGE:` footer in historical, merge/revert, or `--no-verify` commits
+for compatibility; that legacy input remains supported even though new
+commitlint-checked commits reject it. Either form is a major once past 1.0;
+below 1.0 it is a minor, because there is no stability contract yet to break
+and jumping to 1.0.0 would claim one. Pass an explicit level to override any
+of this.
 
 There is one version in the repository: `apps/cli/package.json`. `CLI_VERSION`
 reads it, the tag is computed from it, and the workflow re-checks that the tag
