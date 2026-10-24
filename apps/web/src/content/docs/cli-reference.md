@@ -45,10 +45,11 @@ oompf publish work
 - **Repeat publish:** publishing the same profile again patches the Gist it was
   first published to, so `/p/<id>` stays stable while the revision and
   fingerprint change. The mapping lives in `~/.oompf/publications.json`; `--new`
-  publishes a separate Gist instead. A patched Gist takes a few seconds to
-  become readable, so the command waits for the index to hold the bytes it just
-  wrote and reports `index_update_failed` rather than claiming a stale link is
-  current — the Gist is already patched, so publishing again resolves it.
+  publishes a separate Gist instead. A patched Gist can take a while to become
+  readable, so the command confirms that the index holds the bytes it just
+  wrote. If confirmation fails, the Gist may already be current while the
+  OOMPF link still installs the previous pinned revision. Wait at least a
+  minute, then retry the original publish command.
 - **Omitted input:** When the name is omitted, OOMPF automatically uses the sole
   publishable profile. With multiple profiles it opens a selector only in an
   interactive terminal; `--json`, CI, and piped execution return
@@ -57,9 +58,10 @@ oompf publish work
   `missing_config`, `no_profile`, `ambiguous_profile`, and
   `selection_cancelled`, plus structural validation and blocking-secret errors.
 - **Remote failure modes:** GitHub authentication/creation failure, or
-  registration failure; `missing_gist` or `unowned_gist` when the remembered
-  Gist is gone or belongs to another account. Nothing is registered if local
-  validation fails.
+  registration failure; `rate_limited` when registration or confirmation is
+  throttled; `index_update_failed` when a patched source cannot be confirmed;
+  `missing_gist` or `unowned_gist` when the remembered Gist is gone or belongs
+  to another account. Nothing is registered if local validation fails.
 
 ## `oompf inspect`
 
@@ -131,16 +133,37 @@ oompf upgrade prof_1b7c9e0a4d2f3a5b6c8d9e0f1a2b3c4d --yes
   existing public Gist in place, and re-registers the same source URL. The
   `/p/<id>` identity therefore stays stable while its revision and fingerprint
   change.
+- **Index-only recovery:** if the current Gist has no model changes to apply
+  but its hash differs from the index, `--yes` (or accepting the interactive
+  refresh prompt) re-registers and confirms the current bytes without another
+  Gist patch. Preview remains read-only, and an already-current index needs no
+  registration. An index-only recovery leaves `updatedRevision` null because
+  it does not create a source revision.
 - **Safety:** the indexed pinned revision is provenance only; the current Gist
   head is the patch input. A head change during review aborts instead of
   overwriting the newer edit. Unknown models, missing successors, and
   incompatible slots remain unchanged.
 - **Failure modes:** `invalid_ref`, `unverifiable_artifact`, `unowned_gist`,
   `head_changed`, `invalid_artifact`, `blocking_secrets`, GitHub patch failure,
-  or `index_update_failed`. If the Gist patch succeeds but the index does not
-  end up holding the patched bytes — registration failed, or it is still
-  serving the previous revision — the command reports the partial state and
-  never claims success.
+  `rate_limited`, or `index_update_failed`. After a successful Gist patch,
+  registration or confirmation can still fail: the canonical Gist is current,
+  but installs through the indexed OOMPF URL may receive the previous revision.
+  Wait at least a minute, then retry the original upgrade command. If no
+  further model changes are needed, the retry repairs the index without
+  patching the Gist again.
+
+### Registration and confirmation limits
+
+Publish and confirmed upgrade use at most five registration requests per
+operation, including the initial registration and confirmation retries. The
+endpoint allows five requests per 60 seconds per client IP; earlier operations
+or other clients sharing that IP can still consume the budget.
+
+`rate_limited` means registration or confirmation was throttled.
+`index_update_failed` means registration otherwise failed or confirmation
+exhausted without finding the expected hash. Neither means that an already
+successful Gist patch was rolled back. A successful retry confirms the indexed
+hash rather than treating an HTTP success response as proof of freshness.
 
 
 ## Corresponding API routes

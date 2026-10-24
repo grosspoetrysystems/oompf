@@ -179,6 +179,32 @@ describe("upgrade", () => {
     expect(out).toContain("index_update_failed");
   });
 
+  test("keeps an initial registration throttle actionable after patching", async () => {
+    const deps = upgradeDeps({
+      httpFetch: apiFetch({
+        register: () =>
+          jsonResponse(429, {
+            error: {
+              code: "rate_limited",
+              message: "Too many registration requests. Try again later.",
+            },
+          }),
+      }),
+    });
+    const { code, out } = await runCli(deps, [
+      "upgrade",
+      OOMPF_URL,
+      "--yes",
+      "--json",
+    ]);
+    expect(code).toBe(1);
+    expect(out).toContain("rate_limited");
+    expect(out).toContain("canonical Gist");
+    expect(out).toContain("previous pinned revision");
+    expect(out).toContain(OOMPF_URL);
+    expect(out).not.toContain("index_update_failed");
+  });
+
   test("refuses to patch when the current head changes during review", async () => {
     let fetches = 0;
     const deps = upgradeDeps({
@@ -223,7 +249,12 @@ describe("upgrade", () => {
   });
 
   test("noninteractive mode previews without writing", async () => {
-    const deps = upgradeDeps();
+    const deps = upgradeDeps({
+      profileSelector: {
+        isInteractive: () => false,
+        selectProfile: async () => null,
+      },
+    });
     const { code } = await runCli(deps, ["upgrade", OOMPF_URL]);
 
     expect(code).toBeUndefined();
@@ -251,5 +282,98 @@ describe("upgrade", () => {
     expect(result.changes).toEqual([]);
     expect(result.updatedRevision).toBeNull();
     expect(deps.calls).toEqual([]);
+  });
+
+  test("reconciles the index when retrying an already-patched head", async () => {
+    let head = CURRENT_YAML;
+    let revision = CURRENT_REVISION;
+    let indexHash = sha256(CURRENT_YAML);
+    let allowRefresh = false;
+    let registrations = 0;
+    let patches = 0;
+    const base = upgradeDeps();
+    const deps = upgradeDeps({
+      gistFetch: async () =>
+        jsonResponse(200, {
+          files: {
+            "work.yml": {
+              content: head,
+              filename: "work.yml",
+              raw_url: null,
+            },
+          },
+          history: [{ version: revision }],
+          html_url: GIST_HTML,
+          id: GIST_ID,
+          owner: patches === 0 ? { login: "octocat" } : null,
+        }),
+      httpFetch: async (url, init) => {
+        const method = init?.method ?? "GET";
+        if (method === "POST" && url.endsWith("/api/v1/profiles")) {
+          registrations++;
+          if (allowRefresh) {
+            indexHash = sha256(head);
+          }
+          return jsonResponse(200, {
+            id: "prof_0123456789abcdef0123456789abcdef",
+            source: GIST_HTML,
+            url: "/p/prof_0123456789abcdef0123456789abcdef",
+            validation: {
+              errors: [],
+              level: "structural",
+              structural: "valid",
+              warnings: [],
+            },
+          });
+        }
+        if (method === "GET" && /\/profiles\/[^/]+$/.test(url)) {
+          return jsonResponse(200, {
+            ...profileRecord(),
+            contentHash: indexHash,
+            revision,
+            sourceUrl: GIST_HTML,
+          });
+        }
+        return jsonResponse(404, "not found");
+      },
+      runner: async (input) => {
+        const result = await base.runner!(input);
+        if (input.args[1] === "--method") {
+          const body = JSON.parse(input.stdin ?? "{}") as {
+            files?: Record<string, { content?: string }>;
+          };
+          const content = Object.values(body.files ?? {})[0]?.content;
+          if (content !== undefined) {
+            head = content;
+            revision = "e".repeat(40);
+            patches++;
+          }
+        }
+        return result;
+      },
+    });
+
+    const first = await runCli(deps, ["upgrade", OOMPF_URL, "--yes", "--json"]);
+    expect(first.code).toBe(1);
+    expect(first.out).toContain("index_update_failed");
+    const firstRegistrations = registrations;
+    allowRefresh = true;
+
+    const second = await runCli(deps, [
+      "upgrade",
+      OOMPF_URL,
+      "--yes",
+      "--json",
+    ]);
+    expect(second.code).toBeUndefined();
+    const recovered = JSON.parse(second.out) as {
+      changes: unknown[];
+      updatedRevision: string | null;
+    };
+    expect(recovered.changes).toEqual([]);
+    expect(recovered.updatedRevision).toBeNull();
+    expect(registrations).toBe(firstRegistrations + 1);
+    expect(patches).toBe(1);
+    expect(indexHash).toBe(sha256(head));
   });
 });
