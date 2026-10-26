@@ -1,10 +1,13 @@
 name: Release CLI
 
-# Cutting a release is pushing a tag:
+# Cutting a release is pushing a tag through the guarded release script:
 #
-#   npm version patch --workspace apps/cli   # or edit the manifest
-#   git tag cli-v0.1.1 && git push origin cli-v0.1.1
+#   bun run release              # preview: the commits, derived bump, and tag
+#   bun run release --yes        # bump, commit, tag, and push
+#   bun run release minor --yes  # override the derived bump
 #
+# A manual verify-only run checks the current manifest without publishing:
+#   gh workflow run release.yml --ref main -f verify_only=true
 # Authentication is npm trusted publishing (OIDC) — there is no NPM_TOKEN in
 # this repository. Configure the trusted publisher once, in the package's
 # settings on npmjs.com, pointing at this workflow filename. Because trusted
@@ -14,6 +17,12 @@ on:
   push:
     tags: ["cli-v*"]
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: Verify the current manifest version without publishing
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,7 +36,7 @@ concurrency:
 
 jobs:
   release:
-    name: Publish oompf to npm
+    name: ${{ inputs.verify_only && 'Verify oompf publication' || 'Publish oompf to npm' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -88,6 +97,7 @@ jobs:
       # A mistagged release publishes the wrong bytes under the right name,
       # which cannot be undone after 72 hours. Refuse instead.
       - name: Tag must match the manifest version
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.verify_only }}
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME#cli-v}"
@@ -102,6 +112,7 @@ jobs:
       # once meant this guard queried a package that does not exist, so it
       # could never fire — a check that cannot fail is worse than no check.
       - name: Confirm the version is unpublished
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.verify_only }}
         run: |
           set -euo pipefail
           NAME="$(node -p "require('./apps/cli/package.json').name")"
@@ -115,6 +126,7 @@ jobs:
       # No --provenance flag: trusted publishing attaches provenance
       # automatically, and passing it explicitly is redundant.
       - name: Publish
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.verify_only }}
         run: npm publish
         working-directory: apps/cli
 
