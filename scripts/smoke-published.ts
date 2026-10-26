@@ -11,8 +11,9 @@
  *
  * Two things make this reliable enough to gate a release on:
  *
- *  1. A newly published version is not immediately readable. Propagation took
- *     over a minute for 0.1.1, so this waits minutes, not seconds.
+ *  1. A newly published version is not immediately readable. Propagation can
+ *     run well past a minute, so this retries for about ten minutes of nominal
+ *     waiting (network and install time are on top of that), not seconds.
  *  2. npm caches the packument it fetched on the first attempt, so a naive
  *     retry loop re-reads metadata that predates the publish and fails
  *     identically until it gives up. Every attempt therefore uses a fresh cache
@@ -26,7 +27,7 @@ import { join } from "node:path";
 import { spawnCapture } from "@oompf/core";
 
 const REGISTRY = "https://registry.npmjs.org/";
-const ATTEMPTS = 12;
+const ATTEMPTS = 40;
 const WAIT_MS = 15_000;
 
 const manifest = (await import("../apps/cli/package.json", {
@@ -105,9 +106,7 @@ try {
 
   assert.ok(
     installed,
-    `${spec} did not become installable after ${ATTEMPTS} attempts over ${
-      (ATTEMPTS * WAIT_MS) / 60_000
-    } minutes.\nLast npm error:\n${lastError}`
+    `${spec} did not become installable after ${ATTEMPTS} attempts.\nLast npm error:\n${lastError}`
   );
 
   // The package name is scoped; the command is not.

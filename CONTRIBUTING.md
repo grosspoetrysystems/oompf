@@ -56,7 +56,7 @@ All scripts run from the repo root.
 | `bun run check:migrations` | Replays the journalled migration chain into an empty PGlite database and asserts the schema the repository queries. Catches a hand-written migration no runner would apply. |
 | `bun run check:package` | Asserts the published tarball's exact file list, an executable JavaScript `bin`, and no `workspace:` ranges in any dependency field. `0.1.0` shipped `workspace:*` devDependencies past a guard that only read `dependencies`. |
 | `bun run smoke:deployed [origin]` | HTTP smoke against a live origin (defaults to production): pages, `llms.txt`, `openapi.json`, and both `/api/v1/search` and its compatibility alias, asserting response shape rather than only status. |
-| `bun run smoke:published [version]` | Installs the *published* package from npm into a throwaway directory and runs the binary, asserting it reports the expected version. Defaults to the version in `apps/cli/package.json`. Uses a fresh npm cache per attempt and waits minutes, because a new version is not immediately readable and npm caches the packument it first saw. |
+| `bun run smoke:published [version]` | Installs the *published* package from npm into a throwaway directory and runs the binary, asserting it reports the expected version. Defaults to the version in `apps/cli/package.json`. It retries up to 40 attempts with 15-second gaps (about 10 minutes of nominal retry waiting; network and install time add more), using a fresh npm cache per attempt because a new version is not immediately readable and npm caches the packument it first saw. |
 | `bun run db:migrate` | Applies committed migrations to the database in `DATABASE_URL` via `drizzle-kit migrate`. |
 | `bun run dev` | Starts the Astro dev server (`apps/web`). |
 
@@ -197,9 +197,27 @@ version is not already on the registry, and the full gate passes. A tag that
 fails the gate would otherwise leave a pushed tag with nothing published, and
 the same version cannot be tagged twice.
 
-`release.yml` then re-runs the full gate, asserts the tag matches the manifest,
-refuses a version already on the registry, publishes, and finally installs the
-published package from npm in a clean directory and runs it.
+In ordinary publication mode, `release.yml` re-runs the full gate, asserts the
+tag matches the manifest, refuses a version already on the registry, publishes,
+and finally installs the published package from npm in a clean directory and
+runs it.
+
+If npm has accepted a version, **do not rerun the `Publish` step or move the
+tag**. To reverify the current manifest version without publishing:
+
+```bash
+gh workflow run release.yml --ref main -f verify_only=true
+```
+
+For a local check of a published version, run:
+
+```bash
+bun run smoke:published [version]
+```
+
+The verify-only dispatch keeps the verification, package, and published-smoke
+gates active while skipping the tag-match, unpublished-version, and `Publish`
+steps.
 
 Authentication is npm **trusted publishing** (OIDC), so there is no `NPM_TOKEN`
 in this repository — the workflow's `id-token: write` permission is what lets
