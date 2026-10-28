@@ -1,0 +1,25 @@
+# OOMPF currently has one maintainer.
+* @thekidnamedkd
+
+# Automation, policy, and agent instructions always reach a maintainer.
+/.github/ @thekidnamedkd
+/.github/workflows/ @thekidnamedkd
+/scripts/ @thekidnamedkd
+/tests/ @thekidnamedkd
+/.pr_agent.toml @thekidnamedkd
+/AGENTS.md @thekidnamedkd
+/SECURITY.md @thekidnamedkd
+/CONTRIBUTING.md @thekidnamedkd
+/CODE_OF_CONDUCT.md @thekidnamedkd
+
+# Dependency manifests, lockfiles, and release machinery.
+/package.json @thekidnamedkd
+/**/package.json @thekidnamedkd
+/bun.lock @thekidnamedkd
+/turbo.json @thekidnamedkd
+/biome.jsonc @thekidnamedkd
+/commitlint.config.js @thekidnamedkd
+/lefthook.yml @thekidnamedkd
+/.github/workflows/release.yml @thekidnamedkd
+/scripts/release.ts @thekidnamedkd
+/scripts/release.test.ts @thekidnamedkd

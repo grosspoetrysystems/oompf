@@ -119,6 +119,10 @@ The `pre-commit` hook runs `bunx ultracite fix` on staged files and stages the
 result, so files may legitimately differ after committing. Do not fight it by
 hand-formatting.
 
+## Contribution governance
+
+Contribution governance comes from Helicopter (.github/helicopter/version.json). Use the helicopter skill to update or check it: npx skills add grosspoetrysystems/helicopter
+
 ## Documentation
 
 - Preserve unrelated working-tree changes, especially `docs/research.md` unless

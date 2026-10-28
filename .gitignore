@@ -4,6 +4,10 @@
 # Dependencies
 node_modules/
 
+# Python tooling
+__pycache__/
+*.py[cod]
+
 # Build output
 dist/
 *.tsbuildinfo
