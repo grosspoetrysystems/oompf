@@ -5,6 +5,26 @@ to a passing gate, and for anyone who needs to change the codebase without
 breaking its invariants. For how the system fits together, see
 [docs/architecture.md](docs/architecture.md).
 
+## Contribution governance
+
+Pull requests are admitted by the required `validate-metadata` check before
+project CI runs. The description must include filled-in **Change**,
+**Verification**, and **Risk** sections from
+`.github/pull_request_template.md`. The check also verifies that:
+
+- every non-merge commit carries a `Signed-off-by:` trailer (DCO);
+- bots open pull requests only from a branch of this repository;
+- contributors without write access target the default branch and stay within
+  the open-pull-request and change-size limits; and
+- the required checks and protected-branch rules pass before merging.
+
+Use a draft pull request while work is incomplete; admission waits until it is
+ready for review. After addressing review, push the fix or reply to the
+maintainer. The `queue:awaiting-author` and `queue:awaiting-reviewer` labels
+show whose turn it is. Report vulnerabilities privately as described in
+`SECURITY.md`; do not put secrets or private data in issues, pull requests, or
+logs.
+
 ## Prerequisites
 
 - **Bun 1.3+** (the repo pins `bun@1.3.14` as `packageManager`). The local

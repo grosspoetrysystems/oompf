@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report an OOMPF vulnerability
+    url: https://github.com/grosspoetrysystems/oompf/security/advisories/new
+    about: Send security reports privately.
+  - name: Report conduct or abuse
+    url: https://support.github.com/contact/report-abuse
+    about: Include the relevant OOMPF URL.
