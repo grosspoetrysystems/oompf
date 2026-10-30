@@ -267,10 +267,14 @@ rather than weaken.
   column), plus a `RAW_ARTIFACT_CANARY` check in
   [`scripts/smoke-local.ts`](scripts/smoke-local.ts).
 
-- **No-overwrite installs.** `oompf add` refuses an existing target outright —
-  there is no `--force`, no clobber. Enforced in
-  [`apps/cli/src/commands/add.ts`](apps/cli/src/commands/add.ts) (`target_exists`)
-  and exercised by the `smoke:local` collision assertion.
+- **No-overwrite installs.** `oompf add` refuses an existing config target —
+  there is no `--force`, no clobber. Both `config.yml` and `config.yaml` are
+  checked; native exclusive creation (`wx`) also protects `config.yml` if it
+  appears after the check. Both paths report `target_exists`. Enforced in
+  [`apps/cli/src/commands/add.ts`](apps/cli/src/commands/add.ts), covered by the
+  real-filesystem concurrent-creation regression in
+  [`apps/cli/src/commands/add.test.ts`](apps/cli/src/commands/add.test.ts) and
+  the `smoke:local` collision assertion.
 
 - **Unknown YAML keys are preserved.** OOMPF never rewrites or strips keys it
   doesn't understand. The install writes the fetched `config.yml` bytes

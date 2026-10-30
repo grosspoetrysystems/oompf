@@ -158,7 +158,22 @@ export function registerAdd(cli: Cli.Cli, deps: ResolvedDeps): void {
         // 6. Write the native config with restrictive permissions.
         await deps.fs.mkdir(agentDir, 0o700);
         const target = join(agentDir, "config.yml");
-        await deps.fs.writeFile(target, gist.content, 0o600);
+        try {
+          await deps.fs.writeFile(target, gist.content, 0o600, "wx");
+        } catch (error) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "EEXIST"
+          ) {
+            throw new CommandError(
+              "target_exists",
+              `Profile "${name}" already has a config at ${target}. Refusing to overwrite.`
+            );
+          }
+          throw error;
+        }
 
         const command = `omp --profile ${name}`;
         const prerequisites = validation.facts.prerequisites;

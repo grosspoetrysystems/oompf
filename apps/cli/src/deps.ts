@@ -45,7 +45,7 @@ export type HttpFetch = (
   }
 ) => Promise<HttpResponse>;
 
-/** Injectable filesystem seam for reading and atomically installing configs. */
+/** Injectable filesystem seam for configs and local publication records. */
 export interface FsSeam {
   /** True when a path exists (file or directory). */
   exists(path: string): Promise<boolean>;
@@ -53,8 +53,17 @@ export interface FsSeam {
   mkdir(path: string, mode: number): Promise<void>;
   /** Read a UTF-8 text file. */
   readFile(path: string): Promise<string>;
-  /** Write a UTF-8 text file with the given octal permission mode. */
-  writeFile(path: string, data: string, mode: number): Promise<void>;
+  /**
+   * Write a UTF-8 text file with the given octal permission mode. The optional
+   * `"wx"` flag maps to native `O_EXCL`, failing with `EEXIST` if the path
+   * already exists; omitting it keeps the default truncating replacement.
+   */
+  writeFile(
+    path: string,
+    data: string,
+    mode: number,
+    flag?: "wx"
+  ): Promise<void>;
 }
 
 /**
@@ -150,7 +159,7 @@ export const defaultFs: FsSeam = {
     await mkdir(path, { mode, recursive: true });
   },
   readFile: (path) => readFile(path, "utf8"),
-  writeFile: (path, data, mode) => writeFile(path, data, { mode }),
+  writeFile: (path, data, mode, flag) => writeFile(path, data, { flag, mode }),
 };
 
 /** Default delay seam. */
