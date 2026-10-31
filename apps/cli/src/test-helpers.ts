@@ -106,7 +106,12 @@ export function memoryFs(seed: Record<string, string> = {}) {
       }
       return value;
     },
-    writeFile: async (path, data, mode) => {
+    writeFile: async (path, data, mode, flag) => {
+      if (flag === "wx" && (files.has(path) || dirs.has(path))) {
+        const error = new Error(`EEXIST: ${path}`);
+        Object.assign(error, { code: "EEXIST" });
+        throw error;
+      }
       writes.push({ data, mode, path });
       files.set(path, data);
     },

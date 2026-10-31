@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { AgentRuntimeUnavailableError } from "@oompf/core";
-import type { CliDeps } from "../deps.ts";
+import { type CliDeps, defaultFs } from "../deps.ts";
 import {
   apiFetch,
   CONTENT,
@@ -139,14 +142,47 @@ describe("add", () => {
     expect(store.writes).toHaveLength(0);
   });
 
-  test("refuses an existing target without writing", async () => {
-    const store = memoryFs({ [`${AGENT_DIR}/config.yml`]: "old" });
-    const { deps } = addDeps({ fs: store.fs });
-    const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
-    expect(code).toBeGreaterThan(0);
-    expect(out).toContain("target_exists");
-    expect(store.writes).toHaveLength(0);
-    expect(store.files.get(`${AGENT_DIR}/config.yml`)).toBe("old");
+  test.each(["config.yml", "config.yaml"])(
+    "refuses an existing %s target without writing",
+    async (configFilename) => {
+      const target = `${AGENT_DIR}/${configFilename}`;
+      const store = memoryFs({ [target]: "old" });
+      const { deps } = addDeps({ fs: store.fs });
+      const { out, code } = await runCli(deps, ["add", OOMPF_URL]);
+      expect(code).toBeGreaterThan(0);
+      expect(out).toContain("target_exists");
+      expect(store.writes).toHaveLength(0);
+      expect(store.files.get(target)).toBe("old");
+    }
+  );
+
+  test("preserves a target created after the existence check", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "oompf-add-race-"));
+    const target = join(directory, "config.yml");
+    const firstContents = "models:\n  default: first-installer\n";
+    try {
+      const { deps } = addDeps({
+        fs: {
+          ...defaultFs,
+          exists: async (path) => {
+            const existed = await defaultFs.exists(path);
+            if (path === target && !existed) {
+              await writeFile(target, firstContents, { mode: 0o600 });
+            }
+            return existed;
+          },
+        },
+        resolveInstallTarget: async () => directory,
+      });
+
+      const { out, code } = await runCli(deps, ["add", OOMPF_URL, "--json"]);
+
+      expect(await readFile(target, "utf8")).toBe(firstContents);
+      expect(code).toBeGreaterThan(0);
+      expect(out).toContain("target_exists");
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
   });
 
   test("rejects a missing ref argument with a nonzero exit", async () => {
