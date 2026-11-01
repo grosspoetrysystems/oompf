@@ -90,7 +90,9 @@ oompf search "kimi low-cost"
 
 - **Syntax:** `oompf search <query>`
 - **Output:** compact summaries — name, models, providers, the author's
-  `summary`/`kind`/`tags`, structural verdict, and a canonical OOMPF URL.
+  `summary`/`kind`/`tags`, publisher-declared `ompVersion`, structural verdict,
+  and a canonical OOMPF URL. In JSON, `kind` is `{ controlled, value }` or
+  `null`; `summary` and `ompVersion` may be `null`, and absent tags are `[]`.
 - **Failure modes:** a network error when the index is unreachable. An empty query
   returns no results.
 
