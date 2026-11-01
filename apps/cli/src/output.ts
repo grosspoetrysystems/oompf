@@ -124,13 +124,17 @@ export const inspectOutput = z.object({
 /** A single compact record in `search` output. */
 export const searchResult = z.object({
   id: z.string(),
+  kind: profileMetadataOutput.shape.kind,
   models: z.array(z.string()),
   name: z.string(),
+  ompVersion: z.string().nullable(),
   owner: z.string().nullable(),
   providers: z.array(z.string()),
   revision: z.string().nullable(),
   source: z.string(),
   structural: z.enum(["valid", "invalid"]),
+  summary: profileMetadataOutput.shape.summary,
+  tags: profileMetadataOutput.shape.tags,
   updatedAt: z.string(),
   url: z.string(),
 });

@@ -34,6 +34,13 @@ describe("search", () => {
     expect(result.results[0].id).toBe(PROFILE_ID);
     expect(result.results[0].name).toBe(STEM);
     expect(result.results[0].source).toBe(GIST_HTML);
+    expect(result.results[0].kind).toEqual({
+      controlled: false,
+      value: "work",
+    });
+    expect(result.results[0].summary).toBe("Daily work profile");
+    expect(result.results[0].tags).toEqual(["daily"]);
+    expect(result.results[0].ompVersion).toBe("7");
   });
 
   test("forwards --cursor and surfaces nextCursor", async () => {

@@ -7,6 +7,7 @@
  * it trivially portable, but it is CLI-only and never imported by the web app.
  */
 
+import type { ProfileKind } from "@oompf/core";
 import type { ProfileRecord } from "@oompf/database";
 
 import { CommandError, type HttpFetch } from "./deps.ts";
@@ -28,6 +29,7 @@ export interface RegisterResponse {
 /** A compact profile record as returned by search and listings. */
 export interface CompactProfile {
   readonly id: string;
+  readonly kind: ProfileKind | null;
   readonly models: readonly string[];
   readonly name: string;
   readonly ompVersion: string | null;
@@ -36,6 +38,8 @@ export interface CompactProfile {
   readonly revision: string | null;
   readonly source: string;
   readonly structural: "valid" | "invalid";
+  readonly summary: string | null;
+  readonly tags: readonly string[];
   readonly updatedAt: string;
   readonly url: string;
 }
